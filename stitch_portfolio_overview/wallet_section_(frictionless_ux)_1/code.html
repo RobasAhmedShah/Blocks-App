@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Deposit - Fintech App</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#40E0D0", // Lighter teal/mint green
+            "background-light": "#f0f4f4", // A light version of the theme
+            "background-dark": "#00363A", // Deep, dark teal
+            "surface-dark": "#044A4F", // Slightly lighter shade for cards
+            "surface-light": "#FFFFFF",
+            "accent-gold": "#FFD700",
+            "text-primary-dark": "#E0E0E0",
+            "text-secondary-dark": "#A9A9A9",
+            "text-primary-light": "#1F2937",
+            "text-secondary-light": "#6B7280",
+          },
+          fontFamily: {
+            "display": ["Manrope", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem", // increased default for a softer look
+            "lg": "0.75rem",
+            "xl": "1rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+    }
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-primary-light dark:text-text-primary-dark">
+<div class="relative flex w-full flex-col max-w-md mx-auto">
+<div class="sticky top-0 z-10 flex flex-col gap-4 bg-background-light/80 dark:bg-background-dark/80 pt-4 backdrop-blur-lg">
+<div class="flex items-center justify-between px-4 h-12">
+<button class="flex size-10 items-center justify-center rounded-full bg-surface-light/10 dark:bg-surface-dark/60 text-text-primary-light dark:text-text-primary-dark">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<p class="font-bold text-lg">Deposit</p>
+</div>
+<div class="w-10 h-10"></div> 
+</div>
+</div>
+<div class="flex flex-col gap-6 p-4 pt-8">
+<p class="text-center text-text-secondary-light dark:text-text-secondary-dark font-medium">Choose a deposit method to add funds to your wallet.</p>
+<div class="flex flex-col gap-4">
+<a class="flex items-center gap-4 rounded-xl bg-surface-light dark:bg-surface-dark p-4 shadow-md transition-transform hover:scale-[1.02]" href="#">
+<div class="flex size-12 items-center justify-center rounded-full bg-primary/20 text-primary">
+<span class="material-symbols-outlined">credit_card</span>
+</div>
+<div class="flex-1">
+<p class="font-bold text-text-primary-light dark:text-text-primary-dark">Debit Card</p>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">Instantly add funds from your card.</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">chevron_right</span>
+</a>
+<a class="flex items-center gap-4 rounded-xl bg-surface-light dark:bg-surface-dark p-4 shadow-md transition-transform hover:scale-[1.02]" href="#">
+<div class="flex size-12 items-center justify-center rounded-full bg-primary/20 text-primary">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+<div class="flex-1">
+<p class="font-bold text-text-primary-light dark:text-text-primary-dark">On-Chain Transfer</p>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">Deposit crypto from another wallet.</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">chevron_right</span>
+</a>
+<a class="flex items-center gap-4 rounded-xl bg-surface-light dark:bg-surface-dark p-4 shadow-md transition-transform hover:scale-[1.02]" href="#">
+<div class="flex size-12 items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500">
+<img alt="Binance Pay Logo" class="w-7 h-7" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMJ-VGyp-KksGcjRm8xXx_IyhgS8CcwZQkzANbrMO0LSVMKwhPIAkxEE8unJmf-TJ9NW-kS2Wj-41wJF83cIEe4-5KY1JX36aLTmf8VB89vJsqesn5hHCeiYvUaeH4Ft9g8HFmAmtFaPHlCKPM8Lbd3GMAcqivQEiRGpeByen4OL_wAPz3pGfsaIztipt5gOCQLuqxQPyXA-eh-Qv4oO5lN_yqqYzoMxeCe9T-tjMx-__fzC21ECGwQwJ5_qHBYPZYCnLR80b7N5M"/>
+</div>
+<div class="flex-1">
+<p class="font-bold text-text-primary-light dark:text-text-primary-dark">Third-Party Services</p>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">Use services like Binance Pay.</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">chevron_right</span>
+</a>
+</div>
+<div class="mt-8 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark px-4">
+<p>Deposit times and fees may vary depending on the chosen method and network congestion. Please ensure you are sending assets on the correct network to avoid loss of funds.</p>
+</div>
+</div>
+</div>
+
+</body></html>

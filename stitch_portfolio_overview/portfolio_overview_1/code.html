@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Portfolio Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#34D399", // Updated primary color
+                        "background-light": "#F8F7F5",
+                        "background-dark": "#012A24", // Dark teal background
+                        "card-dark": "#0B3D36", // Complementary dark card color
+                        "card-light": "#FFFFFF",
+                    },
+                    fontFamily: {
+                        display: ["Public Sans", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "1rem", // 16px
+                        lg: "1.25rem", // 20px
+                        xl: "1.5rem", // 24px
+                    },
+                    boxShadow: {
+                        'card-dark': '0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+                        'card-light': '0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.04)'
+                    }
+                },
+            },
+        };
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .snap-x-mandatory {
+            scroll-snap-type: x mandatory;
+        }
+        .snap-start {
+            scroll-snap-align: start;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;scrollbar-width: none;}
+        .property-stack > *:not(:first-child) {
+            margin-top: -80px;
+        }
+        .property-stack > *:hover {
+            transform: translateY(-10px);
+            transition: transform 0.2s ease-in-out;
+        }
+        body.dark {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            background-blend-mode: overlay;
+            background-size: cover;
+            background-color: #012A24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-900 dark:text-gray-100">
+<div class="mx-auto max-w-sm relative">
+<header class="sticky top-0 z-30 bg-background-dark/80 backdrop-blur-lg pt-6 px-4 pb-3">
+<div class="flex justify-between items-center mb-4">
+<p class="text-sm font-medium text-gray-400">Total Portfolio Value</p>
+<button class="p-2 -mr-2">
+<span class="material-symbols-outlined text-2xl text-gray-300">account_circle</span>
+</button>
+</div>
+<div class="flex justify-between items-center mb-2">
+<p class="text-4xl font-bold text-gray-50">$1,250,340.55</p>
+<div class="bg-green-500/20 text-green-300 text-sm font-semibold px-3 py-1.5 rounded-full flex items-center">
+<span class="material-symbols-outlined text-base mr-1">arrow_upward</span>
+<span>+12.5%</span>
+</div>
+</div>
+<div class="flex items-center">
+<div class="w-1/3 h-8 -ml-2">
+<svg fill="none" height="100%" preserveAspectRatio="none" viewBox="0 0 100 30" width="100%" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 20 L10 15 L20 25 L30 20 L40 18 L50 22 L60 15 L70 10 L80 15 L90 5 L100 12" stroke="#34D399" stroke-width="2"></path>
+</svg>
+</div>
+<div class="w-2/3 text-xs text-gray-400 font-medium text-right overflow-hidden whitespace-nowrap">
+<span>$12,450 Earnings this month</span>
+</div>
+</div>
+</header>
+<main class="flex-grow pt-4 pb-32 space-y-8">
+<section>
+<div class="flex overflow-x-auto snap-x-mandatory gap-4 px-4 no-scrollbar">
+<div class="snap-start flex-shrink-0 w-[85%] bg-card-dark rounded-xl p-4 shadow-card-dark">
+<h3 class="font-semibold text-sm text-gray-200 mb-1">ROI Trend</h3>
+<p class="text-xs text-gray-400 mb-3">Last 12 months</p>
+<div class="h-24 bg-gray-100 dark:bg-gray-800/50 rounded-lg"></div>
+</div>
+<div class="snap-start flex-shrink-0 w-[85%] bg-card-dark rounded-xl p-4 shadow-card-dark">
+<h3 class="font-semibold text-sm text-gray-200 mb-1">Monthly Income</h3>
+<p class="text-xs text-gray-400 mb-3">Year-to-date</p>
+<div class="h-24 bg-gray-100 dark:bg-gray-800/50 rounded-lg"></div>
+</div>
+<div class="snap-start flex-shrink-0 w-[85%] bg-card-dark rounded-xl p-4 shadow-card-dark">
+<h3 class="font-semibold text-sm text-gray-200 mb-1">Investment Distribution</h3>
+<p class="text-xs text-gray-400 mb-3">By property type</p>
+<div class="h-24 bg-gray-100 dark:bg-gray-800/50 rounded-lg"></div>
+</div>
+</div>
+</section>
+<section class="px-4">
+<h2 class="text-xl font-bold text-gray-100 mb-4">Your Properties</h2>
+<div class="space-y-[-80px] property-stack">
+<div class="bg-card-dark rounded-lg p-3 shadow-card-dark transform-gpu transition-transform">
+<div class="flex items-center">
+<img alt="Property thumbnail" class="w-16 h-16 rounded-md object-cover mr-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSJTFxSrYcwCStyV0GKkfVe3b-zdlQsOdtGldgdh4IyWppiMB-fzL-g2g46OvwuC1P0Jf45M1srVkgBoGK7Z6jDGlTdPn7VKgYDL-Da_Q8u3SROmX8UTpJIJQkLZwyJjmYTHDHptSQmIdJHkuB0yildRCkD3B-oil6r4VL-HA2c2YVlj6NPahxyf1vkAWxBqNTcRkgSRSKZAb8Z6pkBYzR-A9r-iqyvSm42dCgflPfDrBdlLxytogSTg9xi9NkWUUMopI7UeEUqEU"/>
+<div class="flex-grow">
+<p class="font-bold text-gray-100">Manhattan Loft</p>
+<p class="text-sm font-medium text-green-400">+18.2% ROI</p>
+<p class="text-xs text-gray-400">Current Value: $52,100</p>
+</div>
+<div class="w-10 h-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400">drag_handle</span>
+</div>
+</div>
+<div class="mt-3">
+<div class="flex justify-between text-xs text-gray-400 mb-1">
+<span>Rental Payout</span><span>75%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700/50 rounded-full h-1.5">
+<div class="bg-primary rounded-full h-1.5" style="width: 75%"></div>
+</div>
+</div>
+</div>
+<div class="bg-card-dark rounded-lg p-3 shadow-card-dark transform-gpu transition-transform">
+<div class="flex items-center">
+<img alt="Property thumbnail" class="w-16 h-16 rounded-md object-cover mr-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAFqqwiCrX539dSBGNlMwbKwv-evBBXeiOrl3GomcdG8-9fL7Vm0XxZTR9Kezp2jgD8lN2nEX7PkCDH-IvpF6kpYT2CtHo8UXQhWg9h9EG0HSpxoaWJ_INVy4-fIACLNVUD99yILFfsH7gTh0VwQP4fNfmeL05pIPPL2JmhhTee9bU-2R_86UIKNg8ugtdBlXU3N0rGUEl63AefPfI98lePdWV62qAJShzqKHtx6UCYoV8TS5cRTllHv7AUg7W1qdd5p8gCXsNwBE"/>
+<div class="flex-grow">
+<p class="font-bold text-gray-100">Miami Beachfront</p>
+<p class="text-sm font-medium text-green-400">+22.5% ROI</p>
+<p class="text-xs text-gray-400">Current Value: $120,450</p>
+</div>
+<div class="w-10 h-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400">drag_handle</span>
+</div>
+</div>
+<div class="mt-3">
+<div class="flex justify-between text-xs text-gray-400 mb-1">
+<span>Rental Payout</span><span>40%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700/50 rounded-full h-1.5">
+<div class="bg-primary rounded-full h-1.5" style="width: 40%"></div>
+</div>
+</div>
+</div>
+<div class="bg-card-dark rounded-lg p-3 shadow-card-dark transform-gpu transition-transform">
+<div class="flex items-center">
+<img alt="Property thumbnail" class="w-16 h-16 rounded-md object-cover mr-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtojkEKj7EF7KPxpJpyTxs3yaUzJ-xsZXsTlsUXElhia2FfMu7M3IaFy013v5IbO99hb7YpoQY4pn-bltBDuLyH2Ib1m9ZszNFLTSD3pLB7Wn-wuPts7DdQ9mgMcRMBQRMacUQnOa-4MQtVj7Kg0CQftf13tisDlGG1fxxBD_cjJmipHfz1yyRlc8nYDDrxYpYhHxnpfegJ8lQQcUFX6jAXRSDKFCXcAoH_ertc1eJSGu-BHizWLPcDc0qls9Q1Ki7WGZzd9H6lW4"/>
+<div class="flex-grow">
+<p class="font-bold text-gray-100">Aspen Ski Chalet</p>
+<p class="text-sm font-medium text-green-400">+15.8% ROI</p>
+<p class="text-xs text-gray-400">Current Value: $88,000</p>
+</div>
+<div class="w-10 h-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-400">drag_handle</span>
+</div>
+</div>
+<div class="mt-3">
+<div class="flex justify-between text-xs text-gray-400 mb-1">
+<span>Rental Payout</span><span>90%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700/50 rounded-full h-1.5">
+<div class="bg-primary rounded-full h-1.5" style="width: 90%"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section>
+<div class="px-4 mb-3">
+<h2 class="text-xl font-bold text-gray-100">Income Timeline</h2>
+<p class="text-sm text-gray-400">Total visible income: <span class="font-semibold text-gray-200">$2,450.00</span></p>
+</div>
+<div class="flex overflow-x-auto gap-3 pl-4 no-scrollbar">
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 60%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Jan</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 80%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Feb</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 50%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Mar</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 95%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Apr</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 70%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">May</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 85%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Jun</p>
+</div>
+<div class="flex-shrink-0 text-center space-y-1">
+<div class="w-8 h-20 bg-gray-200 dark:bg-gray-800/50 rounded-full mx-auto">
+<div class="h-full bg-primary rounded-full" style="height: 65%;"></div>
+</div>
+<p class="text-xs font-medium text-gray-400">Jul</p>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-0 left-0 right-0 z-40">
+<div class="mx-auto max-w-sm px-4 pb-4">
+<div class="flex justify-around items-center bg-card-dark/80 backdrop-blur-md rounded-full text-gray-200 py-2 px-3 shadow-2xl">
+<button class="flex flex-col items-center justify-center p-2 flex-grow">
+<span class="material-symbols-outlined text-2xl mb-0.5">add</span>
+<span class="text-xs font-medium">Deposit</span>
+</button>
+<button class="flex flex-col items-center justify-center p-2 flex-grow">
+<span class="material-symbols-outlined text-2xl mb-0.5">remove</span>
+<span class="text-xs font-medium">Withdraw</span>
+</button>
+<button class="flex flex-col items-center justify-center p-2 flex-grow">
+<span class="material-symbols-outlined text-2xl mb-0.5">description</span>
+<span class="text-xs font-medium">View Docs</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

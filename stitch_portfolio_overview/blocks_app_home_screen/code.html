@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Blocks - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&amp;family=Poppins:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+      .glow-button {
+        box-shadow: 0 0 10px 0 #10B981, 0 0 20px 0 #10B98133;
+        animation: pulse-glow 2s infinite ease-in-out;
+      }
+      @keyframes pulse-glow {
+        0%, 100% {
+          box-shadow: 0 0 10px 0 #10B981, 0 0 20px 0 #10B98133;
+        }
+        50% {
+          box-shadow: 0 0 20px 5px #10B981, 0 0 40px 10px #10B98133;
+        }
+      }
+      .glassmorphic {
+        background: rgba(41, 41, 48, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .font-poppins { font-family: 'Poppins', sans-serif; }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0da5a5",
+              "background-light": "#f6f8f8",
+              "background-dark": "#0D0D10",
+              "accent-gold": "#FFD700"
+            },
+            fontFamily: {
+              "display": ["Inter", "sans-serif"]
+            },
+            borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "2xl": "24px", "full": "9999px" },
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display text-gray-200">
+<div class="relative min-h-screen w-full flex-col overflow-x-hidden pb-24">
+<!-- Top App Bar -->
+<header class="flex items-center p-4 pt-6 justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-400 text-3xl">widgets</span>
+<h1 class="text-white text-xl font-poppins font-bold">Blocks</h1>
+</div>
+<div class="flex items-center justify-end">
+<p class="text-accent-gold text-lg font-bold leading-normal tracking-wide">$15,430.50</p>
+</div>
+</header>
+<!-- Headline & Body Text -->
+<section class="px-4 pt-6">
+<h2 class="text-white tracking-tight text-[32px] font-poppins font-bold leading-tight">Hello, Samad 👋</h2>
+<p class="text-gray-400 text-base font-normal leading-normal pt-1">Your portfolio is <span class="text-teal-400">+3.2%</span> this month</p>
+</section>
+<!-- Quick Stats Carousel -->
+<section class="pt-8">
+<div class="flex gap-4 px-4 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none]">
+<div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-2xl p-4 glassmorphic">
+<p class="text-gray-300 text-sm font-medium">Active Properties</p>
+<p class="text-white text-2xl font-bold">12</p>
+</div>
+<div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-2xl p-4 glassmorphic">
+<p class="text-gray-300 text-sm font-medium">Avg ROI</p>
+<p class="text-white text-2xl font-bold">8.2%</p>
+</div>
+<div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-2xl p-4 glassmorphic">
+<p class="text-gray-300 text-sm font-medium">Next Payout</p>
+<p class="text-white text-2xl font-bold">Jul 28</p>
+</div>
+<div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-2xl p-4 glassmorphic">
+<p class="text-gray-300 text-sm font-medium">Tokens Owned</p>
+<p class="text-white text-2xl font-bold">1,250</p>
+</div>
+</div>
+</section>
+<!-- Featured Properties Swiper -->
+<section class="pt-8">
+<h3 class="text-white text-xl font-poppins font-bold px-4 pb-4">Featured Properties</h3>
+<div class="flex snap-x snap-mandatory overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none]">
+<div class="snap-center w-full flex-shrink-0 px-4">
+<div class="relative flex h-[450px] w-full flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 p-6">
+<img class="absolute inset-0 h-full w-full object-cover" data-alt="A modern, luxurious two-story house with large windows and a swimming pool at twilight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYn8TUffLryR79waozp-EFr9tZIcpnF3ZenXafkw4h9Lry5mLGDDUBAtUsGx4p9zGdJxNKV-pXniHiizlXYUwueG85ASUIincPQPK0Pnt02-YbHtSJtIjrOSh0IZCXYxXRonWgQ2guwNeOYPyXsOeOiMuj4Ly3PmBg3glhtvvcQJN_86yOjgtdfHo6r3i5etQk7D8X0PqMd6o9PvbKYBqRjRxldKTzRgnaqthhgfSvmcR2TWMFYqdA98QuXei63-jzxs3C-p_i044"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+<div class="relative z-10 flex flex-col gap-4 text-white">
+<h4 class="text-2xl font-poppins font-bold">The Glass House, CA</h4>
+<div class="flex items-center justify-between text-sm">
+<div class="flex flex-col"><span class="font-bold text-lg">11.5%</span><span class="text-gray-400">Expected ROI</span></div>
+<div class="flex flex-col text-center"><span class="font-bold text-lg">82%</span><span class="text-gray-400">Funded</span></div>
+<div class="flex flex-col text-right"><span class="font-bold text-lg">$50</span><span class="text-gray-400">Min. Investment</span></div>
+</div>
+<button class="glow-button mt-2 w-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 p-4 text-center font-bold text-white transition-transform duration-300 hover:scale-105">View Property</button>
+</div>
+</div>
+</div>
+<div class="snap-center w-full flex-shrink-0 px-4">
+<div class="relative flex h-[450px] w-full flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 p-6">
+<img class="absolute inset-0 h-full w-full object-cover" data-alt="A large, modern home with a manicured front lawn and a bright, welcoming exterior." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdAHqrC_PjFPMnHZKkVmwRvgPpDk2BVBvqDA8X0ZMergjn1vJdFeeifQge6WbnA2OBSdKvE0cy0NpCD9oXTGu5GmtvnDgAs_aqptrywYQPJf4VjlQ38HIzwMaMaUo5_34Yv1feN2cSVqf9tsHLc4yAToCMAdg5LYp1NbHVJ1dU-vNAiN6OYEAUlL6dw12QLtGW0t63sjUZiXjHkNm_sU1rECebe5KGbDA74TBqypxSUj4NO4DPsUvXISMvX2MuvwvSHgdXYUXqj24"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+<div class="relative z-10 flex flex-col gap-4 text-white">
+<h4 class="text-2xl font-poppins font-bold">Maple Creek Villa, TX</h4>
+<div class="flex items-center justify-between text-sm">
+<div class="flex flex-col"><span class="font-bold text-lg">9.8%</span><span class="text-gray-400">Expected ROI</span></div>
+<div class="flex flex-col text-center"><span class="font-bold text-lg">65%</span><span class="text-gray-400">Funded</span></div>
+<div class="flex flex-col text-right"><span class="font-bold text-lg">$75</span><span class="text-gray-400">Min. Investment</span></div>
+</div>
+<button class="glow-button mt-2 w-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 p-4 text-center font-bold text-white transition-transform duration-300 hover:scale-105">View Property</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Affordable Investments Row -->
+<section class="pt-10">
+<h3 class="text-white text-xl font-poppins font-bold px-4 pb-4">Affordable Investments</h3>
+<div class="flex gap-4 overflow-x-auto pl-4 [-ms-overflow-style:none] [scrollbar-width:none]">
+<div class="flex w-2/3 flex-shrink-0 flex-col gap-3 rounded-2xl glassmorphic p-3 md:w-1/3">
+<div class="relative h-32 w-full overflow-hidden rounded-xl">
+<img class="h-full w-full object-cover" data-alt="Exterior of a stylish modern home with a swimming pool and patio furniture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-XGcSixdFG2xHfCociM0EQpds7ph6MXcoDS3_OuS28T_WxmmX5yJVrhD2hBg9xyBn2fB3nadDd69Se_LYujCUVKOHFb8o23tx_PJL44PiGD0lN63aJkU9HmcppqgtKtkm1FNMWgM_sWSsDuzzm7-gIfryq0QaQGulzK08PlhRGTUYA4chvfjRso6fNa0mx_jfKFaTLHA98F5Fp1EWe8Y1CweNyY0MYGo2lRJOdzp49iUkaBOXgLe7l1XtlNBpdSTYI2EmMXnldp0"/>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-bold text-white">Ocean Breeze Condo</h4>
+<div class="flex items-center gap-1 rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300">
+<span class="material-symbols-outlined text-sm">verified</span> Verified
+                        </div>
+</div>
+<div class="flex items-end justify-between">
+<p class="text-sm text-gray-400">Entry <span class="block text-lg font-bold text-white">$25.00</span></p>
+<p class="text-sm text-gray-400">ROI <span class="block text-lg font-bold text-teal-400">7.5%</span></p>
+</div>
+</div>
+<div class="flex w-2/3 flex-shrink-0 flex-col gap-3 rounded-2xl glassmorphic p-3 md:w-1/3">
+<div class="relative h-32 w-full overflow-hidden rounded-xl">
+<img class="h-full w-full object-cover" data-alt="A modern urban apartment building seen from below, with balconies and glass facades." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACTwhrS0Vd4A7FSuc68Vr1VeiAvLVLl4ZHGR3JyKpM-UJgFyzV7XnqeYQSjKXM3a_fgqdR9YdWWYo2WujDMmag_lisRR1loorvPxrDjAIqhHjrJ0019khFPgcwcAJ88-s_qnfOmWoVTjnBEBk9anXNjFdq3k3ik0MXfB7QKKLwhbqTSg5d0oQZXh7n4mEnw7H7oR67HyB8wg6Y3vsLnTnnL697XJR0S2CE4uChX-gtlEXgN-Hb4dthsZrQrbPZUV6P1tsPpEUPtAU"/>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-bold text-white">Downtown Loft Unit</h4>
+<div class="flex items-center gap-1 rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300">
+<span class="material-symbols-outlined text-sm">verified</span> Verified
+                        </div>
+</div>
+<div class="flex items-end justify-between">
+<p class="text-sm text-gray-400">Entry <span class="block text-lg font-bold text-white">$40.00</span></p>
+<p class="text-sm text-gray-400">ROI <span class="block text-lg font-bold text-teal-400">9.1%</span></p>
+</div>
+</div>
+<div class="flex w-2/3 flex-shrink-0 flex-col gap-3 rounded-2xl glassmorphic p-3 md:w-1/3 mr-4">
+<div class="relative h-32 w-full overflow-hidden rounded-xl">
+<img class="h-full w-full object-cover" data-alt="A charming single-family home with a red door and well-kept garden." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjXoAhCDXkZngPujPCf0SxJPBiQ-bMVyUZZjGLsXjiRgfzGdbzn8-9pxBG1-RA7Kw9FzrsKBENz8HVmoYmgDd5JCYd6OlVW88ufEMt4ekN_fI65X8rrz49hM4dl40SFergEC_TmVC6eWG0HHj45oFC0jAn1PTZxxG9J82kbIdUBOHY-SV6DlHQXNwS3K4iEQ7Jp_VhNSnPhyqzEGT5zr56muHXbezM5s6ZDpcfIxAsOtcaxqPnLkaugJ3LludQwqbEd0dMkWnQsoQ"/>
+</div>
+<div class="flex items-center justify-between">
+<h4 class="font-bold text-white">Suburban Starter</h4>
+<div class="flex items-center gap-1 rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300">
+<span class="material-symbols-outlined text-sm">verified</span> Verified
+                        </div>
+</div>
+<div class="flex items-end justify-between">
+<p class="text-sm text-gray-400">Entry <span class="block text-lg font-bold text-white">$30.00</span></p>
+<p class="text-sm text-gray-400">ROI <span class="block text-lg font-bold text-teal-400">6.8%</span></p>
+</div>
+</div>
+</div>
+</section>
+<!-- Mid-Range Investments Grid -->
+<section class="px-4 pt-10">
+<h3 class="text-white text-xl font-poppins font-bold pb-4">Mid-Range Investments</h3>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+<div class="flex flex-col gap-4 rounded-2xl glassmorphic p-4">
+<div class="flex items-start justify-between">
+<div>
+<h4 class="font-bold text-white">Lakeside Cabin</h4>
+<p class="text-sm text-gray-400">Total Value: $750k</p>
+</div>
+<div class="relative h-16 w-16 overflow-hidden rounded-xl">
+<img class="h-full w-full object-cover" data-alt="A rustic wooden cabin nestled among pine trees by a calm lake." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdyw4jM184KQ8Xn2y7WHR-f-zuNA-Va91wnxQEfaK4oGCYEsEiB0efAJMa4jMyW00WUb2drtyFBSilrs9iPqcLBnjJ37T9wM55V-6M8a7YSLqk_B2nTNfG7BuNvsAcqB_mOzHp4eaAbULUz35JwkZeWXAcRkXha0dgW1hybNWkOftAOBtoBQh8RaKmHXTQLBZL3ScEMFld_2iubxsoTcIGJVq6g9TLDUjObm_A04RghVxwxH7-YLyrirQIvAzN-pACSw9MVci1gnY"/>
+</div>
+</div>
+<div>
+<p class="text-xs text-gray-400">ROI (1Y)</p>
+<svg class="w-full h-16" preserveaspectratio="none" viewbox="0 0 100 40">
+<path d="M 0 30 L 10 25 L 20 28 L 30 20 L 40 22 L 50 15 L 60 18 L 70 12 L 80 15 L 90 10 L 100 8" fill="none" stroke="#10B981" stroke-width="2"></path>
+<path d="M 0 30 L 10 25 L 20 28 L 30 20 L 40 22 L 50 15 L 60 18 L 70 12 L 80 15 L 90 10 L 100 8 V 40 H 0 Z" fill="url(#sparkline-gradient)"></path>
+<defs>
+<lineargradient id="sparkline-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10B981" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#10B981" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<button class="w-full rounded-full border border-gray-600 p-3 text-center text-sm font-semibold text-white transition-colors hover:bg-white/10">View Insights</button>
+</div>
+<div class="flex flex-col gap-4 rounded-2xl glassmorphic p-4">
+<div class="flex items-start justify-between">
+<div>
+<h4 class="font-bold text-white">Cityscape Tower</h4>
+<p class="text-sm text-gray-400">Total Value: $1.2M</p>
+</div>
+<div class="relative h-16 w-16 overflow-hidden rounded-xl">
+<img class="h-full w-full object-cover" data-alt="A modern skyscraper with a reflective glass facade against a blue sky." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVQf2cwzc5Lc-WDA1uyza5tMFulDlQ2pyWdoVy3_GA-9iQORKU4p7IqIXKaPGlJVABJs6Kfh7WuByAIn0TtBNhXTpmAJx2IbGod2Tuqg3BgexXbHftijDYDWAJQZUty0tCX5tZKdNFx4GOj7Ybosw_JBeQf2dF24ckB_9SUNgnpMuZ9tG1JcaQWokqpD5O4cTzBtIiE8mXKaY-Mu8-aXTVi3EzgnfdG-CyGHCgKh5WvGNdg1XQr1HXWJnNnJPImw2cJ0txlCZb2_M"/>
+</div>
+</div>
+<div>
+<p class="text-xs text-gray-400">ROI (1Y)</p>
+<svg class="w-full h-16" preserveaspectratio="none" viewbox="0 0 100 40">
+<path d="M 0 25 L 10 28 L 20 22 L 30 24 L 40 18 L 50 20 L 60 15 L 70 18 L 80 12 L 90 14 L 100 10" fill="none" stroke="#10B981" stroke-width="2"></path>
+<path d="M 0 25 L 10 28 L 20 22 L 30 24 L 40 18 L 50 20 L 60 15 L 70 18 L 80 12 L 90 14 L 100 10 V 40 H 0 Z" fill="url(#sparkline-gradient)"></path>
+</svg>
+</div>
+<button class="w-full rounded-full border border-gray-600 p-3 text-center text-sm font-semibold text-white transition-colors hover:bg-white/10">View Insights</button>
+</div>
+</div>
+</section>
+<!-- Sticky CTA Bar -->
+<footer class="fixed bottom-0 left-0 right-0 z-50 p-4">
+<div class="glassmorphic mx-auto max-w-lg rounded-full">
+<button class="w-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 py-4 px-8 text-center font-bold text-white shadow-lg transition-transform hover:scale-105">
+                    Explore All Properties
+                </button>
+</div>
+</footer>
+</div>
+</body></html>

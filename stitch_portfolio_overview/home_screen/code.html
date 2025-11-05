@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+
+<html class="" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Real Estate Investment Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {primary: "#0fa0bd", "primary-light": "#79F0E5", "background-light": "#f6f8f8", "background-dark": "#101f22", "card-dark": "#1C2726", "accent-dark": "#B0C4BF"}, fontFamily: {display: "Manrope"}, borderRadius: {DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"}, boxShadow: {card: "0 8px 24px rgba(0, 0, 0, 0.08)", "card-dark": "0 8px 24px rgba(0, 0, 0, 0.2)"}}}};</script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col">
+<header class="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 p-4 pb-2 justify-between backdrop-blur-lg">
+<div class="flex size-12 shrink-0 items-center">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="User's profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAJL7rM8cqhMdPnk8Atm9HlMjcNtF8q2OrFxrwo4hxPwBA3DmYG-_TCLVduZOxvLt2TZnhU2wcnSd6uVGxD1MRYFuOCf00iQAmFJTo7w5iDDE9byyw2WZ183DP-5DArUZ_kujG2bW34KNCmbBuz4r5Uq6rxyfaYmVe2TyOInS-fQSl8ojwVRETsjzHPPQCnHi2PzWBsHIeffMU8QtDxiTa5KDd0nskbjNo974A_n0vt1KSYwHWQVQ8Kx5sgt64BZw25u0s2an7wnKY");'></div>
+</div>
+<h1 class="text-zinc-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1">Hello, Alex</h1>
+<div class="flex w-12 items-center justify-end">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 w-10 bg-transparent text-zinc-900 dark:text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
+<span class="material-symbols-outlined text-zinc-900 dark:text-white">notifications</span>
+</button>
+</div>
+</header>
+<main class="flex-grow">
+<div class="px-4 py-3">
+<label class="flex flex-col min-w-40 h-14 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-2xl h-full shadow-sm dark:shadow-md dark:shadow-black/20">
+<div class="text-zinc-500 dark:text-accent-dark flex border-none bg-white dark:bg-card-dark items-center justify-center pl-4 rounded-l-2xl border-r-0">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-2xl text-zinc-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border-none bg-white dark:bg-card-dark focus:border-none h-full placeholder:text-zinc-500 dark:placeholder:text-accent-dark px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal" placeholder="Search by city, address, or ZIP..." value=""/>
+</div>
+</label>
+</div>
+<div class="flex gap-3 px-4 pb-6 overflow-x-auto hide-scrollbar">
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary text-white px-5 shadow-lg shadow-primary/30">
+<p class="text-sm font-bold leading-normal tracking-wide">Trending</p>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-card-dark px-5 shadow-sm">
+<p class="text-zinc-900 dark:text-white text-sm font-semibold leading-normal">High Yield</p>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-card-dark px-5 shadow-sm">
+<p class="text-zinc-900 dark:text-white text-sm font-semibold leading-normal">New Listings</p>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-card-dark px-5 shadow-sm">
+<p class="text-zinc-900 dark:text-white text-sm font-semibold leading-normal">Residential</p>
+</button>
+</div>
+<div class="grid grid-cols-1 gap-6 px-4 pb-28">
+<div class="flex cursor-pointer flex-col items-stretch justify-start rounded-2xl shadow-card dark:shadow-card-dark bg-white dark:bg-gradient-to-br dark:from-card-dark dark:to-background-dark overflow-hidden transition-transform duration-300 hover:scale-[1.02]">
+<div class="relative w-full">
+<div class="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover" data-alt="Exterior view of a modern downtown loft at dusk" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBTixmOvNzd-GEUyU2i8BxCH75I5RYg0R2PNa5btIMWj3KrpbjZ6w9B4r9UNbuiF3Vf7P60o_NcsK8VtEF1uteJdsTKiqLfFgoQ4rEBB2HZ1KPVWH0AXNExL56eqI3Iz1FLbjhaOkNFOUc-ixYCUFEbxvEkDWphJl5UjfKeVp72P6YMkHHx95gnUjgs_et9h0UTgOQ5y2w4xatAT_o7R37dXBre7Hs9aMVOLpdD_YI3MrGY--2Pb5ILZdRpa9uUKGuylVX30y7T_cY");'></div>
+<button class="absolute top-4 right-4 flex items-center justify-center size-9 rounded-full bg-black/40 backdrop-blur-sm">
+<span class="material-symbols-outlined text-white text-xl">bookmark_border</span>
+</button>
+</div>
+<div class="flex w-full grow flex-col items-stretch justify-center gap-2 p-4">
+<p class="text-zinc-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Modern Downtown Loft</p>
+<p class="text-zinc-500 dark:text-accent-dark text-sm font-normal leading-normal">$1,200,000 Valuation</p>
+<div class="flex items-center gap-4 justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-primary/20">
+<div class="flex flex-col">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Tokens from</p>
+<p class="text-zinc-900 dark:text-white text-lg font-bold tracking-tight">$50.00</p>
+</div>
+<div class="flex flex-col text-right">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Est. Return</p>
+<p class="font-bold text-primary dark:text-primary-light text-lg tracking-tight">7.5%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex cursor-pointer flex-col items-stretch justify-start rounded-2xl shadow-card dark:shadow-card-dark bg-white dark:bg-gradient-to-br dark:from-card-dark dark:to-background-dark overflow-hidden transition-transform duration-300 hover:scale-[1.02]">
+<div class="relative w-full">
+<div class="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover" data-alt="Sunny beachfront villa with a pool" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDHZu-qfPN_h-xLNm7MImV1wreySpjymjtZgXM_p5R76TZZRVLUujuZqGM7c_GkfzMZHM2fmExCvTlba5kNe5NiRVhIOXyogEHpl8JNa58ndxlo1vURXCPS7b5Mx0qweOA_w8_PxlEVRR4317dJgOazgkG044nAgBPRoT__vbgGsxSZoiN2wY5hlNMCM1a03QJ-ydkM07mFmWDw4FL4Uppw5DJSBfpWoIYaicO5qnl005I0wKm-40FbtqwIMOzb7egCvaOg-o1feOY");'></div>
+<button class="absolute top-4 right-4 flex items-center justify-center size-9 rounded-full bg-black/40 backdrop-blur-sm">
+<span class="material-symbols-outlined text-white text-xl">bookmark_border</span>
+</button>
+</div>
+<div class="flex w-full grow flex-col items-stretch justify-center gap-2 p-4">
+<p class="text-zinc-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Sunny Beachfront Villa</p>
+<p class="text-zinc-500 dark:text-accent-dark text-sm font-normal leading-normal">$2,500,000 Valuation</p>
+<div class="flex items-center gap-4 justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-primary/20">
+<div class="flex flex-col">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Tokens from</p>
+<p class="text-zinc-900 dark:text-white text-lg font-bold tracking-tight">$100.00</p>
+</div>
+<div class="flex flex-col text-right">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Est. Return</p>
+<p class="font-bold text-primary dark:text-primary-light text-lg tracking-tight">8.2%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex cursor-pointer flex-col items-stretch justify-start rounded-2xl shadow-card dark:shadow-card-dark bg-white dark:bg-gradient-to-br dark:from-card-dark dark:to-background-dark overflow-hidden transition-transform duration-300 hover:scale-[1.02]">
+<div class="relative w-full">
+<div class="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover" data-alt="Cozy cabin in a forest setting" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNC_e5zZvoqOzva3C1BzWylXjzecGXTQKli1Mb9FcdCIa9QwqHRUwrvyDTDybcMztr1NOrdOnxpcHwDTUOthuQBvoLHIafPS9BazEwsDhS6llr6A2lzvNpaTBZYMl-Ayb37CCaiSQF2WqFyMB3KyDxOTb9PKBss-l_KwDSL6jW94V3vZwFsiuzrQjgFkzHsfHfOaPnuaRW0KZvni8_en5I1vnUywYs0jh654k7r9QfKgpu0n5UaUJV6yeM4JwbB4U9Vja0ZspqXYE");'></div>
+<button class="absolute top-4 right-4 flex items-center justify-center size-9 rounded-full bg-black/40 backdrop-blur-sm">
+<span class="material-symbols-outlined text-white text-xl">bookmark_border</span>
+</button>
+</div>
+<div class="flex w-full grow flex-col items-stretch justify-center gap-2 p-4">
+<p class="text-zinc-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Secluded Forest Cabin</p>
+<p class="text-zinc-500 dark:text-accent-dark text-sm font-normal leading-normal">$850,000 Valuation</p>
+<div class="flex items-center gap-4 justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-primary/20">
+<div class="flex flex-col">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Tokens from</p>
+<p class="text-zinc-900 dark:text-white text-lg font-bold tracking-tight">$75.00</p>
+</div>
+<div class="flex flex-col text-right">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Est. Return</p>
+<p class="font-bold text-primary dark:text-primary-light text-lg tracking-tight">6.8%</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex cursor-pointer flex-col items-stretch justify-start rounded-2xl shadow-card dark:shadow-card-dark bg-white dark:bg-gradient-to-br dark:from-card-dark dark:to-background-dark overflow-hidden transition-transform duration-300 hover:scale-[1.02]">
+<div class="relative w-full">
+<div class="w-full bg-center bg-no-repeat aspect-[4/3] bg-cover" data-alt="Urban apartment complex with modern architecture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDO18CBnhZP_UX9TbDc2LBpLN_NXAnFBL6FNAN63I-c_UJElRcj5lMOgqmQ73gG2-faNoMOyaRvy0J1YkLYSv4g5mnUsmHlpCDLyjfOuqyxJggsRRnogwc3Q4pyoSNZ7Bn_EziLYiLhaj_ligVBwnfKfxJ1phfKFbJkpEl9HInQbpKH4UQy6gzyttlTYOgnsuW-yNAhIVUFzsC8mhUHjOIcOsZ1S8pId2o-7wdOfpTb1LYcMk5OS_D3UDWAVydd7V_BQf1BFiP49LA");'></div>
+<button class="absolute top-4 right-4 flex items-center justify-center size-9 rounded-full bg-black/40 backdrop-blur-sm">
+<span class="material-symbols-outlined text-white text-xl">bookmark_border</span>
+</button>
+</div>
+<div class="flex w-full grow flex-col items-stretch justify-center gap-2 p-4">
+<p class="text-zinc-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">The Grandview Apartments</p>
+<p class="text-zinc-500 dark:text-accent-dark text-sm font-normal leading-normal">$3,100,000 Valuation</p>
+<div class="flex items-center gap-4 justify-between mt-3 pt-3 border-t border-zinc-100 dark:border-primary/20">
+<div class="flex flex-col">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Tokens from</p>
+<p class="text-zinc-900 dark:text-white text-lg font-bold tracking-tight">$120.00</p>
+</div>
+<div class="flex flex-col text-right">
+<p class="text-zinc-500 dark:text-accent-dark text-xs font-normal leading-normal">Est. Return</p>
+<p class="font-bold text-primary dark:text-primary-light text-lg tracking-tight">9.1%</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 right-0 h-24 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 flex justify-around items-start pt-3 px-4">
+<a class="flex flex-col items-center gap-1 text-primary dark:text-primary-light" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-xs font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400" href="#">
+<span class="material-symbols-outlined">pie_chart</span>
+<span class="text-xs font-medium">Portfolio</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="text-xs font-medium">Discover</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-xs font-medium">Profile</span>
+</a>
+</nav>
+</div>
+</body></html>

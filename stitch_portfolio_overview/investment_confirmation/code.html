@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Investment Confirmation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0fa0bd",
+              "background-light": "#f6f8f8",
+              "background-dark": "#101f22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body>
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display" style='font-family: Manrope, "Noto Sans", sans-serif;'>
+<!-- Top App Bar -->
+<div class="flex items-center p-4">
+<h2 class="flex-1 text-lg font-bold leading-tight tracking-[-0.015em] text-center text-zinc-900 dark:text-white">Investment Successful</h2>
+<div class="flex w-12 items-center justify-end">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 w-10 text-zinc-900 dark:text-white">
+<span class="material-symbols-outlined text-2xl">close</span>
+</button>
+</div>
+</div>
+<main class="flex flex-col items-center justify-center grow px-4 pb-8">
+<!-- Success Indicator -->
+<div class="flex items-center justify-center w-24 h-24 rounded-full bg-primary/20 mb-6">
+<span class="material-symbols-outlined text-5xl text-primary">task_alt</span>
+</div>
+<!-- Headline Text -->
+<h1 class="text-zinc-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight text-center pb-2">All Set!</h1>
+<!-- Body Text -->
+<p class="text-zinc-600 dark:text-zinc-400 text-base font-normal leading-normal pb-8 px-4 text-center max-w-md">You have successfully purchased 250 shares in The Grand Plaza.</p>
+<!-- Summary Card -->
+<div class="w-full max-w-md bg-white/50 dark:bg-white/5 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-5">
+<div class="flex justify-between items-center">
+<span class="text-zinc-500 dark:text-zinc-400 text-base">Invested In</span>
+<span class="text-zinc-900 dark:text-white font-bold text-base">The Grand Plaza</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-zinc-500 dark:text-zinc-400 text-base">Shares Purchased</span>
+<span class="text-zinc-900 dark:text-white font-bold text-base">250.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-zinc-500 dark:text-zinc-400 text-base">Total Amount</span>
+<span class="text-zinc-900 dark:text-white font-bold text-base">$5,000.00 USD</span>
+</div>
+<div class="border-t border-zinc-200 dark:border-zinc-800"></div>
+<div class="flex justify-between items-center">
+<span class="text-zinc-500 dark:text-zinc-400 text-base">Transaction ID</span>
+<div class="flex items-center gap-2">
+<span class="text-zinc-900 dark:text-white font-bold text-base">#A4B2...C9D8</span>
+<button class="text-zinc-500 dark:text-zinc-400 hover:text-primary">
+<span class="material-symbols-outlined text-xl">content_copy</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Spacer -->
+<div class="flex-grow"></div>
+<!-- CTA Buttons -->
+<div class="w-full max-w-md flex flex-col items-center gap-4 pt-8">
+<button class="w-full flex items-center justify-center rounded-lg h-12 bg-primary text-white text-base font-bold">
+                    View Portfolio
+                </button>
+<button class="w-full flex items-center justify-center rounded-lg h-12 bg-transparent text-primary text-base font-bold">
+                    Share Investment
+                </button>
+</div>
+</main>
+</div>
+</body></html>

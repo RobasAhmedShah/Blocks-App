@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Deposit Successful</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0da5a5",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#102222",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    keyframes: {
+                        fadeIn: {
+                           '0%': { opacity: '0', transform: 'scale(0.95)' },
+                           '100%': { opacity: '1', transform: 'scale(1)' },
+                        },
+                        scaleUp: {
+                            '0%': { transform: 'scale(0)' },
+                            '100%': { transform: 'scale(1)' }
+                        },
+                        check: {
+                            '0%': { 'stroke-dashoffset': '48' },
+                            '100%': { 'stroke-dashoffset': '0' }
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'scale-up': 'scaleUp 0.3s ease-out forwards',
+                        'check': 'check 0.4s ease-out 0.3s forwards'
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex h-full min-h-[max(884px,100dvh)] w-full flex-col bg-[#102222] overflow-hidden p-6 animate-fade-in">
+<div class="flex-grow flex flex-col justify-center items-center text-center">
+<div class="relative flex items-center justify-center size-32 animate-scale-up">
+<div class="absolute inset-0 bg-primary/20 rounded-full"></div>
+<div class="absolute inset-2 bg-primary/30 rounded-full"></div>
+<svg class="relative z-10 size-16 text-primary" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" viewBox="0 0 52 52">
+<path class="animate-check" d="M14 27l10 10 16-16" style="stroke-dasharray: 48; stroke-dashoffset: 48;"></path>
+</svg>
+</div>
+<h1 class="text-white text-3xl font-bold mt-8">Deposit Successful!</h1>
+<p class="text-zinc-400 text-base mt-2">Your funds have been successfully added to your wallet.</p>
+<div class="bg-zinc-800/50 rounded-xl p-6 w-full max-w-sm mt-10 text-left">
+<div class="flex justify-between items-center pb-4 border-b border-zinc-700">
+<span class="text-zinc-400 text-base">Amount</span>
+<span class="text-white text-base font-bold">+ 250.75 USDC</span>
+</div>
+<div class="flex justify-between items-center pt-4">
+<span class="text-zinc-400 text-base">Transaction ID</span>
+<div class="flex items-center gap-2">
+<span class="text-white text-base font-medium truncate">0x9a2b...5f8e</span>
+<button>
+<span class="material-symbols-outlined text-zinc-400 text-xl">content_copy</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex-shrink-0 w-full pb-4">
+<button class="w-full h-14 bg-primary rounded-full text-background-dark font-bold text-lg">
+            Return to Wallet
+        </button>
+</div>
+</div>
+
+</body></html>

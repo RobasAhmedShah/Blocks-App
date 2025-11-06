@@ -18,6 +18,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.85;
@@ -68,36 +69,7 @@ function AnimatedCard({
   scrollX: SharedValue<number>;
 }) {
   const [modalVisible, setModalVisible] = useState(false);
-  const { isDarkColorScheme } = useColorScheme();
-
-  const colors = {
-    light: {
-      background: "#FFFFFF",
-      card: "#FFFFFF",
-      textPrimary: "#111827",
-      textSecondary: "#374151",
-      textMuted: "#6B7280",
-      primary: "#16A34A",
-      border: "rgba(0,0,0,0.06)",
-      neutral: "#E5E7EB",
-      divider: "rgba(0,0,0,0.08)",
-      progressBg: "#E5E7EB",
-    },
-    dark: {
-      background: "#0F2F2A",
-      card: "#0B3D36",
-      textPrimary: "#F9FAFB",
-      textSecondary: "#D1D5DB",
-      textMuted: "#9CA3AF",
-      primary: "#16A34A",
-      border: "rgba(255,255,255,0.08)",
-      neutral: "#374151",
-      divider: "rgba(255,255,255,0.1)",
-      progressBg: "rgba(107,114,128,0.4)",
-    },
-  };
-
-  const theme = isDarkColorScheme ? colors.dark : colors.light;
+  const { colors: theme, isDarkColorScheme } = useColorScheme();
 
   const animatedStyle = useAnimatedStyle(() => {
     const inputRange = [
@@ -115,10 +87,6 @@ function AnimatedCard({
     (item.monthlyRentalIncome / item.currentValue) * 100,
     100
   );
-
-  // Modal text colors for readability
-  const modalTextColor = isDarkColorScheme ? "#FFFFFF" : "#0B0B0B";
-  const modalMutedText = isDarkColorScheme ? "#D1D5DB" : "#4B5563";
 
   return (
     <>
@@ -150,7 +118,7 @@ function AnimatedCard({
 
         <View className="flex-row items-center mb-4">
           <Image
-            source={{ uri: item.property.image }}
+            source={{ uri: item.property.images[0] }}
             style={{
               borderWidth: 2,
               borderColor: isDarkColorScheme
@@ -184,7 +152,7 @@ function AnimatedCard({
         </View>
 
         {/* Divider */}
-        <View style={{ backgroundColor: theme.divider }} className="h-px mb-3" />
+        <View style={{ backgroundColor: theme.border    }} className="h-px mb-3" />
 
         {/* Stats Row */}
         <View className="flex-row justify-between mb-3">
@@ -209,7 +177,7 @@ function AnimatedCard({
         {/* Progress Bar */}
         <View className="gap-1">
           <View
-            style={{ backgroundColor: theme.progressBg }}
+            style={{ backgroundColor: theme.border }}
             className="h-[6px] rounded-full overflow-hidden"
           >
             <View
@@ -262,24 +230,24 @@ function AnimatedCard({
               onPress={() => setModalVisible(false)}
               className="absolute top-4 right-4 z-10"
             >
-              <Ionicons name="close" size={22} color={modalTextColor} />
+              <Ionicons name="close" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
 
             <Image
-              source={{ uri: item.property.image }}
+              source={{ uri: item.property.images[0] }}
               className="w-full h-64 rounded-t-2xl mb-5"
               resizeMode="cover"
             />
 
             <View className="px-6 pb-6 -mt-24">
-              <Text  className="text-xl text-white font-bold mb-1">
+              <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginBottom: 4 }}>
                 {item.property.title}
               </Text>
               <View className="flex-row items-center gap-2 mb-2">
-                <Text  className="font-semibold text-white">
+                <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
                   +{item.roi.toFixed(1)}% ROI
                 </Text>
-                <Text className="text-sm text-white">
+                <Text style={{ color: '#FFFFFF', fontSize: 14 }}>
                   Current Value: ${item.currentValue.toLocaleString()}
                 </Text>
               </View>
@@ -287,26 +255,26 @@ function AnimatedCard({
               {/* Stats */}
               <View className="flex-row justify-between mt-6">
                 <View className="items-center">
-                  <Text style={{ color: modalMutedText }} className="text-xs">
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
                     Last Dividend
                   </Text>
-                  <Text style={{ color: modalTextColor }} className="font-bold text-sm">
+                  <Text style={{ color: theme.textPrimary, fontWeight: 'bold', fontSize: 14 }}>
                     ${item.lastDividend || "450.20"}
                   </Text>
                 </View>
                 <View className="items-center">
-                  <Text style={{ color: modalMutedText }} className="text-xs">
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
                     Occupancy
                   </Text>
-                  <Text style={{ color: modalTextColor }} className="font-bold text-sm">
+                  <Text style={{ color: theme.textPrimary, fontWeight: 'bold', fontSize: 14 }}>
                     {item.occupancy || "98%"}
                   </Text>
                 </View>
                 <View className="items-center">
-                  <Text style={{ color: modalMutedText }} className="text-xs">
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>
                     Next Payout
                   </Text>
-                  <Text style={{ color: modalTextColor }} className="font-bold text-sm">
+                  <Text style={{ color: theme.textPrimary, fontWeight: 'bold', fontSize: 14 }}>
                     {item.nextPayout || "15 July"}
                   </Text>
                 </View>
@@ -315,20 +283,26 @@ function AnimatedCard({
               {/* Buttons */}
               <View className="flex-row mt-8 gap-3">
                 <Pressable
-                  style={{ backgroundColor: theme.primary }}
-                  className="flex-1 py-3 rounded-full items-center"
+                //go to property and open invest moodal
+                onPress={() => router.push({
+                  pathname: "/invest/[id]",
+                  params: { id: item.property.id },
+                })}
+                  style={{ backgroundColor: theme.primary, flex: 1, paddingVertical: 12, borderRadius: 9999, alignItems: 'center' }}
                 >
-                  <Text className="text-white font-bold">MANAGE</Text>
+                  <Text style={{ color: theme.primaryForeground, fontWeight: 'bold' }}>INVEST MORE</Text>
                 </Pressable>
                 <Pressable
+                  onPress={() => router.push(`/property/${item.property.id}`)}
                   style={{
-                    backgroundColor: isDarkColorScheme
-                      ? "rgba(107,114,128,0.7)"
-                      : theme.neutral,
+                    backgroundColor: isDarkColorScheme ? theme.muted : theme.secondary,
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 9999,
+                    alignItems: 'center'
                   }}
-                  className="flex-1 py-3 rounded-full items-center"
                 >
-                  <Text style={{ color: modalTextColor }} className="font-bold">
+                  <Text style={{ color: theme.textPrimary, fontWeight: 'bold' }}>
                     DETAILS
                   </Text>
                 </Pressable>

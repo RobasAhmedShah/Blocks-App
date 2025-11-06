@@ -4,22 +4,31 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StatusBar
+  StatusBar,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { mockWalletBalance, mockTransactions } from '@/data/mockProperties';
+import { useWallet } from '@/services/useWallet';
 
 export default function WalletScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { balance, transactions, loading } = useWallet();
   const [activeTab, setActiveTab] = useState('all');
 
-  const filteredTransactions = mockTransactions.filter((tx) =>
+  const filteredTransactions = transactions.filter((tx) =>
     activeTab === 'all' ? true : tx.type === activeTab
   );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -42,41 +51,44 @@ export default function WalletScreen() {
     switch (type) {
       case 'deposit':
       case 'rental':
-        return '#10B981';
+        return colors.primary;
       case 'withdraw':
-        return '#EF4444';
+        return colors.destructive;
       case 'investment':
-        return '#0fa0bd';
+        return colors.primary;
       case 'transfer':
-        return '#F59E0B';
+        return colors.warning;
       default:
-        return '#6B7280';
+        return colors.textMuted;
     }
   };
 
   return (
-    <View className={`flex-1 ${isDark ? 'bg-blocks-bg-dark' : 'bg-blocks-bg-light'}`}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View
-        className={`px-4 pt-12 pb-6 ${isDark ? 'bg-blocks-bg-dark/80' : 'bg-blocks-bg-light/80'}`}
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        style={{ 
+          backgroundColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.8)' : 'rgba(248, 247, 245, 0.8)',
+          paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+        }}
+        className="px-4 pb-6"
       >
         <View className="flex-row items-center justify-between mb-6">
-          <Text className={`text-sm font-medium ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+          <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
             Total USDC
           </Text>
           <TouchableOpacity className="p-2">
-            <MaterialIcons name="more-horiz" size={24} color={isDark ? '#E0E0E0' : '#1F2937'} />
+            <MaterialIcons name="more-horiz" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
         <View className="mb-6">
-          <Text className={`text-4xl font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
-            ${mockWalletBalance.usdc.toFixed(2)}
+          <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
+            ${balance.usdc.toFixed(2)}
           </Text>
-          <Text className={`text-sm mt-1 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+          <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
             USDC
           </Text>
         </View>
@@ -84,19 +96,19 @@ export default function WalletScreen() {
         {/* Stats */}
         <View className="flex-row gap-4">
           <View className="flex-1">
-            <Text className={`text-xs mb-1 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+            <Text style={{ color: colors.textSecondary }} className="text-xs mb-1">
               Total Invested
             </Text>
-            <Text className={`text-lg font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
-              ${mockWalletBalance.totalInvested.toFixed(2)}
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              ${(balance.totalInvested || 0).toFixed(2)}
             </Text>
           </View>
           <View className="flex-1">
-            <Text className={`text-xs mb-1 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+            <Text style={{ color: colors.textSecondary }} className="text-xs mb-1">
               Total Earnings
             </Text>
-            <Text className="text-lg font-bold text-green-500">
-              +${mockWalletBalance.totalEarnings.toFixed(2)}
+            <Text style={{ color: colors.primary }} className="text-lg font-bold">
+              +${(balance.totalEarnings || 0).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -105,42 +117,54 @@ export default function WalletScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Quick Actions */}
         <View className="px-4 mb-6">
-          <Text className={`text-base font-bold mb-4 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary }} className="text-base font-bold mb-4">
             Quick Actions
           </Text>
           <View className="flex-row gap-3">
             <TouchableOpacity
               onPress={() => router.push('../wallet')}
-              className={`flex-1 p-4 rounded-2xl items-center ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+              style={{ backgroundColor: colors.card }}
+              className="flex-1 p-4 rounded-2xl items-center"
             >
-              <View className="w-12 h-12 rounded-full bg-teal/20 items-center justify-center mb-2">
-                <MaterialIcons name="add" size={28} color="#0fa0bd" />
+              <View 
+                style={{ backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)' }}
+                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+              >
+                <MaterialIcons name="add" size={28} color={colors.primary} />
               </View>
-              <Text className={`text-sm font-semibold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
                 Deposit
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push('/wallet/withdraw')}
-              className={`flex-1 p-4 rounded-2xl items-center ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+              onPress={() => router.push('/wallet/withdraw' as any)}
+              style={{ backgroundColor: colors.card }}
+              className="flex-1 p-4 rounded-2xl items-center"
             >
-              <View className="w-12 h-12 rounded-full bg-red-500/20 items-center justify-center mb-2">
-                <MaterialIcons name="remove" size={28} color="#EF4444" />
+              <View 
+                style={{ backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.15)' }}
+                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+              >
+                <MaterialIcons name="remove" size={28} color={colors.destructive} />
               </View>
-              <Text className={`text-sm font-semibold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
                 Withdraw
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push('/wallet/transfer')}
-              className={`flex-1 p-4 rounded-2xl items-center ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+              onPress={() => router.push('/wallet/transfer' as any)}
+              style={{ backgroundColor: colors.card }}
+              className="flex-1 p-4 rounded-2xl items-center"
             >
-              <View className="w-12 h-12 rounded-full bg-orange-500/20 items-center justify-center mb-2">
-                <MaterialIcons name="swap-horiz" size={28} color="#F59E0B" />
+              <View 
+                style={{ backgroundColor: isDarkColorScheme ? 'rgba(234, 179, 8, 0.2)' : 'rgba(234, 179, 8, 0.15)' }}
+                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+              >
+                <MaterialIcons name="swap-horiz" size={28} color={colors.warning} />
               </View>
-              <Text className={`text-sm font-semibold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
                 Transfer
               </Text>
             </TouchableOpacity>
@@ -154,22 +178,19 @@ export default function WalletScreen() {
               <TouchableOpacity
                 key={filter}
                 onPress={() => setActiveTab(filter)}
-                className={`px-4 py-2 rounded-full ${
-                  activeTab === filter
-                    ? 'bg-teal'
-                    : isDark
-                    ? 'bg-blocks-card-dark'
-                    : 'bg-white'
-                }`}
+                style={{
+                  backgroundColor: activeTab === filter ? colors.primary : colors.card,
+                  borderWidth: activeTab === filter ? 0 : 1,
+                  borderColor: colors.border,
+                }}
+                className="px-4 py-2 rounded-full"
               >
                 <Text
-                  className={`text-sm font-semibold capitalize ${
-                    activeTab === filter
-                      ? 'text-white'
-                      : isDark
-                      ? 'text-blocks-text-dark'
-                      : 'text-blocks-text-light'
-                  }`}
+                  style={{
+                    color: activeTab === filter ? '#FFFFFF' : colors.textSecondary,
+                    fontWeight: activeTab === filter ? '600' : '400',
+                  }}
+                  className="text-sm capitalize"
                 >
                   {filter}
                 </Text>
@@ -180,17 +201,18 @@ export default function WalletScreen() {
 
         {/* Transactions */}
         <View className="px-4 pb-20">
-          <Text className={`text-base font-bold mb-3 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary }} className="text-base font-bold mb-3">
             Recent Transactions
           </Text>
           {filteredTransactions.map((transaction) => (
             <TouchableOpacity
               key={transaction.id}
-              className={`flex-row items-center p-4 rounded-2xl mb-3 ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+              style={{ backgroundColor: colors.card }}
+              className="flex-row items-center p-4 rounded-2xl mb-3"
             >
               <View
                 className="w-12 h-12 rounded-full items-center justify-center"
-                style={{ backgroundColor: `${getTransactionColor(transaction.type)}20` }}
+                
               >
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
@@ -199,15 +221,15 @@ export default function WalletScreen() {
                 />
               </View>
               <View className="flex-1 ml-3">
-                <Text className={`font-semibold mb-0.5 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+                <Text style={{ color: colors.textPrimary }} className="font-semibold mb-0.5">
                   {transaction.description}
                 </Text>
                 {transaction.propertyTitle && (
-                  <Text className={`text-xs ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                  <Text style={{ color: colors.textSecondary }} className="text-xs">
                     {transaction.propertyTitle}
                   </Text>
                 )}
-                <Text className={`text-xs ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <Text style={{ color: colors.textSecondary }} className="text-xs">
                   {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
                 </Text>
               </View>
@@ -217,18 +239,16 @@ export default function WalletScreen() {
                   style={{
                     color:
                       transaction.type === 'deposit' || transaction.type === 'rental'
-                        ? '#10B981'
+                        ? colors.primary
                         : transaction.type === 'withdraw'
-                        ? '#EF4444'
-                        : isDark
-                        ? '#E0E0E0'
-                        : '#1F2937',
+                        ? colors.destructive
+                        : colors.textPrimary,
                   }}
                 >
                   {transaction.type === 'deposit' || transaction.type === 'rental' ? '+' : '-'}$
                   {transaction.amount.toFixed(2)}
                 </Text>
-                <Text className={`text-xs ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <Text style={{ color: colors.textSecondary }} className="text-xs">
                   {transaction.currency}
                 </Text>
               </View>

@@ -11,12 +11,14 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { quickAmounts } from '@/data/mockWallet';
+import { useWallet } from '@/services/useWallet';
 
 export default function CardDepositScreen() {
   const router = useRouter();
   const { amount: suggestedAmount } = useLocalSearchParams();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { deposit } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [cardNumber, setCardNumber] = useState('');
@@ -24,90 +26,133 @@ export default function CardDepositScreen() {
   const [cvv, setCvv] = useState('');
   const [cardHolder, setCardHolder] = useState('');
   const [saveCard, setSaveCard] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const quickAmounts = [100, 250, 500, 1000];
-
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     if (!amount || !cardNumber || !expiryDate || !cvv || !cardHolder) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-   router.push('/wallet/deposit/card-successfull');
+    try {
+      setIsProcessing(true);
+      const depositAmount = parseFloat(amount);
+      await deposit(depositAmount, 'Debit Card');
+      router.push({
+        pathname: '/wallet/deposit/card-successfull',
+        params: {
+          amount: depositAmount.toString(),
+          method: 'Debit Card',
+          cardLast4: cardNumber.slice(-4),
+        },
+      } as any);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process deposit');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
-    <View className={`flex-1 ${isDark ? 'bg-blocks-bg-dark' : 'bg-blocks-bg-light'}`}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View
-        className={`px-4 pt-12 pb-4 ${isDark ? 'bg-blocks-bg-dark/80' : 'bg-blocks-bg-light/80'}`}
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+          paddingBottom: 16,
+          backgroundColor: `${colors.background}CC`,
+        }}
       >
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className={`w-10 h-10 rounded-full items-center justify-center ${
-              isDark ? 'bg-blocks-card-dark/60' : 'bg-gray-200'
-            }`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDarkColorScheme ? `${colors.card}99` : colors.muted,
+            }}
           >
-            <MaterialIcons name="arrow-back" size={24} color={isDark ? '#E0E0E0' : '#1F2937'} />
+            <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text className={`text-lg font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
             Card Deposit
           </Text>
-          <View className="w-10 h-10" />
+          <View style={{ width: 40, height: 40 }} />
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
         {/* Amount Input */}
-        <View className="mb-6">
-          <Text className={`text-base font-medium mb-2 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
             Amount
           </Text>
           <View
-            className={`flex-row items-center px-4 py-4 rounded-xl ${
-              isDark ? 'bg-blocks-card-dark border border-teal/20' : 'bg-gray-100'
-            }`}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              borderRadius: 12,
+              backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+              borderWidth: isDarkColorScheme ? 1 : 0,
+              borderColor: `${colors.primary}33`,
+            }}
           >
-            <MaterialIcons name="attach-money" size={24} color="#0fa0bd" />
+            <MaterialIcons name="attach-money" size={24} color={colors.primary} />
             <TextInput
               value={amount}
               onChangeText={setAmount}
               keyboardType="numeric"
               placeholder="0.00"
-              placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-              className={`flex-1 ml-3 text-2xl font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}
+              placeholderTextColor={colors.textMuted}
+              style={{
+                flex: 1,
+                marginLeft: 12,
+                fontSize: 24,
+                fontWeight: 'bold',
+                color: colors.textPrimary,
+              }}
             />
-            <Text className={`text-sm ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
               USDC
             </Text>
           </View>
 
           {/* Quick Amount Buttons */}
-          <View className="flex-row gap-2 mt-3">
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             {quickAmounts.map((qa) => (
               <TouchableOpacity
                 key={qa}
                 onPress={() => setAmount(qa.toString())}
-                className={`flex-1 py-2 rounded-full ${
-                  amount === qa.toString()
-                    ? 'bg-teal'
-                    : isDark
-                    ? 'bg-blocks-card-dark/40 border border-teal/20'
-                    : 'bg-gray-100'
-                }`}
+                style={{
+                  flex: 1,
+                  paddingVertical: 8,
+                  borderRadius: 9999,
+                  backgroundColor: amount === qa.toString()
+                    ? colors.primary
+                    : isDarkColorScheme
+                    ? `${colors.card}66`
+                    : colors.muted,
+                  borderWidth: amount === qa.toString() ? 0 : 1,
+                  borderColor: amount === qa.toString() ? 'transparent' : `${colors.primary}33`,
+                }}
               >
                 <Text
-                  className={`text-center text-sm font-semibold ${
-                    amount === qa.toString()
-                      ? 'text-white'
-                      : isDark
-                      ? 'text-blocks-text-dark'
-                      : 'text-blocks-text-light'
-                  }`}
+                  style={{
+                    textAlign: 'center',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: amount === qa.toString()
+                      ? colors.primaryForeground
+                      : colors.textPrimary,
+                  }}
                 >
                   ${qa}
                 </Text>
@@ -117,11 +162,11 @@ export default function CardDepositScreen() {
         </View>
 
         {/* Card Details */}
-        <Text className={`text-base font-medium mb-3 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 12 }}>
           Card Details
         </Text>
 
-        <View className="gap-3 mb-6">
+        <View style={{ gap: 12, marginBottom: 24 }}>
           {/* Card Number */}
           <View>
             <TextInput
@@ -130,33 +175,43 @@ export default function CardDepositScreen() {
               keyboardType="numeric"
               placeholder="Card Number"
               maxLength={19}
-              placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-              className={`px-4 py-4 rounded-xl text-base ${
-                isDark
-                  ? 'bg-blocks-card-dark text-blocks-text-dark border border-teal/20'
-                  : 'bg-gray-100 text-blocks-text-light'
-              }`}
+              placeholderTextColor={colors.textMuted}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderRadius: 12,
+                fontSize: 16,
+                backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+                color: colors.textPrimary,
+                borderWidth: isDarkColorScheme ? 1 : 0,
+                borderColor: `${colors.primary}33`,
+              }}
             />
           </View>
 
           {/* Expiry and CVV */}
-          <View className="flex-row gap-3">
-            <View className="flex-1">
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}>
               <TextInput
                 value={expiryDate}
                 onChangeText={setExpiryDate}
                 placeholder="MM/YY"
                 maxLength={5}
                 keyboardType="numeric"
-                placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-                className={`px-4 py-4 rounded-xl text-base ${
-                  isDark
-                    ? 'bg-blocks-card-dark text-blocks-text-dark border border-teal/20'
-                    : 'bg-gray-100 text-blocks-text-light'
-                }`}
+                placeholderTextColor={colors.textMuted}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  fontSize: 16,
+                  backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+                  color: colors.textPrimary,
+                  borderWidth: isDarkColorScheme ? 1 : 0,
+                  borderColor: `${colors.primary}33`,
+                }}
               />
             </View>
-            <View className="flex-1">
+            <View style={{ flex: 1 }}>
               <TextInput
                 value={cvv}
                 onChangeText={setCvv}
@@ -164,12 +219,17 @@ export default function CardDepositScreen() {
                 maxLength={4}
                 keyboardType="numeric"
                 secureTextEntry
-                placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-                className={`px-4 py-4 rounded-xl text-base ${
-                  isDark
-                    ? 'bg-blocks-card-dark text-blocks-text-dark border border-teal/20'
-                    : 'bg-gray-100 text-blocks-text-light'
-                }`}
+                placeholderTextColor={colors.textMuted}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  fontSize: 16,
+                  backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+                  color: colors.textPrimary,
+                  borderWidth: isDarkColorScheme ? 1 : 0,
+                  borderColor: `${colors.primary}33`,
+                }}
               />
             </View>
           </View>
@@ -181,86 +241,127 @@ export default function CardDepositScreen() {
               onChangeText={setCardHolder}
               placeholder="Cardholder Name"
               autoCapitalize="words"
-              placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-              className={`px-4 py-4 rounded-xl text-base ${
-                isDark
-                  ? 'bg-blocks-card-dark text-blocks-text-dark border border-teal/20'
-                  : 'bg-gray-100 text-blocks-text-light'
-              }`}
+              placeholderTextColor={colors.textMuted}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 16,
+                borderRadius: 12,
+                fontSize: 16,
+                backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+                color: colors.textPrimary,
+                borderWidth: isDarkColorScheme ? 1 : 0,
+                borderColor: `${colors.primary}33`,
+              }}
             />
           </View>
 
           {/* Save Card Option */}
           <TouchableOpacity
             onPress={() => setSaveCard(!saveCard)}
-            className="flex-row items-center"
+            style={{ flexDirection: 'row', alignItems: 'center' }}
           >
             <View
-              className={`w-5 h-5 rounded border-2 items-center justify-center mr-3 ${
-                saveCard ? 'bg-teal border-teal' : isDark ? 'border-gray-600' : 'border-gray-300'
-              }`}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                borderWidth: 2,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+                backgroundColor: saveCard ? colors.primary : 'transparent',
+                borderColor: saveCard ? colors.primary : colors.border,
+              }}
             >
-              {saveCard && <MaterialIcons name="check" size={16} color="white" />}
+              {saveCard && <MaterialIcons name="check" size={16} color={colors.primaryForeground} />}
             </View>
-            <Text className={isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}>
+            <Text style={{ color: colors.textPrimary }}>
               Save card for future deposits
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Fee Info */}
-        <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark' : 'bg-gray-100'}`}>
-          <View className="flex-row justify-between mb-2">
-            <Text className={isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}>
+        <View style={{
+          padding: 16,
+          borderRadius: 16,
+          marginBottom: 24,
+          backgroundColor: colors.card,
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: colors.textSecondary }}>
               Deposit Amount
             </Text>
-            <Text className={`font-medium ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+            <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
               ${parseFloat(amount || '0').toFixed(2)}
             </Text>
           </View>
-          <View className="flex-row justify-between mb-2">
-            <Text className={isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: colors.textSecondary }}>
               Processing Fee (2.9%)
             </Text>
-            <Text className={`font-medium ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+            <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
               ${(parseFloat(amount || '0') * 0.029).toFixed(2)}
             </Text>
           </View>
-          <View className={`h-px my-2 ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`} />
-          <View className="flex-row justify-between">
-            <Text className={`font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <View style={{ height: 1, marginVertical: 8, backgroundColor: colors.border }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
               You'll Receive
             </Text>
-            <Text className="font-bold text-teal">
+            <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
               ${(parseFloat(amount || '0') * 0.971).toFixed(2)} USDC
             </Text>
           </View>
         </View>
 
         {/* Security Note */}
-        <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark/40' : 'bg-gray-100'}`}>
-          <View className="flex-row items-start">
-            <MaterialIcons name="lock" size={20} color="#10B981" />
-            <Text className={`flex-1 ml-3 text-xs leading-relaxed ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+        <View style={{
+          padding: 16,
+          borderRadius: 16,
+          marginBottom: 24,
+          backgroundColor: isDarkColorScheme ? `${colors.card}66` : colors.muted,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <MaterialIcons name="lock" size={20} color={colors.primary} />
+            <Text style={{
+              flex: 1,
+              marginLeft: 12,
+              fontSize: 12,
+              lineHeight: 18,
+              color: colors.textSecondary,
+            }}>
               Your card details are encrypted and secure. We use industry-standard security measures to protect your information.
             </Text>
           </View>
         </View>
 
-        <View className="h-32" />
+        <View style={{ height: 128 }} />
       </ScrollView>
 
       {/* Bottom CTA */}
       <View
-        className={`px-4 py-4 border-t ${
-          isDark ? 'bg-blocks-bg-dark/80 border-gray-700' : 'bg-blocks-bg-light/80 border-gray-200'
-        }`}
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: `${colors.background}CC`,
+        }}
       >
         <TouchableOpacity
           onPress={handleDeposit}
-          className="bg-teal py-4 rounded-xl items-center justify-center"
+          style={{
+            backgroundColor: colors.primary,
+            paddingVertical: 16,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <Text className="text-white text-lg font-bold">Deposit Funds</Text>
+          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
+            Deposit Funds
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

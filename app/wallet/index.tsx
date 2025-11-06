@@ -9,107 +9,113 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { depositMethods } from '@/data/mockWallet';
 
 export default function DepositScreen() {
   const router = useRouter();
   const { amount } = useLocalSearchParams();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  const depositMethods = [
-    {
-      id: 'card',
-      title: 'Debit/Credit Card',
-      description: 'Instantly add funds from your card',
-      icon: 'credit-card',
-      color: '#0fa0bd',
-      route: '/wallet/deposit/card',
-    },
-    {
-      id: 'onchain',
-      title: 'On-Chain Transfer',
-      description: 'Deposit crypto from another wallet',
-      icon: 'account-balance-wallet',
-      color: '#0fa0bd',
-      route: '/wallet/deposit/onchain',
-    },
-    {
-      id: 'binance',
-      title: 'Binance Pay',
-      description: 'Fast and convenient payment',
-      icon: 'paid',
-      color: '#F0B90B',
-      route: '/wallet/deposit/binance',
-    },
-  ];
+  const { colors, isDarkColorScheme } = useColorScheme();
 
   return (
-    <View className={`flex-1 ${isDark ? 'bg-blocks-bg-dark' : 'bg-blocks-bg-light'}`}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View
-        className={`px-4 pt-12 pb-4 ${isDark ? 'bg-blocks-bg-dark/80' : 'bg-blocks-bg-light/80'}`}
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+          paddingBottom: 16,
+          backgroundColor: isDarkColorScheme ? `${colors.background}CC` : `${colors.background}CC`,
+        }}
       >
-        <View className="flex-row items-center justify-between ">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className={`w-10 h-10 rounded-full items-center justify-center  ${
-              isDark ? 'bg-blocks-card-dark/60' : 'bg-gray-200'
-            }`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDarkColorScheme ? `${colors.card}99` : colors.muted,
+            }}
           >
-            <MaterialIcons name="arrow-back" size={24} color={isDark ? '#E0E0E0' : '#1F2937'} />
+            <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text className={`text-lg font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
             Deposit Funds
           </Text>
-          <View className="w-10 h-10" />
+          <View style={{ width: 40, height: 40 }} />
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
         {amount && (
-          <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-teal/10 border border-teal/20' : 'bg-teal/10'}`}>
-            <Text className={`text-sm mb-1 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+          <View style={{
+            padding: 16,
+            borderRadius: 16,
+            marginBottom: 24,
+            backgroundColor: `${colors.primary}1A`,
+            borderWidth: 1,
+            borderColor: `${colors.primary}33`,
+          }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 4 }}>
               Required Amount
             </Text>
-            <Text className="text-2xl font-bold text-teal">${amount} USDC</Text>
+            <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold' }}>
+              ${amount} USDC
+            </Text>
           </View>
         )}
 
-        <Text className={`text-center mb-6 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
           Choose a deposit method to add funds to your wallet
         </Text>
 
         {/* Deposit Methods */}
-        <View className="gap-4">
+        <View style={{ gap: 16 }}>
           {depositMethods.map((method) => (
             <TouchableOpacity
               key={method.id}
               onPress={() => router.push(method.route as any)}
-              className={`p-4 rounded-2xl shadow-sm ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+              style={{
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: colors.card,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
               activeOpacity={0.7}
             >
-              <View className="flex-row items-center">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View
-                  className="w-12 h-12 rounded-full items-center justify-center"
-                  style={{ backgroundColor: `${method.color}20` }}
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 9999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: `${method.color}20`,
+                  }}
                 >
                   <MaterialIcons name={method.icon as any} size={24} color={method.color} />
                 </View>
-                <View className="flex-1 ml-4">
-                  <Text className={`text-base font-bold mb-1 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
                     {method.title}
                   </Text>
-                  <Text className={`text-sm ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                     {method.description}
                   </Text>
                 </View>
                 <MaterialIcons
                   name="chevron-right"
                   size={24}
-                  color={isDark ? '#A9A9A9' : '#6B7280'}
+                  color={colors.textMuted}
                 />
               </View>
             </TouchableOpacity>
@@ -117,16 +123,27 @@ export default function DepositScreen() {
         </View>
 
         {/* Info Note */}
-        <View className={`mt-8 p-4 rounded-2xl ${isDark ? 'bg-blocks-card-dark/40' : 'bg-gray-100'}`}>
-          <View className="flex-row items-start">
-            <MaterialIcons name="info-outline" size={20} color={isDark ? '#A9A9A9' : '#6B7280'} />
-            <Text className={`flex-1 ml-3 text-xs leading-relaxed ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+        <View style={{
+          marginTop: 32,
+          padding: 16,
+          borderRadius: 16,
+          backgroundColor: isDarkColorScheme ? `${colors.card}66` : colors.muted,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <MaterialIcons name="info-outline" size={20} color={colors.textMuted} />
+            <Text style={{
+              flex: 1,
+              marginLeft: 12,
+              fontSize: 12,
+              lineHeight: 18,
+              color: colors.textSecondary,
+            }}>
               Deposit times and fees may vary depending on the chosen method and network congestion. Please ensure you are sending assets on the correct network to avoid loss of funds.
             </Text>
           </View>
         </View>
 
-        <View className="h-32" />
+        <View style={{ height: 128 }} />
       </ScrollView>
     </View>
   );

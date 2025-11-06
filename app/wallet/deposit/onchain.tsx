@@ -12,38 +12,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import * as Clipboard from 'expo-clipboard';
+import { blockchainNetworks, defaultWalletAddress } from '@/data/mockWallet';
 
 export default function OnChainDepositScreen() {
   const router = useRouter();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDarkColorScheme } = useColorScheme();
   const [selectedNetwork, setSelectedNetwork] = useState('polygon');
 
-  const walletAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0';
-
-  const networks = [
-    {
-      id: 'polygon',
-      name: 'Polygon',
-      icon: 'https://cryptologos.cc/logos/polygon-matic-logo.png',
-      tokens: 'USDC / MATIC',
-      fee: 'Low',
-    },
-    {
-      id: 'bnb',
-      name: 'BNB Chain',
-      icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png',
-      tokens: 'USDC / BNB',
-      fee: 'Low',
-    },
-    {
-      id: 'ethereum',
-      name: 'Ethereum',
-      icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png',
-      tokens: 'USDC / ETH',
-      fee: 'High',
-    },
-  ];
+  const walletAddress = defaultWalletAddress;
+  const networks = blockchainNetworks;
 
   const handleCopyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress);
@@ -51,67 +28,97 @@ export default function OnChainDepositScreen() {
   };
 
   return (
-    <View className={`flex-1 ${isDark ? 'bg-blocks-bg-dark' : 'bg-blocks-bg-light'}`}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View
-        className={`px-4 pt-12 pb-4 ${isDark ? 'bg-blocks-bg-dark/80' : 'bg-blocks-bg-light/80'}`}
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+          paddingBottom: 16,
+          backgroundColor: `${colors.background}CC`,
+        }}
       >
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className={`w-10 h-10 rounded-full items-center justify-center ${
-              isDark ? 'bg-blocks-card-dark/60' : 'bg-gray-200'
-            }`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDarkColorScheme ? `${colors.card}99` : colors.muted,
+            }}
           >
-            <MaterialIcons name="arrow-back" size={24} color={isDark ? '#E0E0E0' : '#1F2937'} />
+            <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text className={`text-lg font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
             On-Chain Deposit
           </Text>
-          <View className="w-10 h-10" />
+          <View style={{ width: 40, height: 40 }} />
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-4" showsVerticalScrollIndicator={false}>
-        <Text className={`text-center mb-6 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
           Send USDC or supported tokens to your wallet
         </Text>
 
         {/* Network Selection */}
-        <Text className={`text-base font-bold mb-3 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>
           Select Network
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
-          <View className="flex-row gap-3">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
             {networks.map((network) => (
               <TouchableOpacity
                 key={network.id}
                 onPress={() => setSelectedNetwork(network.id)}
-                className={`w-40 p-4 rounded-2xl ${
-                  selectedNetwork === network.id
-                    ? isDark
-                      ? 'bg-blocks-card-dark border-2 border-teal'
-                      : 'bg-white border-2 border-teal'
-                    : isDark
-                    ? 'bg-blocks-card-dark/50'
-                    : 'bg-gray-100'
-                }`}
+                style={{
+                  width: 160,
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: selectedNetwork === network.id
+                    ? colors.card
+                    : isDarkColorScheme
+                    ? `${colors.card}80`
+                    : colors.muted,
+                  borderWidth: selectedNetwork === network.id ? 2 : 0,
+                  borderColor: selectedNetwork === network.id ? colors.primary : 'transparent',
+                }}
               >
-                <View className="flex-row items-center mb-2">
-                  <View className="w-6 h-6 rounded-full bg-white items-center justify-center">
-                    <Text className="text-xs">🔗</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <View style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 9999,
+                    backgroundColor: '#FFFFFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Text style={{ fontSize: 12 }}>🔗</Text>
                   </View>
-                  <Text className={`ml-2 font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+                  <Text style={{
+                    marginLeft: 8,
+                    fontWeight: 'bold',
+                    color: colors.textPrimary,
+                  }}>
                     {network.name}
                   </Text>
                 </View>
-                <Text className={`text-sm mb-1 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <Text style={{
+                  fontSize: 14,
+                  marginBottom: 4,
+                  color: colors.textSecondary,
+                }}>
                   {network.tokens}
                 </Text>
-                <Text className={`text-xs ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.textMuted,
+                }}>
                   Fee: {network.fee}
                 </Text>
               </TouchableOpacity>
@@ -120,41 +127,78 @@ export default function OnChainDepositScreen() {
         </ScrollView>
 
         {/* QR Code */}
-        <View className={`items-center p-6 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}>
-          <View className="w-44 h-44 bg-white p-2 rounded-xl mb-4">
+        <View style={{
+          alignItems: 'center',
+          padding: 24,
+          borderRadius: 16,
+          marginBottom: 24,
+          backgroundColor: colors.card,
+        }}>
+          <View style={{
+            width: 176,
+            height: 176,
+            backgroundColor: '#FFFFFF',
+            padding: 8,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}>
             <Image
               source={{
                 uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}`,
               }}
-              className="w-full h-full"
+              style={{ width: '100%', height: '100%' }}
               resizeMode="contain"
             />
           </View>
 
           {/* Wallet Address */}
           <View
-            className={`w-full flex-row items-center justify-between p-3 rounded-xl ${
-              isDark ? 'bg-blocks-bg-dark' : 'bg-gray-100'
-            }`}
+            style={{
+              width: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: isDarkColorScheme ? colors.background : colors.muted,
+            }}
           >
-            <Text className={`flex-1 font-mono text-sm ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`} numberOfLines={1}>
+            <Text style={{
+              flex: 1,
+              fontFamily: 'monospace',
+              fontSize: 14,
+              color: colors.textPrimary,
+            }} numberOfLines={1}>
               {walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}
             </Text>
-            <TouchableOpacity onPress={handleCopyAddress} className="ml-3">
-              <MaterialIcons name="content-copy" size={20} color="#0fa0bd" />
+            <TouchableOpacity onPress={handleCopyAddress} style={{ marginLeft: 12 }}>
+              <MaterialIcons name="content-copy" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity className="mt-3">
-            <Text className="text-teal text-sm font-bold">View on Explorer →</Text>
+          <TouchableOpacity style={{ marginTop: 12 }}>
+            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
+              View on Explorer →
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Warning */}
-        <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-red-500/10' : 'bg-red-50'}`}>
-          <View className="flex-row items-start">
-            <MaterialIcons name="warning" size={20} color="#EF4444" />
-            <Text className={`flex-1 ml-3 text-sm leading-relaxed ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+        <View style={{
+          padding: 16,
+          borderRadius: 16,
+          marginBottom: 24,
+          backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <MaterialIcons name="warning" size={20} color={colors.destructive} />
+            <Text style={{
+              flex: 1,
+              marginLeft: 12,
+              fontSize: 14,
+              lineHeight: 20,
+              color: isDarkColorScheme ? 'rgba(248, 113, 113, 1)' : 'rgba(220, 38, 38, 1)',
+            }}>
               Send only supported tokens on the selected chain. Deposits are confirmed after 1 network confirmation.
               Sending unsupported tokens may result in permanent loss.
             </Text>
@@ -163,17 +207,29 @@ export default function OnChainDepositScreen() {
 
         {/* Status */}
         <View
-          className={`flex-row items-center p-4 rounded-2xl ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            padding: 16,
+            borderRadius: 16,
+            backgroundColor: colors.card,
+          }}
         >
-          <View className="w-2 h-2 rounded-full bg-green-500 mr-3" />
-          <Text className="text-green-500 font-medium">Connected</Text>
-          <View className="flex-1" />
-          <Text className={isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}>
+          <View style={{
+            width: 8,
+            height: 8,
+            borderRadius: 9999,
+            backgroundColor: colors.primary,
+            marginRight: 12,
+          }} />
+          <Text style={{ color: colors.primary, fontWeight: '500' }}>Connected</Text>
+          <View style={{ flex: 1 }} />
+          <Text style={{ color: colors.textSecondary }}>
             Awaiting deposit...
           </Text>
         </View>
 
-        <View className="h-32" />
+        <View style={{ height: 128 }} />
       </ScrollView>
     </View>
   );

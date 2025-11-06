@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Dimensions,
+  StatusBar,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -14,17 +15,19 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Svg, { Defs, Pattern, Rect, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
+import Svg, { Defs, Pattern, Rect } from "react-native-svg";
 import FeaturedSection, { Stat as FeaturedStat} from "@/components/home/FeaturedSection";
 import AffordableSection from "@/components/home/AffordableSection";
 import InvestmentSection from "@/components/home/InvestmentSection";
 import CTAButton from "@/components/home/CTAButton";
 import { mockProperties } from "@/data/mockProperties";
+import { useColorScheme } from "@/lib/useColorScheme";
+import { midrangeInvestments as midrange } from "@/data/mockHome";
 
 const { width, height } = Dimensions.get("window");
 
-// Minimal Pattern Background - Subtle gradient squares
-const SubtlePattern = () => (
+// Subtle grid pattern that doesn't overwhelm - matches portfolio aesthetic
+const SubtlePattern = ({ isDark }: { isDark: boolean }) => (
   <Svg
     height="100%"
     width="100%"
@@ -34,38 +37,43 @@ const SubtlePattern = () => (
       left: 0,
       right: 0,
       bottom: 0,
+      opacity: isDark ? 0.4 : 0.3,
     }}
     preserveAspectRatio="xMidYMid slice"
   >
     <Defs>
-      {/* Very subtle gradient - emerald tint */}
-      <SvgLinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <Stop offset="0%" stopColor="rgba(236, 253, 245, 0.4)" stopOpacity="1" />
-        <Stop offset="100%" stopColor="rgba(209, 250, 229, 0.2)" stopOpacity="1" />
-      </SvgLinearGradient>
       <Pattern
-        id="subtlePattern"
+        id="subtleGrid"
         patternUnits="userSpaceOnUse"
         width="80"
         height="80"
       >
+        {/* Horizontal line */}
         <Rect 
+          x="0" 
+          y="0" 
           width="80" 
+          height="3" 
+          fill={isDark ? "rgb(80, 74, 74)" : "rgba(0, 0, 0, 0.6)"}
+        />
+        {/* Vertical line */}
+        <Rect 
+          x="0" 
+          y="0" 
+          width="3" 
           height="80" 
-          fill="url(#grad)"
-          stroke="rgba(22, 163, 74, 0.04)"
-          strokeWidth="0.5"
+          fill={isDark ? "rgb(80, 74, 74)" : "rgba(22, 163, 74, 0.6)"}
         />
       </Pattern>
     </Defs>
-    <Rect width="100%" height="100%" fill="#FAFAFA" />
-    <Rect width="100%" height="100%" fill="url(#subtlePattern)" />
+    <Rect width="100%" height="100%" fill="url(#subtleGrid)" />
   </Svg>
 );
 
 export default function BlocksHomeScreen() {
   const router = useRouter();
   const scrollY = useSharedValue(0);
+  const { colors, isDarkColorScheme } = useColorScheme();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -152,28 +160,16 @@ export default function BlocksHomeScreen() {
       image: property.images[0],
     }));
 
-  const midrange = [
-    {
-      name: "Lakeside Cabin",
-      value: "$750k",
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBdyw4jM184KQ8Xn2y7WHR-f-zuNA-Va91wnxQEfaK4oGCYEsEiB0efAJMa4jMyW00WUb2drtyFBSilrs9iPqcLBnjJ37T9wM55V-6M8a7YSLqk_B2nTNfG7BuNvsAcqB_mOzHp4eaAbULUz35JwkZeWXAcRkXha0dgW1hybNWkOftAOBtoBQh8RaKmHXTQLBZL3ScEMFld_2iubxsoTcIGJVq6g9TLDUjObm_A04RghVxwxH7-YLyrirQIvAzN-pACSw9MVci1gnY",
-      path: "M0 30 L10 25 L20 28 L30 20 L40 22 L50 15 L60 18 L70 12 L80 15 L90 10 L100 8",
-    },
-    {
-      name: "Cityscape Tower",
-      value: "$1.2M",
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuAVQf2cwzc5Lc-WDA1uyza5tMFulDlQ2pyWdoVy3_GA-9iQORKU4p7IqIXKaPGlJVABJs6Kfh7WuByAIn0TtBNhXTpmAJx2IbGod2Tuqg3BgexXbHftijDYDWAJQZUty0tCX5tZKdNFx4GOj7Ybosw_JBeQf2dF24ckB_9SUNgnpMuZ9tG1JcaQWokqpD5O4cTzBtIiE8mXKaY-Mu8-aXTVi3EzgnfdG-CyGHCgKh5WvGNdg1XQr1HXWJnNnJPImw2cJ0txlCZb2_M",
-      path: "M0 25 L10 28 L20 22 L30 24 L40 18 L50 20 L60 15 L70 18 L80 12 L90 14 L100 10",
-    },
-  ];
-
   return (
-    <View className="flex-1 bg-white">
-      {/* Subtle pattern background */}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar 
+        barStyle={isDarkColorScheme ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
+      
+      {/* Grid pattern background - visible in both modes */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-        <SubtlePattern />
+        <SubtlePattern isDark={isDarkColorScheme} />
       </View>
 
       {/* Scrollable content with parallax */}
@@ -185,26 +181,54 @@ export default function BlocksHomeScreen() {
       >
         {/* Header with parallax */}
         <Animated.View 
-          style={[headerParallaxStyle]}
-          className="flex-row justify-between items-center p-4 pt-12 bg-transparent"
+          style={[
+            headerParallaxStyle,
+            {
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              paddingTop: 48,
+              backgroundColor: 'transparent',
+            }
+          ]}
         >
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="apps" size={28} color="#16A34A" />
-            <Text className="text-gray-900 text-xl font-bold">Blocks</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="apps" size={28} color={colors.primary} />
+            <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>Blocks</Text>
           </View>
-          <View className="bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200">
-            <Text className="text-amber-700 text-base font-bold">$15,430</Text>
+          <View style={{
+            // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
+          }}>
+            <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>$15,430</Text>
           </View>
         </Animated.View>
 
         {/* Hero Section - Typography Focus with Parallax */}
         <Animated.View 
-          style={[heroParallaxStyle]}
-          className="pt-12 pb-16 items-center justify-center px-6"
+          style={[
+            heroParallaxStyle,
+            {
+              paddingTop: 48,
+              paddingBottom: 64,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 24,
+            }
+          ]}
         >
-          {/* Background gradient overlay */}
+          {/* Background gradient overlay - very subtle */}
           <LinearGradient
-            colors={['rgba(236, 253, 245, 0.6)', 'rgba(209, 250, 229, 0.3)', 'transparent']}
+            colors={
+              isDarkColorScheme
+                ? ['rgba(22, 163, 74, 0.08)', 'rgba(22, 163, 74, 0.04)', 'transparent']
+                : ['rgba(236, 253, 245, 0.3)', 'rgba(209, 250, 229, 0.15)', 'transparent']
+            }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -218,24 +242,30 @@ export default function BlocksHomeScreen() {
           />
 
           {/* Oversized Typography */}
-          <View className="items-center z-10">
+          <View style={{ alignItems: 'center', zIndex: 10 }}>
             {/* Small eyebrow text */}
             <Text 
-              className="text-emerald-600 text-sm font-bold tracking-widest uppercase mb-4"
               style={{
+                color: colors.primary,
+                fontSize: 14,
+                fontWeight: 'bold',
                 letterSpacing: 3,
+                textTransform: 'uppercase',
+                marginBottom: 16,
               }}
             >
               Real Estate. Reimagined.
             </Text>
 
             {/* Main headline with gradient effect */}
-            <View className="mb-2">
+            <View style={{ marginBottom: 8 }}>
               <Text 
-                className="text-6xl font-black text-center leading-tight"
                 style={{
-                  color: '#111827',
+                  color: colors.textPrimary,
+                  fontSize: 60,
                   fontWeight: '900',
+                  textAlign: 'center',
+                  lineHeight: 64,
                   letterSpacing: -2,
                 }}
               >
@@ -243,12 +273,14 @@ export default function BlocksHomeScreen() {
               </Text>
             </View>
             
-            <View className="relative">
+            <View style={{ position: 'relative' }}>
               <Text 
-                className="text-6xl font-black text-center leading-tight"
                 style={{
-                  color: '#16A34A',
+                  color: colors.primary,
+                  fontSize: 60,
                   fontWeight: '900',
+                  textAlign: 'center',
+                  lineHeight: 64,
                   letterSpacing: -2,
                 }}
               >
@@ -257,18 +289,21 @@ export default function BlocksHomeScreen() {
             </View>
 
             {/* Subtitle with gradient underline */}
-            <View className="mt-6 items-center">
+            <View style={{ marginTop: 24, alignItems: 'center' }}>
               <Text 
-                className="text-2xl font-bold text-center leading-relaxed"
                 style={{
-                  color: '#374151',
+                  color: colors.textSecondary,
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  lineHeight: 32,
                   letterSpacing: -0.5,
                 }}
               >
                 Block by Block
               </Text>
               <LinearGradient
-                colors={['#16A34A', '#15803D', '#14532D']}
+                colors={[colors.primary, colors.primarySoft, colors.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -282,32 +317,59 @@ export default function BlocksHomeScreen() {
 
             {/* Description */}
             <Text 
-              className="text-base text-center leading-relaxed mt-8 max-w-sm"
               style={{
-                color: '#6B7280',
+                color: colors.textSecondary,
+                fontSize: 16,
+                textAlign: 'center',
                 lineHeight: 24,
+                marginTop: 32,
+                maxWidth: 400,
               }}
             >
               Invest in tokenized real estate with as little as{' '}
-              <Text className="font-bold text-emerald-600">$10</Text>
+              <Text style={{ fontWeight: 'bold', color: colors.primary }}>$10</Text>
               . Own fractional shares of premium properties worldwide.
             </Text>
 
             {/* Minimal stats */}
-            <View className="flex-row gap-8 mt-10">
-              <View className="items-center">
-                <Text className="text-3xl font-black text-emerald-600">50+</Text>
-                <Text className="text-xs text-gray-500 uppercase tracking-wider mt-1">Properties</Text>
+            <View style={{ flexDirection: 'row', gap: 32, marginTop: 40 }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>50+</Text>
+                <Text style={{ 
+                  fontSize: 12, 
+                  color: colors.textMuted, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: 1, 
+                  marginTop: 4 
+                }}>
+                  Properties
+                </Text>
               </View>
-              <View className="w-px h-12 bg-gray-300" />
-              <View className="items-center">
-                <Text className="text-3xl font-black text-emerald-600">$2M+</Text>
-                <Text className="text-xs text-gray-500 uppercase tracking-wider mt-1">Invested</Text>
+              <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>$2M+</Text>
+                <Text style={{ 
+                  fontSize: 12, 
+                  color: colors.textMuted, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: 1, 
+                  marginTop: 4 
+                }}>
+                  Invested
+                </Text>
               </View>
-              <View className="w-px h-12 bg-gray-300" />
-              <View className="items-center">
-                <Text className="text-3xl font-black text-emerald-600">12%</Text>
-                <Text className="text-xs text-gray-500 uppercase tracking-wider mt-1">Avg ROI</Text>
+              <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>12%</Text>
+                <Text style={{ 
+                  fontSize: 12, 
+                  color: colors.textMuted, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: 1, 
+                  marginTop: 4 
+                }}>
+                  Avg ROI
+                </Text>
               </View>
             </View>
           </View>

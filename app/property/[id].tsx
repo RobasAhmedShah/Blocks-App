@@ -12,6 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProperty } from "@/services/useProperty";
 import { useWallet } from "@/services/useWallet";
+import { useColorScheme } from "@/lib/useColorScheme";
+import InvestScreen from "@/app/invest/[id]";
 
 const { width } = Dimensions.get("window");
 
@@ -22,8 +24,9 @@ export default function PropertyDetailScreen() {
   const { balance } = useWallet();
   const [activeTab, setActiveTab] = useState("Financials");
   const [imageIndex, setImageIndex] = useState(0);
+  const [showInvestModal, setShowInvestModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-
+  const { colors, isDarkColorScheme } = useColorScheme();
   if (loading || !property) {
     return (
       <View className="flex-1 bg-[#f6f8f8] items-center justify-center">
@@ -40,12 +43,12 @@ export default function PropertyDetailScreen() {
         params: { requiredAmount: minRequired.toString() },
       } as any);
     } else {
-      router.push(`/invest/${property.id}`);
+      setShowInvestModal(true);
     }
   };
 
   return (
-    <View className="flex-1 bg-[#f6f8f8]">
+    <View className="flex-1 bg-[#f6f8f8]" style={{ backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false} ref={scrollViewRef}>
         {/* Image Gallery */}
         <View className="relative h-[60vh]">
@@ -87,41 +90,60 @@ export default function PropertyDetailScreen() {
           <View className="absolute top-12 left-0 right-0 px-4 flex-row justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
-              className="bg-white/70 p-2 rounded-full"
+              className="bg-white/1 p-2 rounded-full"
             >
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <TouchableOpacity className="bg-white/70 p-2 rounded-full">
-              <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
+            <TouchableOpacity style={{
+              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.7)',
+              padding: 8,
+              borderRadius: 9999,
+            }}>
+              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-
           {/* Dark gradient overlay for better text visibility */}
-        
+          <LinearGradient
+            colors={['transparent', 'rgba(0, 0, 0, 0.7)']}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '50%',
+            }}
+          />
 
           {/* Property Info Overlay with Glassmorphism */}
-          <View className="absolute bottom-0 left-0 right-0 p-6">
-            <View className={`px-3 py-1 rounded-full self-start mb-2 ${
-              property.status === 'funding' ? 'bg-emerald-500/90' :
-              property.status === 'construction' ? 'bg-blue-500/90' :
-              property.status === 'completed' ? 'bg-purple-500/90' :
-              'bg-green-500/90'
-            }`}
-            style={{
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
+            <View style={{
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              borderRadius: 9999,
+              alignSelf: 'flex-start',
+              marginBottom: 8,
+              backgroundColor: 
+                property.status === 'funding' ? `${colors.primary}E6` :
+                property.status === 'construction' ? 'rgba(59, 130, 246, 0.9)' :
+                property.status === 'completed' ? 'rgba(168, 85, 247, 0.9)' :
+                `${colors.primary}E6`,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.3,
               shadowRadius: 4,
               elevation: 3,
             }}>
-              <Text className="text-white text-sm font-bold">
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>
                 {property.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </Text>
             </View>
             <Text 
-              className="text-white text-3xl font-bold mb-1"
               style={{
+                color: '#FFFFFF',
+                fontSize: 30,
+                fontWeight: 'bold',
+                marginBottom: 4,
                 textShadowColor: 'rgba(0, 0, 0, 0.8)',
                 textShadowOffset: { width: 0, height: 2 },
                 textShadowRadius: 8,
@@ -129,11 +151,13 @@ export default function PropertyDetailScreen() {
             >
               {property.title}
             </Text>
-            <View className="flex-row items-center mb-3">
-              <Ionicons name="location" size={18} color="#34D399" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Ionicons name="location" size={18} color={colors.primarySoft} />
               <Text 
-                className="text-white ml-1.5 font-medium"
                 style={{
+                  color: '#FFFFFF',
+                  marginLeft: 6,
+                  fontWeight: '500',
                   textShadowColor: 'rgba(0, 0, 0, 0.8)',
                   textShadowOffset: { width: 0, height: 1 },
                   textShadowRadius: 4,
@@ -142,11 +166,13 @@ export default function PropertyDetailScreen() {
                 {property.location}
               </Text>
             </View>
-            <View className="flex-row justify-between">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View>
                 <Text 
-                  className="text-gray-300 text-sm font-medium"
                   style={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    fontSize: 14,
+                    fontWeight: '500',
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
                     textShadowOffset: { width: 0, height: 1 },
                     textShadowRadius: 4,
@@ -155,8 +181,10 @@ export default function PropertyDetailScreen() {
                   Annual ROI
                 </Text>
                 <Text 
-                  className="text-emerald-400 text-2xl font-bold"
                   style={{
+                    color: colors.primarySoft,
+                    fontSize: 24,
+                    fontWeight: 'bold',
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
                     textShadowOffset: { width: 0, height: 2 },
                     textShadowRadius: 6,
@@ -165,10 +193,12 @@ export default function PropertyDetailScreen() {
                   {property.estimatedROI}%
                 </Text>
               </View>
-              <View className="items-end">
+              <View style={{ alignItems: 'flex-end' }}>
                 <Text 
-                  className="text-gray-300 text-sm font-medium"
                   style={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    fontSize: 14,
+                    fontWeight: '500',
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
                     textShadowOffset: { width: 0, height: 1 },
                     textShadowRadius: 4,
@@ -177,8 +207,10 @@ export default function PropertyDetailScreen() {
                   Token Price
                 </Text>
                 <Text 
-                  className="text-white text-2xl font-bold"
                   style={{
+                    color: '#FFFFFF',
+                    fontSize: 24,
+                    fontWeight: 'bold',
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
                     textShadowOffset: { width: 0, height: 2 },
                     textShadowRadius: 6,
@@ -192,59 +224,76 @@ export default function PropertyDetailScreen() {
         </View>
 
         {/* Main Content */}
-        <View className="mt-12 bg-white rounded-t-3xl p-6">
+        <View className="-mt-3 bg-white rounded-t-3xl -ml-1 p-6" style={{ backgroundColor: colors.card }}>
           {/* Key Stats */}
-          <View className="flex-row flex-wrap gap-6 mb-6">
-            <View className="flex-1 min-w-[140px]">
-              <Text className="text-gray-500 text-sm">Min. Investment</Text>
-              <Text className="text-black text-lg font-bold">
+          <View className="flex-row flex-wrap gap-6 mb-6" style={{ backgroundColor: colors.card }}>
+            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
+              <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Min. Investment</Text>
+              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
                 ${property.minInvestment.toLocaleString()}
               </Text>
             </View>
-            <View className="flex-1 min-w-[140px]">
-              <Text className="text-gray-500 text-sm">Expected Yield</Text>
-              <Text className="text-green-600 text-lg font-bold">
+            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
+              <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Expected Yield</Text>
+              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
                 {property.estimatedYield}%
               </Text>
             </View>
           </View>
 
           {/* Progress Bar */}
-          <View className="mb-6">
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-500 text-sm">Funding Progress</Text>
-              <Text className="text-gray-800 text-sm font-semibold">
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 14 }}>Funding Progress</Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
                 {Math.round((property.soldTokens / property.totalTokens) * 100)}%
               </Text>
             </View>
-            <View className="w-full bg-gray-200 rounded-full h-2.5">
-              <View
-                className="bg-teal h-2.5 rounded-full"
-                style={{ width: `${(property.soldTokens / property.totalTokens) * 100}%` }}
+            <View style={{ 
+              width: '100%', 
+              backgroundColor: colors.muted, 
+              borderRadius: 9999, 
+              height: 10 
+            }}>
+              <View 
+                style={{ 
+                  backgroundColor: colors.primary, 
+                  height: 10, 
+                  borderRadius: 9999,
+                  width: `${(property.soldTokens / property.totalTokens) * 100}%` 
+                }}
               />
             </View>
-            <Text className="text-gray-500 text-xs mt-1.5 text-right">
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 6, textAlign: 'right' }}>
               {property.soldTokens.toLocaleString()} /{" "}
               {property.totalTokens.toLocaleString()} Tokens
             </Text>
           </View>
 
           {/* Tabs */}
-          <View className="flex-row border-b border-gray-200 mb-6">
+          <View style={{ 
+            flexDirection: 'row', 
+            borderBottomWidth: 1, 
+            borderBottomColor: colors.border, 
+            marginBottom: 24 
+          }}>
             {["Financials", "Documents", "Location"].map((tab) => (
               <TouchableOpacity
                 key={tab}
                 onPress={() => setActiveTab(tab)}
-                className={`pb-3 px-4 ${
-                  activeTab === tab ? "border-b-2 border-[#00b5ad]" : ""
-                }`}
+                style={{
+                  paddingBottom: 12,
+                  paddingHorizontal: 16,
+                  borderBottomWidth: activeTab === tab ? 2 : 0,
+                  borderBottomColor: activeTab === tab ? colors.primary : 'transparent',
+                }}
               >
-                <Text
-                  className={`text-sm ${
-                    activeTab === tab
-                      ? "font-semibold text-[#00b5ad]"
-                      : "font-medium text-gray-500"
-                  }`}
+                <Text 
+                  style={{
+                    fontSize: 14,
+                    fontWeight: activeTab === tab ? '600' : '500',
+                    color: activeTab === tab ? colors.primary : colors.textMuted,
+                  }}
                 >
                   {tab}
                 </Text>
@@ -255,34 +304,42 @@ export default function PropertyDetailScreen() {
           {/* Tab Content */}
           {activeTab === "Financials" && (
             <View>
-              <Text className="text-black text-xl font-bold mb-3">
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 12 }}>
                 Property Overview
               </Text>
-              <Text className="text-gray-700 text-base leading-relaxed mb-6">
+              <Text style={{ color: colors.textSecondary, fontSize: 16, lineHeight: 24, marginBottom: 24 }}>
                 {property.description}
               </Text>
 
-              <View className="flex-col gap-4 mb-16">
-                <View className="flex-row items-start gap-4">
-                  <View className="bg-teal/10 p-2.5 rounded-xl">
-                    <Ionicons name="business" size={20} color="#00b5ad" />
+              <View style={{ flexDirection: 'column', gap: 16, marginBottom: 64 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
+                  <View style={{ 
+                     
+                    padding: 10, 
+                    borderRadius: 12 
+                  }}>
+                    <Ionicons name="business" size={20} color={colors.primary} />
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-semibold text-black">Developer</Text>
-                    <Text className="text-sm text-gray-600">
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>Developer</Text>
+                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
                       {property.builder.name}
                     </Text>
                   </View>
                 </View>
-                <View className="flex-row items-start gap-4">
-                  <View className="bg-teal/10 p-2.5 rounded-xl">
-                    <Ionicons name="calendar" size={20} color="#00b5ad" />
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
+                  <View style={{ 
+                     
+                    padding: 10, 
+                    borderRadius: 12 
+                  }}>
+                    <Ionicons name="calendar" size={20} color={colors.primary} />
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-semibold text-black">
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
                       Completion Timeline
                     </Text>
-                    <Text className="text-sm text-gray-600">
+                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
                       {property.completionDate}
                     </Text>
                   </View>
@@ -292,33 +349,54 @@ export default function PropertyDetailScreen() {
           )}
 
           {activeTab === "Documents" && (
-            <View className="mb-16 ">
-              <Text className="text-black text-xl font-bold mb-4">
+            <View style={{ marginBottom: 64 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
                 Documents & Verification
               </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                className="flex-row gap-4"
+                style={{ flexDirection: 'row', gap: 16 }}
               >
                 {property.documents.map((doc) => (
                   <View
                     key={doc.name}
-                    className="w-60 bg-white rounded-2xl border border-gray-200 mx-2 p-5 shadow-sm items-center mb-16"
+                    style={{
+                      width: 240,
+                      backgroundColor: colors.card,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      marginHorizontal: 8,
+                      padding: 20,
+                      shadowColor: colors.primary,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 4,
+                      elevation: 3,
+                      alignItems: 'center',
+                      marginBottom: 64,
+                    }}
                   >
                     <Ionicons
                       name="document-text-outline"
                       size={42}
-                      color="#00b5ad"
+                      color={colors.primary}
                     />
-                    <Text className="font-semibold text-black mt-2">
+                    <Text style={{ fontWeight: '600', color: colors.textPrimary, marginTop: 8 }}>
                       {doc.name}
                     </Text>
-                    <Text className="text-xs text-gray-500">
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>
                       {doc.verified ? 'Verified & On-Chain' : 'Pending Verification'}
                     </Text>
-                    <TouchableOpacity className="mt-3 bg-teal/10 px-4 py-1.5 rounded-full">
-                      <Text className="text-[#00b5ad] font-semibold text-sm">
+                    <TouchableOpacity style={{ 
+                      marginTop: 12, 
+                       
+                      paddingHorizontal: 16, 
+                      paddingVertical: 6, 
+                      borderRadius: 9999 
+                    }}>
+                      <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>
                         View {doc.type}
                       </Text>
                     </TouchableOpacity>
@@ -329,14 +407,25 @@ export default function PropertyDetailScreen() {
           )}
 
           {activeTab === "Location" && (
-            <View className="mb-16">
-              <Text className="text-black text-xl font-bold mb-4">Location</Text>
-              <View className="h-48 w-full bg-gray-100 border border-gray-200 rounded-2xl items-center justify-center">
-                <Ionicons name="map-outline" size={60} color="#00b5ad" />
-                <Text className="text-gray-600 mt-2">
+            <View style={{ marginBottom: 64 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+                Location
+              </Text>
+              <View style={{ 
+                height: 192, 
+                width: '100%', 
+                backgroundColor: colors.muted, 
+                borderWidth: 1, 
+                borderColor: colors.border, 
+                borderRadius: 16, 
+                alignItems: 'center', 
+                justifyContent: 'center' 
+              }}>
+                <Ionicons name="map-outline" size={60} color={colors.primary} />
+                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
                   {property.location || "Location not available"}
                 </Text>
-                <Text className="text-xs text-gray-500">
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
                   (Map integration placeholder)
                 </Text>
               </View>
@@ -346,24 +435,60 @@ export default function PropertyDetailScreen() {
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <View className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-3 border-t border-gray-200 flex-row items-center gap-2">
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: isDarkColorScheme ? `${colors.card}E6` : `${colors.card}E6`,
+        padding: 12,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+      }}>
         <TouchableOpacity
           onPress={handleInvest}
-          className="flex-1 bg-teal h-12 rounded-xl items-center justify-center"
+          style={{
+            flex: 1,
+            backgroundColor: colors.primary,
+            height: 48,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          <Text className="text-white text-lg font-bold">Invest</Text>
+          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
+            Invest
+          </Text>
         </TouchableOpacity>
         {["bookmark-outline", "share-outline", "chatbubble-outline"].map(
           (icon) => (
             <TouchableOpacity
               key={icon}
-              className="w-12 h-12 bg-gray-100 rounded-xl items-center justify-center"
+              style={{
+                width: 48,
+                height: 48,
+                backgroundColor: colors.muted,
+                borderRadius: 12,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <Ionicons name={icon as any} size={22} color="#4B5563" />
+              <Ionicons name={icon as any} size={22} color={colors.textMuted} />
             </TouchableOpacity>
           )
         )}
       </View>
+
+      {/* Investment Modal */}
+      {showInvestModal && (
+        <InvestScreen 
+          propertyId={id} 
+          onClose={() => setShowInvestModal(false)} 
+        />
+      )}
     </View>
   );
 }

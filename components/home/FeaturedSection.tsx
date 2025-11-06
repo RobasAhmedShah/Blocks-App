@@ -2,12 +2,21 @@ import React from "react";
 import { View, Text, Image, ScrollView, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function FeaturedSection({ featured }: { featured: any[] }) {
   const router = useRouter();
+  const { colors, isDarkColorScheme } = useColorScheme();
+  
   return (
-    <View className="pt-6 bg-transparent">
-      <Text className="text-gray-900 text-xl font-bold px-4 pb-4">
+    <View style={{ paddingTop: 24, backgroundColor: 'transparent' }}>
+      <Text style={{ 
+        color: colors.textPrimary, 
+        fontSize: 20, 
+        fontWeight: 'bold', 
+        paddingHorizontal: 16, 
+        paddingBottom: 16 
+      }}>
         Featured Properties
       </Text>
 
@@ -26,21 +35,33 @@ export default function FeaturedSection({ featured }: { featured: any[] }) {
                 resizeMode="cover"
               />
 
-              {/* Overlay Gradient - Light theme with subtle dark overlay for text readability */}
+              {/* Overlay Gradient - for text readability */}
               <LinearGradient
-                colors={["rgba(255, 255, 255, 0.1)", "rgba(0, 0, 0, 0.5)"]}
-                className="absolute inset-0"
+                colors={
+                  isDarkColorScheme
+                    ? ["rgba(0, 0, 0, 0.2)", "rgba(0, 0, 0, 0.7)"]
+                    : ["rgba(255, 255, 255, 0.1)", "rgba(0, 0, 0, 0.5)"]
+                }
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
               />
 
               {/* Content */}
-              <View className="absolute bottom-0 p-6 w-full">
+              <View style={{ position: 'absolute', bottom: 0, padding: 24, width: '100%' }}>
                 {/* Title */}
-                <Text className="text-white text-2xl font-bold mb-4" style={{ textShadowColor: 'rgba(0, 0, 0, 0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
+                <Text style={{ 
+                  color: '#FFFFFF', 
+                  fontSize: 24, 
+                  fontWeight: 'bold', 
+                  marginBottom: 16,
+                  textShadowColor: 'rgba(0, 0, 0, 0.8)', 
+                  textShadowOffset: { width: 0, height: 2 }, 
+                  textShadowRadius: 4 
+                }}>
                   {item.title}
                 </Text>
 
                 {/* Stats Row */}
-                <View className="flex-row justify-between items-center w-full mb-5">
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 }}>
                   <Stat label="Expected ROI" value={item.roi} />
                   <Stat label="Funded" value={item.funded} />
                   <Stat label="Min Investment" value={item.minInvestment} />
@@ -48,17 +69,17 @@ export default function FeaturedSection({ featured }: { featured: any[] }) {
 
                 {/* CTA Button */}
                 <TouchableOpacity 
-                  className="mt-2 w-full rounded-full overflow-hidden"
+                  style={{ marginTop: 8, width: '100%', borderRadius: 9999, overflow: 'hidden' }}
                   onPress={() => item.id && router.push(`/property/${item.id}`)}
                 >
                   <LinearGradient
-                    colors={["#16A34A", "#15803D"]}
+                    colors={[colors.primary, colors.primarySoft]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    className="rounded-full"
+                    style={{ borderRadius: 9999 }}
                   >
-                    <View className="py-3 items-center">
-                      <Text className="text-white font-bold tracking-wide">
+                    <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                      <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', letterSpacing: 0.5 }}>
                         View Property
                       </Text>
                     </View>
@@ -80,10 +101,32 @@ export const Stat = ({
   label: string;
   value: string;
 }) => (
-  <View className="flex-1  rounded-2xl p-3 mx-1 items-center justify-center">
-    <Text className="text-gray-200 text-xs font-medium tracking-wide mb-1">
+  <View style={{ 
+    flex: 1, 
+    borderRadius: 16, 
+    padding: 12, 
+    marginHorizontal: 4, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  }}>
+    <Text style={{ 
+      color: 'rgba(229, 231, 235, 0.9)', 
+      fontSize: 12, 
+      fontWeight: '500', 
+      letterSpacing: 0.5, 
+      marginBottom: 4 
+    }}>
       {label}
     </Text>
-    <Text className="text-white text-lg font-bold" style={{ textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{value}</Text>
+    <Text style={{ 
+      color: '#FFFFFF', 
+      fontSize: 18, 
+      fontWeight: 'bold',
+      textShadowColor: 'rgba(0, 0, 0, 0.5)', 
+      textShadowOffset: { width: 0, height: 1 }, 
+      textShadowRadius: 2 
+    }}>
+      {value}
+    </Text>
   </View>
 );

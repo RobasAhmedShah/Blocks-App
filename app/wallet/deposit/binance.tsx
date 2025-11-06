@@ -12,17 +12,19 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { quickAmounts } from '@/data/mockWallet';
+import { useWallet } from '@/services/useWallet';
 
 export default function BinancePayDepositScreen() {
   const router = useRouter();
   const { amount: suggestedAmount } = useLocalSearchParams();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { deposit } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [showQR, setShowQR] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const quickAmounts = [100, 250, 500, 1000];
   const payId = 'BLOCKS_' + Math.random().toString(36).substring(7).toUpperCase();
 
   const handleGenerateQR = () => {
@@ -33,41 +35,77 @@ export default function BinancePayDepositScreen() {
     setShowQR(true);
   };
 
+  const handleConfirmDeposit = async () => {
+    try {
+      setIsProcessing(true);
+      const depositAmount = parseFloat(amount);
+      await deposit(depositAmount, 'Binance Pay');
+      router.push({
+        pathname: '/wallet/deposit/card-successfull',
+        params: {
+          amount: depositAmount.toString(),
+          method: 'Binance Pay',
+        },
+      } as any);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process deposit');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
-    <View className={`flex-1 ${isDark ? 'bg-blocks-bg-dark' : 'bg-blocks-bg-light'}`}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
       <View
-        className={`px-4 pt-12 pb-4 ${isDark ? 'bg-blocks-bg-dark/80' : 'bg-blocks-bg-light/80'}`}
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+          paddingBottom: 16,
+          backgroundColor: `${colors.background}CC`,
+        }}
       >
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className={`w-10 h-10 rounded-full items-center justify-center ${
-              isDark ? 'bg-blocks-card-dark/60' : 'bg-gray-200'
-            }`}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9999,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDarkColorScheme ? `${colors.card}99` : colors.muted,
+            }}
           >
-            <MaterialIcons name="arrow-back" size={24} color={isDark ? '#E0E0E0' : '#1F2937'} />
+            <MaterialIcons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text className={`text-lg font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
             Binance Pay
           </Text>
-          <View className="w-10 h-10" />
+          <View style={{ width: 40, height: 40 }} />
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6" showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
         {/* Binance Logo */}
-        <View className="items-center mb-6">
-          <View className="w-20 h-20 rounded-full bg-yellow-500/20 items-center justify-center mb-3">
-            <Text className="text-4xl">💳</Text>
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <View style={{
+            width: 80,
+            height: 80,
+            borderRadius: 9999,
+            backgroundColor: 'rgba(240, 185, 11, 0.2)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 12,
+          }}>
+            <Text style={{ fontSize: 40 }}>💳</Text>
           </View>
-          <Text className={`text-xl font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
             Pay with Binance
           </Text>
-          <Text className={`text-sm ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
             Fast and secure payment
           </Text>
         </View>
@@ -75,14 +113,21 @@ export default function BinancePayDepositScreen() {
         {!showQR ? (
           <>
             {/* Amount Input */}
-            <View className="mb-6">
-              <Text className={`text-base font-medium mb-2 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
                 Amount to Deposit
               </Text>
               <View
-                className={`flex-row items-center px-4 py-4 rounded-xl ${
-                  isDark ? 'bg-blocks-card-dark border border-teal/20' : 'bg-gray-100'
-                }`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
+                  borderWidth: isDarkColorScheme ? 1 : 0,
+                  borderColor: `${colors.primary}33`,
+                }}
               >
                 <MaterialIcons name="attach-money" size={24} color="#F0B90B" />
                 <TextInput
@@ -90,36 +135,48 @@ export default function BinancePayDepositScreen() {
                   onChangeText={setAmount}
                   keyboardType="numeric"
                   placeholder="0.00"
-                  placeholderTextColor={isDark ? '#A9A9A9' : '#6B7280'}
-                  className={`flex-1 ml-3 text-2xl font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}
+                  placeholderTextColor={colors.textMuted}
+                  style={{
+                    flex: 1,
+                    marginLeft: 12,
+                    fontSize: 24,
+                    fontWeight: 'bold',
+                    color: colors.textPrimary,
+                  }}
                 />
-                <Text className={`text-sm ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                   USDC
                 </Text>
               </View>
 
               {/* Quick Amount Buttons */}
-              <View className="flex-row gap-2 mt-3">
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                 {quickAmounts.map((qa) => (
                   <TouchableOpacity
                     key={qa}
                     onPress={() => setAmount(qa.toString())}
-                    className={`flex-1 py-2 rounded-full ${
-                      amount === qa.toString()
-                        ? 'bg-yellow-500'
-                        : isDark
-                        ? 'bg-blocks-card-dark/40 border border-yellow-500/20'
-                        : 'bg-gray-100'
-                    }`}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 8,
+                      borderRadius: 9999,
+                      backgroundColor: amount === qa.toString()
+                        ? '#F0B90B'
+                        : isDarkColorScheme
+                        ? `${colors.card}66`
+                        : colors.muted,
+                      borderWidth: amount === qa.toString() ? 0 : 1,
+                      borderColor: amount === qa.toString() ? 'transparent' : 'rgba(240, 185, 11, 0.2)',
+                    }}
                   >
                     <Text
-                      className={`text-center text-sm font-semibold ${
-                        amount === qa.toString()
-                          ? 'text-black'
-                          : isDark
-                          ? 'text-blocks-text-dark'
-                          : 'text-blocks-text-light'
-                      }`}
+                      style={{
+                        textAlign: 'center',
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: amount === qa.toString()
+                          ? '#000000'
+                          : colors.textPrimary,
+                      }}
                     >
                       ${qa}
                     </Text>
@@ -129,26 +186,31 @@ export default function BinancePayDepositScreen() {
             </View>
 
             {/* Benefits */}
-            <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}>
-              <Text className={`font-bold mb-3 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+            <View style={{
+              padding: 16,
+              borderRadius: 16,
+              marginBottom: 24,
+              backgroundColor: colors.card,
+            }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: 'bold', marginBottom: 12 }}>
                 Why Binance Pay?
               </Text>
-              <View className="gap-3">
-                <View className="flex-row items-center">
-                  <MaterialIcons name="check-circle" size={20} color="#10B981" />
-                  <Text className={`ml-3 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+              <View style={{ gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
+                  <Text style={{ marginLeft: 12, color: colors.textSecondary }}>
                     Instant deposits
                   </Text>
                 </View>
-                <View className="flex-row items-center">
-                  <MaterialIcons name="check-circle" size={20} color="#10B981" />
-                  <Text className={`ml-3 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
+                  <Text style={{ marginLeft: 12, color: colors.textSecondary }}>
                     Low transaction fees
                   </Text>
                 </View>
-                <View className="flex-row items-center">
-                  <MaterialIcons name="check-circle" size={20} color="#10B981" />
-                  <Text className={`ml-3 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialIcons name="check-circle" size={20} color={colors.primary} />
+                  <Text style={{ marginLeft: 12, color: colors.textSecondary }}>
                     Secure and verified
                   </Text>
                 </View>
@@ -156,27 +218,32 @@ export default function BinancePayDepositScreen() {
             </View>
 
             {/* Fee Info */}
-            <View className={`p-4 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark/40' : 'bg-gray-100'}`}>
-              <View className="flex-row justify-between mb-2">
-                <Text className={isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}>
+            <View style={{
+              padding: 16,
+              borderRadius: 16,
+              marginBottom: 24,
+              backgroundColor: isDarkColorScheme ? `${colors.card}66` : colors.muted,
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.textSecondary }}>
                   Deposit Amount
                 </Text>
-                <Text className={`font-medium ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+                <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
                   ${parseFloat(amount || '0').toFixed(2)}
                 </Text>
               </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className={isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.textSecondary }}>
                   Processing Fee
                 </Text>
-                <Text className="font-medium text-green-500">$0.00</Text>
+                <Text style={{ color: colors.primary, fontWeight: '500' }}>$0.00</Text>
               </View>
-              <View className={`h-px my-2 ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`} />
-              <View className="flex-row justify-between">
-                <Text className={`font-bold ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+              <View style={{ height: 1, marginVertical: 8, backgroundColor: colors.border }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
                   You'll Receive
                 </Text>
-                <Text className="font-bold text-yellow-500">
+                <Text style={{ color: '#F0B90B', fontWeight: 'bold' }}>
                   ${parseFloat(amount || '0').toFixed(2)} USDC
                 </Text>
               </View>
@@ -185,60 +252,133 @@ export default function BinancePayDepositScreen() {
         ) : (
           <>
             {/* QR Code Screen */}
-            <View className={`items-center p-6 rounded-2xl mb-6 ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}>
-              <Text className={`text-lg font-bold mb-4 ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+            <View style={{
+              alignItems: 'center',
+              padding: 24,
+              borderRadius: 16,
+              marginBottom: 24,
+              backgroundColor: colors.card,
+            }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
                 Scan to Pay
               </Text>
-              <View className="w-56 h-56 bg-white p-3 rounded-xl mb-4">
+              <View style={{
+                width: 224,
+                height: 224,
+                backgroundColor: '#FFFFFF',
+                padding: 12,
+                borderRadius: 12,
+                marginBottom: 16,
+              }}>
                 <Image
                   source={{
                     uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=binancepay://${payId}`,
                   }}
-                  className="w-full h-full"
+                  style={{ width: '100%', height: '100%' }}
                   resizeMode="contain"
                 />
               </View>
-              <View className={`w-full p-3 rounded-xl ${isDark ? 'bg-blocks-bg-dark' : 'bg-gray-100'}`}>
-                <Text className={`text-center font-mono text-sm ${isDark ? 'text-blocks-text-dark' : 'text-blocks-text-light'}`}>
+              <View style={{
+                width: '100%',
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: isDarkColorScheme ? colors.background : colors.muted,
+              }}>
+                <Text style={{
+                  textAlign: 'center',
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  color: colors.textPrimary,
+                }}>
                   {payId}
                 </Text>
               </View>
-              <Text className={`text-center mt-4 ${isDark ? 'text-blocks-text-dark-secondary' : 'text-blocks-text-secondary'}`}>
+              <Text style={{
+                textAlign: 'center',
+                marginTop: 16,
+                color: colors.textSecondary,
+              }}>
                 Open Binance app and scan this QR code to complete payment
               </Text>
             </View>
 
             {/* Status */}
-            <View className={`flex-row items-center p-4 rounded-2xl ${isDark ? 'bg-blocks-card-dark' : 'bg-white'}`}>
-              <View className="w-2 h-2 rounded-full bg-yellow-500 mr-3" />
-              <Text className="text-yellow-500 font-medium">Waiting for payment...</Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: colors.card,
+            }}>
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 9999,
+                backgroundColor: '#F0B90B',
+                marginRight: 12,
+              }} />
+              <Text style={{ color: '#F0B90B', fontWeight: '500' }}>Waiting for payment...</Text>
             </View>
 
             {/* Cancel Button */}
             <TouchableOpacity
-              onPress={() => setShowQR(false)}
-              className="mt-4 py-3 rounded-xl items-center"
+              onPress={handleConfirmDeposit}
+              disabled={isProcessing}
+              style={{
+                backgroundColor: colors.primary,
+                marginTop: 16,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                opacity: isProcessing ? 0.6 : 1,
+              }}
             >
-              <Text className="text-teal font-semibold">Cancel Payment</Text>
+              <Text style={{ color: colors.primaryForeground, fontWeight: '600', fontSize: 16 }}>
+                {isProcessing ? 'Processing...' : 'I\'ve Completed Payment'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowQR(false)}
+              style={{
+                marginTop: 16,
+                paddingVertical: 12,
+                borderRadius: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Cancel Payment</Text>
             </TouchableOpacity>
           </>
         )}
 
-        <View className="h-32" />
+        <View style={{ height: 128 }} />
       </ScrollView>
 
       {/* Bottom CTA */}
       {!showQR && (
         <View
-          className={`px-4 py-4 border-t ${
-            isDark ? 'bg-blocks-bg-dark/80 border-gray-700' : 'bg-blocks-bg-light/80 border-gray-200'
-          }`}
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            backgroundColor: `${colors.background}CC`,
+          }}
         >
           <TouchableOpacity
             onPress={handleGenerateQR}
-            className="bg-yellow-500 py-4 rounded-xl items-center justify-center"
+            style={{
+              backgroundColor: '#F0B90B',
+              paddingVertical: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Text className="text-black text-lg font-bold">Generate Payment QR</Text>
+            <Text style={{ color: '#000000', fontSize: 18, fontWeight: 'bold' }}>
+              Generate Payment QR
+            </Text>
           </TouchableOpacity>
         </View>
       )}

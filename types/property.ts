@@ -3,7 +3,13 @@ export interface Property {
   title: string;
   location: string;
   city: string;
-  valuation: number;
+  valuation: number | string; // Can be number (PKR) or string (formatted)
+  price?: string; // Optional, for backward compatibility
+  image?: string; // Optional, for backward compatibility (use images array instead)
+  estReturn?: number; // Optional, for backward compatibility (use estimatedROI instead)
+  fundingProgress?: number; // Optional, calculated from soldTokens/totalTokens
+  tokenSymbol?: string; // Optional
+  
   tokenPrice: number;
   minInvestment: number;
   totalTokens: number;
@@ -64,22 +70,6 @@ export interface UserInvestment {
   }[];
 }
 
-export interface WalletBalance {
-  usdc: number;
-  totalInvested: number;
-  totalEarnings: number;
-  pendingDeposits: number;
-}
-
-export interface Transaction {
-  id: string;
-  type: 'deposit' | 'withdraw' | 'investment' | 'rental' | 'transfer';
-  amount: number;
-  currency: 'USDC' | 'PKR';
-  status: 'pending' | 'completed' | 'failed';
-  date: string;
-  description: string;
-  propertyId?: string;
-  propertyTitle?: string;
-}
+// Wallet types moved to @types/wallet.ts
+// Import from there: import { WalletBalance, Transaction } from "@/types/wallet";
 

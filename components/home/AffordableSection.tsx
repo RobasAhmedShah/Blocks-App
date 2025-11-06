@@ -2,45 +2,73 @@ import React from "react";
 import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function AffordableSection({ affordable }: { affordable: any[] }) {
   const router = useRouter();
+  const { colors, isDarkColorScheme } = useColorScheme();
   
   return (
-    <View className="pt-10 bg-transparent">
-      <Text className="text-gray-900 text-xl font-bold px-4 pb-4">
+    <View style={{ paddingTop: 40, backgroundColor: 'transparent' }}>
+      <Text style={{ 
+        color: colors.textPrimary, 
+        fontSize: 20, 
+        fontWeight: 'bold', 
+        paddingHorizontal: 16, 
+        paddingBottom: 16 
+      }}>
         Affordable Investments
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pl-4">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 16 }}>
         {affordable.map((item, idx) => (
           <TouchableOpacity
             key={item.id || idx}
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
-            className="w-[260px] mr-4 border border-gray-200 rounded-3xl p-3 py-4 shadow-sm"
+            style={{ 
+              backgroundColor: isDarkColorScheme ? `${colors.card}DD` : `${colors.card}E6`,
+              width: 260,
+              marginRight: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 24,
+              padding: 12,
+              paddingVertical: 16,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
             onPress={() => item.id && router.push(`/property/${item.id}`)}
             activeOpacity={0.8}
           >
-            <View className="h-28 overflow-hidden mb-3">
+            <View style={{ height: 112, overflow: 'hidden', marginBottom: 12 }}>
               <Image
                 source={{ uri: item.image }}
-                className="w-full h-full rounded-2xl"
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
                 resizeMode="cover"
               />
             </View>
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-gray-900 font-semibold">{item.name}</Text>
-              <View className="flex-row items-center bg-emerald-100 px-2 py-0.5 rounded-full">
-                <Ionicons name="checkmark-circle" size={12} color="#16A34A" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{item.name}</Text>
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                // backgroundColor: `${colors.primary}20`, 
+                paddingHorizontal: 8, 
+                paddingVertical: 2, 
+                borderRadius: 9999 
+              }}>
+                <Ionicons name="checkmark-circle" size={12} color={colors.primary} />
               </View>
             </View>
-            <View className="flex-row justify-between items-end">
-              <Text className="text-gray-600 text-sm">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                 Entry {"\n"}
-                <Text className="text-gray-900 text-lg font-bold">{item.entry}</Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>{item.entry}</Text>
               </Text>
-              <Text className="text-gray-600 text-sm">
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
                 ROI {"\n"}
-                <Text className="text-emerald-600 text-lg font-bold">{item.roi}</Text>
+                <Text style={{ color: colors.primary, fontSize: 18, fontWeight: 'bold' }}>{item.roi}</Text>
               </Text>
             </View>
           </TouchableOpacity>

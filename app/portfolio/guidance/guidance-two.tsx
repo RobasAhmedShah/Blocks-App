@@ -13,10 +13,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { mockProperties } from "@/data/mockProperties";
+import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function GuidedInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
+  const { colors, isDarkColorScheme } = useColorScheme();
   const [investmentMode, setInvestmentMode] = useState<"amount" | "earning">("amount");
   const [investAmount, setInvestAmount] = useState(
     investmentPlan.investmentAmount?.toLocaleString() || "1,000"
@@ -90,7 +92,10 @@ export default function GuidedInvestmentScreen() {
     });
 
     console.log("Invest Now clicked - Amount:", amount, "Property:", selectedProp.title);
-    router.push('./guidance-three');
+    router.push({
+      pathname: "/invest/[id]",
+      params: { id: selectedProp.id , tokenCount: (amount / selectedProp.tokenPrice).toFixed(2) },
+    })
   };
 
   const handleSavePlan = () => {
@@ -112,42 +117,67 @@ export default function GuidedInvestmentScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#10221c]">
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 bg-[#10221c]">
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        backgroundColor: colors.background,
+      }}>
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center"
+          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Ionicons name="arrow-back" size={24} color="#e0e0e0" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <Text className="text-[#e0e0e0] text-lg font-bold flex-1 text-center">
+        <Text style={{
+          color: colors.textPrimary,
+          fontSize: 18,
+          fontWeight: 'bold',
+          flex: 1,
+          textAlign: 'center',
+        }}>
           Guided Investment
         </Text>
 
-        <View className="w-10" />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="flex-1 px-4 pb-32 ">
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 128 }}>
           {/* Toggle Section */}
-          <View className="py-2 mb-4">
-            <View className="flex-row h-12 bg-[#1a2c26] rounded-xl p-1">
+          <View style={{ paddingVertical: 8, marginBottom: 16 }}>
+            <View style={{
+              flexDirection: 'row',
+              height: 48,
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              padding: 4,
+            }}>
               <TouchableOpacity
                 onPress={() => setInvestmentMode("amount")}
-                className={`flex-1 items-center justify-center rounded-lg ${
-                  investmentMode === "amount" ? "bg-[#10221c] shadow-sm" : ""
-                }`}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 8,
+                  backgroundColor: investmentMode === "amount" ? colors.background : "transparent",
+                }}
               >
                 <Text
-                  className={`text-sm font-medium ${
-                    investmentMode === "amount"
-                      ? "text-[#e0e0e0]"
-                      : "text-[#9db9b0]"
-                  }`}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: investmentMode === "amount"
+                      ? colors.textPrimary
+                      : colors.textMuted,
+                  }}
                 >
                   Invest Amount
                 </Text>
@@ -173,44 +203,80 @@ export default function GuidedInvestmentScreen() {
           </View>
 
           {/* Input Fields */}
-          <View className="flex flex-col gap-3 mb-4">
+          <View style={{ flexDirection: 'column', gap: 12, marginBottom: 16 }}>
             {/* Invest Amount Input */}
-            <View className={investmentMode === "earning" ? "opacity-50" : ""}>
-              <Text className="text-[#e0e0e0] text-base font-medium mb-2">
+            <View style={{ opacity: investmentMode === "earning" ? 0.5 : 1 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
                 I want to invest...
               </Text>
-              <View className="relative">
-                <Text className="absolute left-4 top-5 text-[#e0e0e0] text-lg font-semibold z-10">
+              <View style={{ position: 'relative' }}>
+                <Text style={{
+                  position: 'absolute',
+                  left: 16,
+                  top: 20,
+                  color: colors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  zIndex: 10,
+                }}>
                   $
                 </Text>
                 <TextInput
-                  className="w-full h-16 bg-[#1a2c26] rounded-lg pl-8 pr-4 text-[#e0e0e0] text-lg font-semibold"
+                  style={{
+                    width: '100%',
+                    height: 64,
+                    backgroundColor: colors.card,
+                    borderRadius: 8,
+                    paddingLeft: 32,
+                    paddingRight: 16,
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: '600',
+                  }}
                   value={investAmount}
                   onChangeText={setInvestAmount}
                   keyboardType="numeric"
                   placeholder="1,000"
-                  placeholderTextColor="#9db9b0"
+                  placeholderTextColor={colors.textMuted}
                   editable={investmentMode === "amount"}
                 />
               </View>
             </View>
 
             {/* Earn Amount Input */}
-            <View className={investmentMode === "amount" ? "opacity-50" : ""}>
-              <Text className="text-[#e0e0e0] text-base font-medium mb-2">
+            <View style={{ opacity: investmentMode === "amount" ? 0.5 : 1 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
                 To earn per month...
               </Text>
-              <View className="relative">
-                <Text className="absolute left-4 top-5 text-[#9db9b0] text-lg font-semibold z-10">
+              <View style={{ position: 'relative' }}>
+                <Text style={{
+                  position: 'absolute',
+                  left: 16,
+                  top: 20,
+                  color: colors.textMuted,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  zIndex: 10,
+                }}>
                   $
                 </Text>
                 <TextInput
-                  className="w-full h-16 bg-[#1a2c26] rounded-lg pl-8 pr-4 text-[#e0e0e0] text-lg font-semibold"
+                  style={{
+                    width: '100%',
+                    height: 64,
+                    backgroundColor: colors.card,
+                    borderRadius: 8,
+                    paddingLeft: 32,
+                    paddingRight: 16,
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: '600',
+                  }}
                   value={earnAmount}
                   onChangeText={setEarnAmount}
                   keyboardType="numeric"
                   placeholder="50"
-                  placeholderTextColor="#9db9b0"
+                  placeholderTextColor={colors.textMuted}
                   editable={investmentMode === "earning"}
                 />
               </View>
@@ -218,18 +284,18 @@ export default function GuidedInvestmentScreen() {
           </View>
 
           {/* Recommended Properties Section */}
-          <View className="mt-4">
-            <Text className="text-[#e0e0e0] text-base font-bold mb-2">
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
               Recommended For You
             </Text>
-            <Text className="text-[#9db9b0] text-xs mb-4">
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
               Tap a property to select it. Properties are ranked by highest ROI that match your investment amount.
             </Text>
 
             {/* Property Cards */}
-            <View className="flex flex-col gap-4">
+            <View style={{ flexDirection: 'column', gap: 16 }}>
               <ScrollView 
-                className="flex-1 h-[300px]"
+                style={{ flex: 1, height: 300 }}
                 showsVerticalScrollIndicator={false} 
                 contentContainerStyle={{ gap: 16 }}
               >
@@ -240,59 +306,65 @@ export default function GuidedInvestmentScreen() {
                       <TouchableOpacity
                         key={property.id}
                         onPress={() => handlePropertySelect(property.id)}
-                        className={`flex-row gap-4 bg-[#1a2c26] rounded-xl p-3 ${
-                          isSelected ? 'border-2 border-[#13eca4]' : 'border-2 border-transparent'
-                        }`}
+                        style={{
+                          flexDirection: 'row',
+                          gap: 16,
+                          backgroundColor: colors.card,
+                          borderRadius: 12,
+                          padding: 12,
+                          borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : 'transparent',
+                        }}
                         activeOpacity={0.7}
                       >
                         <Image
                           source={{ uri: property.images[0] }}
-                          className="w-24 h-24 rounded-lg"
+                          style={{ width: 96, height: 96, borderRadius: 8 }}
                           resizeMode="cover"
                         />
 
-                        <View className="flex-1 justify-between">
+                        <View style={{ flex: 1, justifyContent: 'space-between' }}>
                           <View>
-                            <Text className="text-[#e0e0e0] text-sm font-semibold">
+                            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
                               {property.title}
                             </Text>
-                            <Text className="text-[#9db9b0] text-xs mt-1">
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
                               {property.location}
                             </Text>
                           </View>
 
-                          <View className="flex-row items-center justify-between">
-                            <View className="flex flex-col items-start">
-                              <Text className="text-[#9db9b0] text-xs">ROI</Text>
-                              <Text className="text-[#13eca4] text-sm font-bold">
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <Text style={{ color: colors.textMuted, fontSize: 12 }}>ROI</Text>
+                              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
                                 {property.estimatedROI.toFixed(1)}%
                               </Text>
                             </View>
 
-                            <View className="flex flex-col items-start">
-                              <Text className="text-[#9db9b0] text-xs">
+                            <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <Text style={{ color: colors.textMuted, fontSize: 12 }}>
                                 Monthly
                               </Text>
-                              <Text className="text-[#e0e0e0] text-sm font-bold">
+                              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: 'bold' }}>
                                 ${expectedMonthlyReturn}
                               </Text>
                             </View>
 
-                            <View className="flex flex-col items-start">
-                              <Text className="text-[#9db9b0] text-xs">
+                            <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <Text style={{ color: colors.textMuted, fontSize: 12 }}>
                                 Tokens
                               </Text>
-                              <Text className="text-[#e0e0e0] text-sm font-bold">
+                              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: 'bold' }}>
                                 {tokensCount.toLocaleString()}
                               </Text>
                             </View>
 
-                            <View className="flex-row items-center gap-1">
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                               {isSelected && (
                                 <Ionicons
                                   name="checkmark-circle"
                                   size={20}
-                                  color="#13eca4"
+                                  color={colors.primary}
                                 />
                               )}
                             </View>
@@ -302,15 +374,15 @@ export default function GuidedInvestmentScreen() {
                     );
                   })
                 ) : (
-                  <View className="py-12 items-center justify-center">
-                    <Text className="text-[#e57373] text-2xl font-extrabold text-center mb-2">
+                  <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.destructive, fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
                       We&apos;re Sorry!
                     </Text>
-                    <Text className="text-[#e0e0e0] text-base font-semibold text-center mb-3">
+                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 12 }}>
                       Your savings don&apos;t meet the minimum to invest in our properties yet.
                     </Text>
                  
-                    <Text className="text-[#9db9b0] text-sm text-center">
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
                       Try increasing your savings or let us know if you want updates
                       when new options become available.
                     </Text>
@@ -323,24 +395,47 @@ export default function GuidedInvestmentScreen() {
       </ScrollView>
 
       {/* Bottom Buttons */}
-      <View className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-4 bg-gradient-to-t from-[#10221c] via-[#10221c]">
-        <View className="flex flex-col gap-3">
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+        paddingTop: 16,
+        backgroundColor: colors.background,
+      }}>
+        <View style={{ flexDirection: 'column', gap: 12 }}>
           <TouchableOpacity
             onPress={handleInvestNow}
-            className="h-14 items-center justify-center rounded-xl bg-[#13eca4]"
+            style={{
+              height: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              backgroundColor: colors.primary,
+            }}
             activeOpacity={0.8}
           >
-            <Text className="text-[#10221c] text-base font-bold">
+            <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
               Invest Now
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleSavePlan}
-            className="h-14 items-center justify-center rounded-xl border border-[#13eca4]/50 bg-transparent"
+            style={{
+              height: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: `${colors.primary}80`,
+              backgroundColor: 'transparent',
+            }}
             activeOpacity={0.8}
           >
-            <Text className="text-[#13eca4] text-base font-bold">
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: 'bold' }}>
               Save Plan
             </Text>
           </TouchableOpacity>

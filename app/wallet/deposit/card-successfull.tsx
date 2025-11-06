@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -6,24 +6,86 @@ import {
   ScrollView,
   SafeAreaView,
   Dimensions,
+  Clipboard,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useColorScheme } from "@/lib/useColorScheme";
+import { useWallet } from "@/services/useWallet";
 
 const { width } = Dimensions.get("window");
 
 export default function DepositConfirmationLight() {
   const router = useRouter();
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { transactions } = useWallet();
+  const { amount, method, cardLast4 } = useLocalSearchParams<{
+    amount?: string;
+    method?: string;
+    cardLast4?: string;
+  }>();
+
+  // Get the latest deposit transaction
+  const latestDeposit = useMemo(() => {
+    const depositTransactions = transactions.filter(tx => tx.type === 'deposit');
+    return depositTransactions.length > 0 ? depositTransactions[0] : null;
+  }, [transactions]);
+
+  // Use params if available, otherwise fall back to latest transaction
+  const depositAmount = amount ? parseFloat(amount) : (latestDeposit?.amount || 0);
+  const depositMethod = method || latestDeposit?.description?.replace('Deposit via ', '') || 'Debit Card';
+  const transactionId = latestDeposit?.id || `tx-${Date.now()}`;
+  const depositDate = latestDeposit?.date ? new Date(latestDeposit.date) : new Date();
+
+  // Format date and time
+  const formattedDate = depositDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedTime = depositDate.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  // Format card number display
+  const getMethodDisplay = () => {
+    if (depositMethod === 'Debit Card' && cardLast4) {
+      return `Debit Card **** ${cardLast4}`;
+    }
+    return depositMethod;
+  };
+
+  const handleCopyTransactionId = () => {
+    Clipboard.setString(transactionId);
+    Alert.alert('Copied!', 'Transaction ID copied to clipboard');
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#f6f8f8]">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View className="flex-row items-center p-4 border-b border-gray-200">
-        <TouchableOpacity>
-          <Ionicons name="close" size={28} color="#0b3d36" />
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/wallet')}>
+          <Ionicons name="close" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text className="flex-1 text-center text-[#0b3d36] text-lg font-bold tracking-tight pr-8">
+        <Text style={{
+          flex: 1,
+          textAlign: 'center',
+          color: colors.textPrimary,
+          fontSize: 18,
+          fontWeight: 'bold',
+          letterSpacing: -0.5,
+          paddingRight: 32,
+        }}>
           Confirmation
         </Text>
       </View>
@@ -38,70 +100,124 @@ export default function DepositConfirmationLight() {
         }}
       >
         {/* Check Icon */}
-        <View className="items-center mb-6">
-          <View className="relative">
-            {/* <LinearGradient
-              colors={["#00bfa5", "#00ffc6"]}
-              className="absolute inset-0 rounded-full opacity-20 blur-2xl"
-            /> */}
-            <View className="h-20 w-20 items-center justify-center rounded-full bg-[#0da5a533]">
-              <View className="h-14 w-14 items-center justify-center rounded-full bg-[#0da5a5]">
-                <Ionicons name="checkmark" size={32} color="#fff" />
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <View style={{ position: 'relative' }}>
+            <View style={{
+              height: 80,
+              width: 80,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 9999,
+              backgroundColor: `${colors.primary}33`,
+            }}>
+              <View style={{
+                height: 56,
+                width: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 9999,
+                backgroundColor: colors.primary,
+              }}>
+                <Ionicons name="checkmark" size={32} color={colors.primaryForeground} />
               </View>
             </View>
           </View>
         </View>
 
         {/* Title & Description */}
-        <Text className="text-[#0da5a5] text-3xl font-bold text-center leading-tight">
+        <Text style={{
+          color: colors.primary,
+          fontSize: 30,
+          fontWeight: 'bold',
+          textAlign: 'center',
+          lineHeight: 36,
+        }}>
           Deposit Confirmed!
         </Text>
-        <Text className="text-gray-600 text-base text-center mt-2">
-          Your funds of $1,000.00 are now available.
+        <Text style={{
+          color: colors.textSecondary,
+          fontSize: 16,
+          textAlign: 'center',
+          marginTop: 8,
+        }}>
+          Your funds of ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} are now available.
         </Text>
 
         {/* Info Card */}
-        <View className="mt-8 w-full rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
-          <InfoRow label="Amount Deposited" value="$1,000.00 USD" bold />
-          <Divider />
+        <View style={{
+          marginTop: 32,
+          width: '100%',
+          borderRadius: 12,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 24,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+        }}>
+          <InfoRow 
+            label="Amount Deposited" 
+            value={`$${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`} 
+            bold 
+            colors={colors} 
+          />
+          <Divider colors={colors} />
           <InfoRow
             label="Deposit Method"
-            value="Debit Card **** 1234"
+            value={getMethodDisplay()}
             bold={false}
+            colors={colors}
           />
-          <Divider />
-          <View className="flex-row justify-between items-center py-3">
-            <Text className="text-gray-500 text-sm">Transaction ID</Text>
-            <View className="flex-row items-center gap-2">
-              <Text className="text-gray-700 text-sm">A1B2-C3D4-E5F6</Text>
-              <TouchableOpacity>
-                <Ionicons name="copy-outline" size={16} color="#94a3b8" />
+          <Divider colors={colors} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 14 }}>Transaction ID</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{transactionId}</Text>
+              <TouchableOpacity onPress={handleCopyTransactionId}>
+                <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
-          <Divider />
+          <Divider colors={colors} />
           <InfoRow
             label="Date & Time"
-            value="Oct 26, 2023, 10:05 AM"
+            value={`${formattedDate}, ${formattedTime}`}
             bold={false}
+            colors={colors}
           />
         </View>
       </ScrollView>
 
       {/* Bottom Buttons */}
-      <View className="border-t border-gray-200 bg-white px-4 pb-6 pt-2 shadow-md">
-        <View className="max-w-md w-full mx-auto items-center gap-3">
+      <View style={{
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        backgroundColor: colors.card,
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+        paddingTop: 8,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 4,
+      }}>
+        <View style={{ maxWidth: 448, width: '100%', alignSelf: 'center', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity
-          onPress={() => router.push('/(tabs)/wallet')}
-          className="w-full rounded-full overflow-hidden">
+            onPress={() => router.push('/(tabs)/wallet')}
+            style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
+          >
             <LinearGradient
-              colors={["#0da5a5", "#0da5a5"]}
+              colors={[colors.primary, colors.primarySoft]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              className="rounded-full"
+              style={{ borderRadius: 9999 }}
             >
-              <View className="py-3 items-center">
-                <Text className="text-white font-bold text-base">
+              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
                   View Wallet
                 </Text>
               </View>
@@ -109,15 +225,23 @@ export default function DepositConfirmationLight() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-          onPress={() => router.push('/(tabs)/home')}
-          className="w-full rounded-full border border-[#0da5a5] py-3 items-center">
-            <Text className="text-[#0da5a5] font-bold text-base">
+            onPress={() => router.push('/(tabs)/home')}
+            style={{
+              width: '100%',
+              borderRadius: 9999,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              paddingVertical: 12,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
               Return to Home
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push('../wallet/deposit/card')}>
-            <Text className="text-gray-500 text-sm font-bold mt-1">
+            <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginTop: 4 }}>
               Make Another Deposit
             </Text>
           </TouchableOpacity>
@@ -132,18 +256,23 @@ function InfoRow({
   label,
   value,
   bold,
+  colors,
 }: {
   label: string;
   value: string;
   bold?: boolean;
+  colors: any;
 }) {
   return (
-    <View className="flex-row justify-between items-center py-3">
-      <Text className="text-gray-500 text-sm">{label}</Text>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 14 }}>{label}</Text>
       <Text
-        className={`text-sm text-right ${
-          bold ? "text-gray-800 font-bold" : "text-gray-700"
-        }`}
+        style={{
+          fontSize: 14,
+          textAlign: 'right',
+          color: bold ? colors.textPrimary : colors.textSecondary,
+          fontWeight: bold ? 'bold' : 'normal',
+        }}
       >
         {value}
       </Text>
@@ -151,6 +280,6 @@ function InfoRow({
   );
 }
 
-function Divider() {
-  return <View className="h-px bg-gray-200" />;
+function Divider({ colors }: { colors: any }) {
+  return <View style={{ height: 1, backgroundColor: colors.border }} />;
 }

@@ -1,4 +1,4 @@
-import { Property, UserInvestment, WalletBalance, Transaction } from '../types/property';
+import { Property, UserInvestment } from '../types/property';
 
 export const mockProperties: Property[] = [
   {
@@ -241,64 +241,6 @@ export const mockUserInvestments: UserInvestment[] = [
   },
 ];
 
-export const mockWalletBalance: WalletBalance = {
-  usdc: 540.25,
-  totalInvested: 4500,
-  totalEarnings: 817,
-  pendingDeposits: 0,
-};
-
-export const mockTransactions: Transaction[] = [
-  {
-    id: 'tx1',
-    type: 'rental',
-    amount: 180,
-    currency: 'USDC',
-    status: 'completed',
-    date: '2025-10-15',
-    description: 'Rental income distribution',
-    propertyId: '4',
-    propertyTitle: 'Bay View Heights Islamabad',
-  },
-  {
-    id: 'tx2',
-    type: 'investment',
-    amount: 750,
-    currency: 'USDC',
-    status: 'completed',
-    date: '2025-10-10',
-    description: 'Token purchase',
-    propertyId: '3',
-    propertyTitle: 'Green Valley Apartments Lahore',
-  },
-  {
-    id: 'tx3',
-    type: 'deposit',
-    amount: 1000,
-    currency: 'USDC',
-    status: 'completed',
-    date: '2025-10-08',
-    description: 'Debit card deposit',
-  },
-  {
-    id: 'tx4',
-    type: 'rental',
-    amount: 85,
-    currency: 'USDC',
-    status: 'completed',
-    date: '2025-10-20',
-    description: 'Rental income distribution',
-    propertyId: '1',
-    propertyTitle: 'Skyline Residences Islamabad',
-  },
-  {
-    id: 'tx5',
-    type: 'withdraw',
-    amount: 500,
-    currency: 'USDC',
-    status: 'pending',
-    date: '2025-10-28',
-    description: 'Bank transfer withdrawal',
-  },
-];
+// Wallet-related exports moved to @data/mockWallet.ts
+// Import from there: import { mockWalletBalance, mockTransactions } from "@/data/mockWallet";
 

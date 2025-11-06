@@ -1,19 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Property } from '@/types/property';
-
-interface InvestmentPlan {
-  monthlyIncomeGoal?: number;
-  estimatedInvestmentNeeded?: number;
-  investmentAmount: number;
-  selectedProperty?: Property;
-  expectedMonthlyReturn?: number;
-  estimatedROI?: number;
-  recurringDeposit?: {
-    amount: number;
-    frequency: 'weekly' | 'monthly' | 'quarterly';
-  };
-  firstDepositDate?: string;
-}
+import { InvestmentPlan } from '@/types/guidance';
 
 interface GuidanceContextType {
   investmentPlan: InvestmentPlan;

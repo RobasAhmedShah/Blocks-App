@@ -10,10 +10,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
+import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function PlanSavedScreen() {
   const router = useRouter();
   const { investmentPlan, resetPlan } = useGuidance();
+  const { colors, isDarkColorScheme } = useColorScheme();
 
   const planSummary = {
     investmentTarget: `$${investmentPlan.investmentAmount?.toLocaleString() || '0'}`,
@@ -47,69 +49,104 @@ export default function PlanSavedScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#10221c]">
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       <ScrollView 
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-1 justify-between p-4">
+        <View style={{ flex: 1, justifyContent: 'space-between', padding: 16 }}>
           {/* Success Icon and Message */}
-          <View className="flex flex-col items-center text-center pt-20">
+          <View style={{ flexDirection: 'column', alignItems: 'center', paddingTop: 80 }}>
             {/* Circular Success Icon */}
-            <View className="w-20 h-20 items-center justify-center rounded-full bg-[#13eca4]/10 mb-6">
-              <View className="w-16 h-16 items-center justify-center rounded-full bg-[#13eca4]/20">
-                <Ionicons name="checkmark-circle" size={48} color="#13eca4" />
+            <View style={{
+              width: 80,
+              height: 80,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 999,
+              backgroundColor: `${colors.primary}1A`,
+              marginBottom: 24,
+            }}>
+              <View style={{
+                width: 64,
+                height: 64,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 9999,
+                // backgroundColor: `${colors.primary}33`,
+              }}>
+                <Ionicons name="checkmark-circle" size={48}  />
               </View>
             </View>
 
             {/* Success Title */}
-            <Text className="text-[#e0e0e0] text-2xl font-bold tracking-tight">
+            <Text style={{
+              color: colors.textPrimary,
+              fontSize: 24,
+              fontWeight: 'bold',
+              letterSpacing: -0.5,
+            }}>
               Plan Saved Successfully
             </Text>
 
             {/* Subtitle */}
-            <Text className="text-[#9db9b0] text-base mt-2 px-8 text-center">
+            <Text style={{
+              color: colors.textSecondary,
+              fontSize: 16,
+              marginTop: 8,
+              paddingHorizontal: 32,
+              textAlign: 'center',
+            }}>
               Your investment plan is set and ready to go.
             </Text>
           </View>
 
           {/* Plan Summary Card */}
-          <View className="my-8">
-            <View className="rounded-xl bg-[#1a2c26] p-6">
-              <Text className="text-[#e0e0e0] text-lg font-bold mb-4">
+          <View style={{ marginVertical: 32 }}>
+            <View style={{
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              padding: 24,
+            }}>
+              <Text style={{
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: 'bold',
+                marginBottom: 16,
+              }}>
                 Plan Summary
               </Text>
 
-              <View className="flex flex-col gap-4">
+              <View style={{ flexDirection: 'column', gap: 16 }}>
                 {/* Investment Target */}
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[#9db9b0] text-base">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                     Investment Target
                   </Text>
-                  <Text className="text-[#e0e0e0] text-base font-semibold">
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
                     {planSummary.investmentTarget}
                   </Text>
                 </View>
 
                 {/* Recurring Deposit */}
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[#9db9b0] text-base">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                     Recurring Deposit
                   </Text>
-                  <Text className="text-[#e0e0e0] text-base font-semibold">
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
                     {planSummary.recurringDeposit}
                   </Text>
                 </View>
 
                 {/* First Deposit */}
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[#9db9b0] text-base">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                     First Deposit
                   </Text>
-                  <Text className="text-[#e0e0e0] text-base font-semibold">
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
                     {planSummary.firstDeposit}
                   </Text>
                 </View>
@@ -118,14 +155,20 @@ export default function PlanSavedScreen() {
           </View>
 
           {/* Action Buttons */}
-          <View className="flex flex-col gap-3 pb-2">
+          <View style={{ flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
             {/* Return to Wallet Button */}
             <TouchableOpacity
               onPress={handleReturnToWallet}
-              className="h-14 items-center justify-center rounded-xl bg-[#13eca4]"
+              style={{
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 12,
+                backgroundColor: colors.primary,
+              }}
               activeOpacity={0.8}
             >
-              <Text className="text-[#10221c] text-base font-bold">
+              <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
                 Go to Wallet
               </Text>
             </TouchableOpacity>
@@ -133,10 +176,18 @@ export default function PlanSavedScreen() {
             {/* Edit Plan Button */}
             <TouchableOpacity
               onPress={handleEditPlan}
-              className="h-14 items-center justify-center rounded-xl border border-[#13eca4]/50 bg-transparent"
+              style={{
+                height: 56,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: `${colors.primary}80`,
+                backgroundColor: 'transparent',
+              }}
               activeOpacity={0.8}
             >
-              <Text className="text-[#13eca4] text-base font-bold">
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: 'bold' }}>
                 Edit Plan
               </Text>
             </TouchableOpacity>

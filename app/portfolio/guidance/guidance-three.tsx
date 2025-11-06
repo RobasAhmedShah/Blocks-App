@@ -11,10 +11,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
+import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function ConfirmInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
+  const { colors, isDarkColorScheme } = useColorScheme();
 
   // Get investment details from context
   const property = investmentPlan.selectedProperty;
@@ -25,15 +27,21 @@ export default function ConfirmInvestmentScreen() {
   // Show loading/fallback state if no property
   if (!property) {
     return (
-      <SafeAreaView className="flex-1 bg-[#10221c]">
-        <StatusBar barStyle="light-content" />
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-[#9db9b0]">Loading investment details...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.textSecondary }}>Loading investment details...</Text>
           <TouchableOpacity
             onPress={() => router.back()}
-            className="mt-4 px-6 py-3 bg-[#13eca4] rounded-xl"
+            style={{
+              marginTop: 16,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+            }}
           >
-            <Text className="text-[#10221c] font-bold">Go Back</Text>
+            <Text style={{ color: colors.primaryForeground, fontWeight: 'bold' }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -74,50 +82,63 @@ export default function ConfirmInvestmentScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#10221c]">
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 bg-[#10221c]">
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        backgroundColor: colors.background,
+      }}>
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center"
+          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Ionicons name="arrow-back" size={24} color="#e0e0e0" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <Text className="text-[#e0e0e0] text-lg font-bold flex-1 text-center">
+        <Text style={{
+          color: colors.textPrimary,
+          fontSize: 18,
+          fontWeight: 'bold',
+          flex: 1,
+          textAlign: 'center',
+        }}>
           Confirm Investment
         </Text>
 
-        <View className="w-10" />
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Content */}
       <ScrollView 
-        className="flex-1" 
+        style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-1 justify-center items-center px-4 py-8">
-          <View className="flex flex-col items-center gap-6 w-full max-w-sm">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 32 }}>
+          <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
             {/* Property Image and Info */}
-            <View className="flex flex-col items-center gap-4">
+            <View style={{ flexDirection: 'column', alignItems: 'center', gap: 16 }}>
               <Image
                 source={{ uri: property.images[0] }}
-                className="w-32 h-32 rounded-xl"
+                style={{ width: 128, height: 128, borderRadius: 12 }}
                 resizeMode="cover"
               />
-              <View className="items-center">
-                <Text className="text-[#e0e0e0] text-lg font-bold">
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
                   {property.title}
                 </Text>
-                <Text className="text-[#9db9b0] text-sm mt-1">
+                <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
                   {property.location}
                 </Text>
-                <View className="flex-row items-center gap-1 mt-1">
-                  <Ionicons name="star" size={14} color="#EAB308" />
-                  <Text className="text-[#9db9b0] text-xs">
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                  <Ionicons name="star" size={14} color={colors.warning} />
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
                     {property.builder.name} • {property.builder.rating}/5.0
                   </Text>
                 </View>
@@ -125,82 +146,96 @@ export default function ConfirmInvestmentScreen() {
             </View>
 
             {/* Investment Details Card */}
-            <View className="flex flex-col gap-5 rounded-xl bg-[#1a2c26] p-6 w-full">
+            <View style={{
+              flexDirection: 'column',
+              gap: 20,
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              padding: 24,
+              width: '100%',
+            }}>
               {/* Investment Amount */}
-              <View className="flex-row justify-between items-baseline">
-                <Text className="text-[#9db9b0] text-base">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                   Investment Amount
                 </Text>
-                <Text className="text-[#e0e0e0] text-2xl font-bold">
+                <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
                   ${investmentAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </Text>
               </View>
 
               {/* Divider */}
-              <View className="h-[1px] bg-white/10" />
+              <View style={{ height: 1, backgroundColor: `${colors.border}80` }} />
 
               {/* Tokens to Purchase */}
-              <View className="flex-row justify-between items-baseline">
-                <Text className="text-[#9db9b0] text-base">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                   Tokens to Purchase
                 </Text>
-                <Text className="text-[#e0e0e0] text-xl font-semibold">
-                  {Math.floor(investmentAmount / property.tokenPrice)} tokens
+                <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '600' }}>
+                  {(investmentAmount / property.tokenPrice).toFixed(2)} tokens
                 </Text>
               </View>
 
               {/* Estimated ROI */}
-              <View className="flex-row justify-between items-baseline">
-                <Text className="text-[#9db9b0] text-base">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                   Estimated Annual ROI
                 </Text>
-                <Text className="text-[#13eca4] text-xl font-semibold">
+                <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '600' }}>
                   {roi.toFixed(1)}%
                 </Text>
               </View>
 
               {/* Expected Monthly Return */}
-              <View className="flex-row justify-between items-baseline">
-                <Text className="text-[#9db9b0] text-base">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                   Expected Monthly Return
                 </Text>
-                <Text className="text-[#e0e0e0] text-xl font-semibold">
+                <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '600' }}>
                   ${monthlyReturn.toFixed(2)}
                 </Text>
               </View>
 
               {/* Divider */}
-              <View className="h-[1px] bg-white/10" />
+              <View style={{ height: 1, backgroundColor: `${colors.border}80` }} />
 
               {/* Annual Return */}
-              <View className="flex-row justify-between items-baseline">
-                <Text className="text-[#9db9b0] text-base">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                   Expected Annual Return
                 </Text>
-                <Text className="text-[#13eca4] text-xl font-semibold">
+                <Text style={{ color: colors.primary, fontSize: 20, fontWeight: '600' }}>
                   ${(monthlyReturn * 12).toFixed(2)}
                 </Text>
               </View>
             </View>
 
             {/* Investment Breakdown Info Box */}
-            <View className="w-full bg-[#1a2c26]/50 rounded-lg p-4 border border-[#13eca4]/20">
-              <Text className="text-[#13eca4] text-xs font-bold mb-2 text-center">
+            <View style={{
+              width: '100%',
+              backgroundColor: `${colors.card}80`,
+              borderRadius: 8,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: `${colors.primary}33`,
+            }}>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
                 💡 What This Means
               </Text>
-              <Text className="text-[#9db9b0] text-xs leading-relaxed text-center">
-                You're investing <Text className="text-[#e0e0e0] font-semibold">${investmentAmount.toLocaleString()}</Text> to purchase{' '}
-                <Text className="text-[#e0e0e0] font-semibold">{Math.floor(investmentAmount / property.tokenPrice)} tokens</Text> of{' '}
-                <Text className="text-[#e0e0e0] font-semibold">{property.title}</Text>.{'\n\n'}
+              <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
+                You're investing <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>${investmentAmount.toLocaleString()}</Text> to purchase{' '}
+                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{Math.floor(investmentAmount / property.tokenPrice)} tokens</Text> of{' '}
+                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{property.title}</Text>.{'\n\n'}
                 This property has an estimated annual ROI of{' '}
-                <Text className="text-[#13eca4] font-semibold">{roi.toFixed(1)}%</Text>, meaning you could earn approximately{' '}
-                <Text className="text-[#13eca4] font-semibold">${monthlyReturn.toFixed(2)}/month</Text> or{' '}
-                <Text className="text-[#13eca4] font-semibold">${(monthlyReturn * 12).toFixed(2)}/year</Text> in rental income.
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>{roi.toFixed(1)}%</Text>, meaning you could earn approximately{' '}
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>${monthlyReturn.toFixed(2)}/month</Text> or{' '}
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>${(monthlyReturn * 12).toFixed(2)}/year</Text> in rental income.
               </Text>
             </View>
 
             {/* Terms Text */}
-            <Text className="text-[#9db9b0] text-xs text-center px-4 leading-relaxed">
+            <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', paddingHorizontal: 16, lineHeight: 18 }}>
               By confirming, you agree to the Terms of Service. This is a non-binding intent to invest.
             </Text>
           </View>
@@ -208,24 +243,41 @@ export default function ConfirmInvestmentScreen() {
       </ScrollView>
 
       {/* Bottom Buttons */}
-      <View className="px-4 pb-6 pt-4 bg-[#10221c]">
-        <View className="flex flex-col gap-3">
+      <View style={{
+        paddingHorizontal: 16,
+        paddingBottom: 24,
+        paddingTop: 16,
+        backgroundColor: colors.background,
+      }}>
+        <View style={{ flexDirection: 'column', gap: 12 }}>
           <TouchableOpacity
             onPress={handleConfirm}
-            className="h-14 items-center justify-center rounded-xl bg-[#13eca4]"
+            style={{
+              height: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              backgroundColor: colors.primary,
+            }}
             activeOpacity={0.8}
           >
-            <Text className="text-[#10221c] text-base font-bold">
+            <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
               Confirm & Proceed
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleCancel}
-            className="h-14 items-center justify-center rounded-xl bg-transparent"
+            style={{
+              height: 56,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              backgroundColor: 'transparent',
+            }}
             activeOpacity={0.8}
           >
-            <Text className="text-[#13eca4] text-base font-bold">
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: 'bold' }}>
               Cancel
             </Text>
           </TouchableOpacity>

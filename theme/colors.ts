@@ -10,52 +10,62 @@ const IOS_SYSTEM_COLORS = {
     grey3: 'rgb(199, 199, 204)',
     grey2: 'rgb(175, 176, 180)',
     grey: 'rgb(142, 142, 147)',
-    background: 'rgb(242, 242, 247)',
-    foreground: 'rgb(0, 0, 0)',
+    background: 'rgb(248, 247, 245)', // #F8F7F5
+    foreground: 'rgb(31, 41, 55)', // #1F2937
     root: 'rgb(255, 255, 255)',
     card: 'rgb(255, 255, 255)',
-    cardForeground: 'rgb(8, 28, 30)',
-    popover: 'rgb(230, 230, 235)',
-    popoverForeground: 'rgb(0, 0, 0)',
-    destructive: 'rgb(255, 56, 43)',
-    primary: 'rgb(0, 123, 254)',
+    cardForeground: 'rgb(31, 41, 55)', // #1F2937
+    popover: 'rgb(255, 255, 255)',
+    popoverForeground: 'rgb(31, 41, 55)',
+    destructive: 'rgb(239, 68, 68)', // #EF4444
+    primary: 'rgb(22, 163, 74)', // #16A34A - Emerald green
     primaryForeground: 'rgb(255, 255, 255)',
-    secondary: 'rgb(45, 175, 231)',
-    secondaryForeground: 'rgb(255, 255, 255)',
-    muted: 'rgb(175, 176, 180)',
-    mutedForeground: 'rgb(142, 142, 147)',
-    accent: 'rgb(255, 40, 84)',
+    primarySoft: 'rgb(34, 197, 94)', // #22C55E
+    secondary: 'rgb(229, 231, 235)', // #E5E7EB
+    secondaryForeground: 'rgb(31, 41, 55)',
+    muted: 'rgb(229, 231, 235)', // #E5E7EB
+    mutedForeground: 'rgb(107, 114, 128)', // #6B7280
+    accent: 'rgb(22, 163, 74)', // Same as primary
     accentForeground: 'rgb(255, 255, 255)',
-    border: 'rgb(230, 230, 235)',
-    input: 'rgb(210, 210, 215)',
-    ring: 'rgb(230, 230, 235)',
+    border: 'rgba(0, 0, 0, 0.06)',
+    input: 'rgb(229, 231, 235)',
+    ring: 'rgb(22, 163, 74)',
+    textPrimary: 'rgb(31, 41, 55)', // #1F2937
+    textSecondary: 'rgb(75, 85, 99)', // #4B5563
+    textMuted: 'rgb(107, 114, 128)', // #6B7280
+    warning: 'rgb(234, 179, 8)', // #EAB308
   },
   dark: {
-    grey6: 'rgb(21, 21, 24)',
-    grey5: 'rgb(40, 40, 42)',
+    grey6: 'rgb(11, 61, 54)', // #0B3D36
+    grey5: 'rgb(26, 44, 38)', // #1a2c26
     grey4: 'rgb(55, 55, 57)',
     grey3: 'rgb(70, 70, 73)',
     grey2: 'rgb(99, 99, 102)',
     grey: 'rgb(142, 142, 147)',
-    background: 'rgb(0, 0, 0)',
-    foreground: 'rgb(255, 255, 255)',
-    root: 'rgb(0, 0, 0)',
-    card: 'rgb(28, 28, 30)',
-    cardForeground: 'rgb(255, 255, 255)',
-    popover: 'rgb(40, 40, 42)',
-    popoverForeground: 'rgb(255, 255, 255)',
-    destructive: 'rgb(254, 67, 54)',
-    primary: 'rgb(3, 133, 255)',
+    background: 'rgb(1, 42, 36)', // #012A24
+    foreground: 'rgb(249, 250, 251)', // #F9FAFB
+    root: 'rgb(1, 42, 36)',
+    card: 'rgb(11, 61, 54)', // #0B3D36
+    cardForeground: 'rgb(249, 250, 251)',
+    popover: 'rgb(11, 61, 54)',
+    popoverForeground: 'rgb(249, 250, 251)',
+    destructive: 'rgb(239, 68, 68)', // #EF4444
+    primary: 'rgb(22, 163, 74)', // #16A34A - Emerald green
     primaryForeground: 'rgb(255, 255, 255)',
-    secondary: 'rgb(100, 211, 254)',
-    secondaryForeground: 'rgb(255, 255, 255)',
-    muted: 'rgb(70, 70, 73)',
-    mutedForeground: 'rgb(142, 142, 147)',
-    accent: 'rgb(255, 52, 95)',
+    primarySoft: 'rgb(34, 197, 94)', // #22C55E
+    secondary: 'rgb(55, 65, 81)', // #374151
+    secondaryForeground: 'rgb(249, 250, 251)',
+    muted: 'rgb(55, 65, 81)', // #374151
+    mutedForeground: 'rgb(156, 163, 175)', // #9CA3AF
+    accent: 'rgb(22, 163, 74)', // Same as primary
     accentForeground: 'rgb(255, 255, 255)',
-    border: 'rgb(40, 40, 42)',
-    input: 'rgb(55, 55, 57)',
-    ring: 'rgb(40, 40, 42)',
+    border: 'rgba(255, 255, 255, 0.08)',
+    input: 'rgb(26, 44, 38)',
+    ring: 'rgb(22, 163, 74)',
+    textPrimary: 'rgb(249, 250, 251)', // #F9FAFB
+    textSecondary: 'rgb(209, 213, 219)', // #D1D5DB
+    textMuted: 'rgb(156, 163, 175)', // #9CA3AF
+    warning: 'rgb(234, 179, 8)', // #EAB308
   },
 } as const;
 
@@ -69,52 +79,62 @@ const ANDROID_COLORS = {
     grey3: 'rgb(113, 119, 134)',
     grey2: 'rgb(65, 71, 84)',
     grey: 'rgb(24, 28, 35)',
-    background: 'rgb(249, 249, 255)',
-    foreground: 'rgb(0, 0, 0)',
+    background: 'rgb(248, 247, 245)', // #F8F7F5
+    foreground: 'rgb(31, 41, 55)', // #1F2937
     root: 'rgb(255, 255, 255)',
     card: 'rgb(255, 255, 255)',
-    cardForeground: 'rgb(24, 28, 35)',
-    popover: 'rgb(215, 217, 228)',
-    popoverForeground: 'rgb(0, 0, 0)',
-    destructive: 'rgb(186, 26, 26)',
-    primary: 'rgb(0, 112, 233)',
+    cardForeground: 'rgb(31, 41, 55)', // #1F2937
+    popover: 'rgb(255, 255, 255)',
+    popoverForeground: 'rgb(31, 41, 55)',
+    destructive: 'rgb(239, 68, 68)', // #EF4444
+    primary: 'rgb(22, 163, 74)', // #16A34A - Emerald green
     primaryForeground: 'rgb(255, 255, 255)',
-    secondary: 'rgb(176, 201, 255)',
-    secondaryForeground: 'rgb(20, 55, 108)',
-    muted: 'rgb(193, 198, 215)',
-    mutedForeground: 'rgb(65, 71, 84)',
-    accent: 'rgb(169, 73, 204)',
+    primarySoft: 'rgb(34, 197, 94)', // #22C55E
+    secondary: 'rgb(229, 231, 235)', // #E5E7EB
+    secondaryForeground: 'rgb(31, 41, 55)',
+    muted: 'rgb(229, 231, 235)', // #E5E7EB
+    mutedForeground: 'rgb(107, 114, 128)', // #6B7280
+    accent: 'rgb(22, 163, 74)', // Same as primary
     accentForeground: 'rgb(255, 255, 255)',
-    border: 'rgb(215, 217, 228)',
-    input: 'rgb(210, 210, 215)',
-    ring: 'rgb(215, 217, 228)',
+    border: 'rgba(0, 0, 0, 0.06)',
+    input: 'rgb(229, 231, 235)',
+    ring: 'rgb(22, 163, 74)',
+    textPrimary: 'rgb(31, 41, 55)', // #1F2937
+    textSecondary: 'rgb(75, 85, 99)', // #4B5563
+    textMuted: 'rgb(107, 114, 128)', // #6B7280
+    warning: 'rgb(234, 179, 8)', // #EAB308
   },
   dark: {
-    grey6: 'rgb(16, 19, 27)',
-    grey5: 'rgb(39, 42, 50)',
+    grey6: 'rgb(11, 61, 54)', // #0B3D36
+    grey5: 'rgb(26, 44, 38)', // #1a2c26
     grey4: 'rgb(49, 53, 61)',
     grey3: 'rgb(54, 57, 66)',
     grey2: 'rgb(139, 144, 160)',
     grey: 'rgb(193, 198, 215)',
-    background: 'rgb(0, 0, 0)',
-    foreground: 'rgb(255, 255, 255)',
-    root: 'rgb(0, 0, 0)',
-    card: 'rgb(16, 19, 27)',
-    cardForeground: 'rgb(224, 226, 237)',
-    popover: 'rgb(39, 42, 50)',
-    popoverForeground: 'rgb(224, 226, 237)',
-    destructive: 'rgb(147, 0, 10)',
-    primary: 'rgb(3, 133, 255)',
+    background: 'rgb(1, 42, 36)', // #012A24
+    foreground: 'rgb(249, 250, 251)', // #F9FAFB
+    root: 'rgb(1, 42, 36)',
+    card: 'rgb(11, 61, 54)', // #0B3D36
+    cardForeground: 'rgb(249, 250, 251)',
+    popover: 'rgb(11, 61, 54)',
+    popoverForeground: 'rgb(249, 250, 251)',
+    destructive: 'rgb(239, 68, 68)', // #EF4444
+    primary: 'rgb(22, 163, 74)', // #16A34A - Emerald green
     primaryForeground: 'rgb(255, 255, 255)',
-    secondary: 'rgb(28, 60, 114)',
-    secondaryForeground: 'rgb(189, 209, 255)',
-    muted: 'rgb(216, 226, 255)',
-    mutedForeground: 'rgb(139, 144, 160)',
-    accent: 'rgb(83, 0, 111)',
-    accentForeground: 'rgb(238, 177, 255)',
-    border: 'rgb(39, 42, 50)',
-    input: 'rgb(55, 55, 57)',
-    ring: 'rgb(39, 42, 50)',
+    primarySoft: 'rgb(34, 197, 94)', // #22C55E
+    secondary: 'rgb(55, 65, 81)', // #374151
+    secondaryForeground: 'rgb(249, 250, 251)',
+    muted: 'rgb(55, 65, 81)', // #374151
+    mutedForeground: 'rgb(156, 163, 175)', // #9CA3AF
+    accent: 'rgb(22, 163, 74)', // Same as primary
+    accentForeground: 'rgb(255, 255, 255)',
+    border: 'rgba(255, 255, 255, 0.08)',
+    input: 'rgb(26, 44, 38)',
+    ring: 'rgb(22, 163, 74)',
+    textPrimary: 'rgb(249, 250, 251)', // #F9FAFB
+    textSecondary: 'rgb(209, 213, 219)', // #D1D5DB
+    textMuted: 'rgb(156, 163, 175)', // #9CA3AF
+    warning: 'rgb(234, 179, 8)', // #EAB308
   },
 } as const;
 

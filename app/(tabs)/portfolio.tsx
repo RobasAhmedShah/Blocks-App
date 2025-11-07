@@ -14,7 +14,6 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { ROITrendChart } from "@/components/portfolio/ROITrendChart";
 import { MonthlyIncomeChart } from "@/components/portfolio/MonthlyIncomeChart";
 import { InvestmentDistributionChart } from "@/components/portfolio/InvestmentDistributionChart";
-// import BookCard from "@/components/Testcard";
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -112,6 +111,8 @@ export default function PortfolioScreen() {
                   <Ionicons name="person-circle-outline" size={32} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
+
+              
         <View className="flex-row justify-between items-center mb-2">
           <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
             $
@@ -325,10 +326,6 @@ export default function PortfolioScreen() {
         </View>
       </View>
 
-      {/* BookCard */}
-      {/* <View style={{ marginTop: 8, marginBottom: 20 }}>
-        <BookCard navigation={router} />
-      </View> */}
     </>
   );
 

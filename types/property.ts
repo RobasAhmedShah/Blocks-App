@@ -17,6 +17,7 @@ export interface Property {
   estimatedROI: number;
   estimatedYield: number;
   completionDate: string;
+  
   status: 'funding' | 'construction' | 'completed' | 'generating-income';
   images: string[];
   description: string;

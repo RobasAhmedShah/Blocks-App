@@ -83,10 +83,13 @@ export default function PersonalInformationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       {/* Header */}
-      <View className="flex-row items-center px-4 py-4">
+      <View 
+        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+        className="flex-row items-center px-4 py-4"
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           className="w-12 h-12 items-center justify-center"
@@ -113,7 +116,10 @@ export default function PersonalInformationScreen() {
               className="relative"
               activeOpacity={0.8}
             >
-              <View className="w-32 h-32 rounded-full border-4 border-[#0da5a5]/50 overflow-hidden">
+              <View 
+                style={{ borderColor: colors.primary + '80' }}
+                className="w-32 h-32 rounded-full border-4 overflow-hidden"
+              >
                 <Image
                   source={{ uri: userInfo.profileImage }}
                   className="w-full h-full"
@@ -136,7 +142,10 @@ export default function PersonalInformationScreen() {
             {/* Full Name */}
             <View className="p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[#0da5a5]/70 text-xs font-semibold uppercase tracking-wider">
+                <Text 
+                  style={{ color: colors.primary + 'B3' }}
+                  className="text-xs font-semibold uppercase tracking-wider"
+                >
                   Full Name
                 </Text>
                 <TouchableOpacity
@@ -151,11 +160,15 @@ export default function PersonalInformationScreen() {
                 </TouchableOpacity>
               </View>
               <TextInput
-                className="w-full border-b border-white/20 py-2 text-base text-white"
+                style={{ 
+                  borderBottomColor: colors.border,
+                  color: colors.textPrimary,
+                }}
+                className="w-full border-b py-2 text-base"
                 value={userInfo.fullName}
                 onChangeText={(text) => setUserInfo({ ...userInfo, fullName: text })}
                 placeholder="Enter your full name"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 editable={editingField === "fullName"}
               />
             </View>
@@ -163,7 +176,10 @@ export default function PersonalInformationScreen() {
             {/* Email Address */}
             <View className="p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[#0da5a5]/70 text-xs font-semibold uppercase tracking-wider">
+                <Text 
+                  style={{ color: colors.primary + 'B3' }}
+                  className="text-xs font-semibold uppercase tracking-wider"
+                >
                   Email Address
                 </Text>
                 <TouchableOpacity
@@ -178,11 +194,15 @@ export default function PersonalInformationScreen() {
                 </TouchableOpacity>
               </View>
               <TextInput
-                className="w-full border-b border-white/20 py-2 text-base text-white"
+                style={{ 
+                  borderBottomColor: colors.border,
+                  color: colors.textPrimary,
+                }}
+                className="w-full border-b py-2 text-base"
                 value={userInfo.email}
                 onChangeText={(text) => setUserInfo({ ...userInfo, email: text })}
                 placeholder="Enter your email"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 editable={editingField === "email"}
               />
@@ -191,7 +211,10 @@ export default function PersonalInformationScreen() {
             {/* Phone Number */}
             <View className="p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[#0da5a5]/70 text-xs font-semibold uppercase tracking-wider">
+                <Text 
+                  style={{ color: colors.primary + 'B3' }}
+                  className="text-xs font-semibold uppercase tracking-wider"
+                >
                   Phone Number
                 </Text>
                 <TouchableOpacity
@@ -206,11 +229,15 @@ export default function PersonalInformationScreen() {
                 </TouchableOpacity>
               </View>
               <TextInput
-                className="w-full border-b border-white/20 py-2 text-base text-white"
+                style={{ 
+                  borderBottomColor: colors.border,
+                  color: colors.textPrimary,
+                }}
+                className="w-full border-b py-2 text-base"
                 value={userInfo.phone}
                 onChangeText={(text) => setUserInfo({ ...userInfo, phone: text })}
                 placeholder="Enter your phone number"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 editable={editingField === "phone"}
               />
@@ -219,7 +246,10 @@ export default function PersonalInformationScreen() {
             {/* Date of Birth */}
             <View className="p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[#0da5a5]/70 text-xs font-semibold uppercase tracking-wider">
+                <Text 
+                  style={{ color: colors.primary + 'B3' }}
+                  className="text-xs font-semibold uppercase tracking-wider"
+                >
                   Date of Birth
                 </Text>
                 <TouchableOpacity
@@ -234,11 +264,15 @@ export default function PersonalInformationScreen() {
                 </TouchableOpacity>
               </View>
               <TextInput
-                className="w-full border-b border-white/20 py-2 text-base text-white"
+                style={{ 
+                  borderBottomColor: colors.border,
+                  color: colors.textPrimary,
+                }}
+                className="w-full border-b py-2 text-base"
                 value={userInfo.dob}
                 onChangeText={(text) => setUserInfo({ ...userInfo, dob: text })}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 editable={editingField === "dob"}
               />
             </View>
@@ -246,7 +280,10 @@ export default function PersonalInformationScreen() {
             {/* Residential Address */}
             <View className="p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-[#0da5a5]/70 text-xs font-semibold uppercase tracking-wider">
+                <Text 
+                  style={{ color: colors.primary + 'B3' }}
+                  className="text-xs font-semibold uppercase tracking-wider"
+                >
                   Residential Address
                 </Text>
                 <TouchableOpacity
@@ -261,15 +298,19 @@ export default function PersonalInformationScreen() {
                 </TouchableOpacity>
               </View>
               <TextInput
-                className="w-full border-b border-white/20 py-2 text-base text-white"
+                style={{ 
+                  borderBottomColor: colors.border,
+                  color: colors.textPrimary,
+                  textAlignVertical: 'top',
+                }}
+                className="w-full border-b py-2 text-base"
                 value={userInfo.address}
                 onChangeText={(text) => setUserInfo({ ...userInfo, address: text })}
                 placeholder="Enter your address"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
                 editable={editingField === "address"}
-                style={{ textAlignVertical: 'top' }}
               />
             </View>
           </View>
@@ -278,30 +319,32 @@ export default function PersonalInformationScreen() {
           <View className="pt-8">
             <TouchableOpacity
               onPress={handleSaveChanges}
+              disabled={isSaving}
               activeOpacity={0.9}
               className="overflow-hidden rounded-xl"
+              style={{ opacity: isSaving ? 0.6 : 1 }}
             >
               <LinearGradient
-                colors={['#0da5a5', '#087f7f', '#D4AF37', '#087f7f', '#0da5a5']}
+                colors={[colors.primarySoft, colors.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 className="h-14 items-center justify-center"
               >
                 <Animated.View
-                  style={[
-                    {
-                      position: 'absolute',
-                      top: 0,
-                      left: -400,
-                      width: 400,
-                      height: '100%',
-                      backgroundColor: 'rgba(255,255,255,0.3)',
-                    },
-                    shimmerStyle,
-                  ]}
+                  // style={[
+                  //   {
+                  //     position: 'absolute',
+                  //     top: 0,
+                  //     left: -400,
+                  //     width: 400,
+                  //     height: '100%',
+                  //     backgroundColor: 'rgba(255,255,255,0.3)',
+                  //   },
+                  //   shimmerStyle,
+                  // ]}
                 />
                 <Text className="text-white text-lg font-bold">
-                  Save Changes
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>

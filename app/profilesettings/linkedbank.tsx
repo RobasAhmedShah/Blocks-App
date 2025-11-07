@@ -139,6 +139,13 @@ export default function LinkedBankAccountsScreen() {
                 onPress={() => handleAccountDetails(account.id)}
                 activeOpacity={0.9}
                 className="overflow-hidden rounded-xl"
+                style={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}
               >
                 <LinearGradient
                   colors={account.backgroundColor as [ColorValue, ColorValue, ...ColorValue[]]}
@@ -149,9 +156,9 @@ export default function LinkedBankAccountsScreen() {
                   {/* Primary Badge */}
                   {account.isPrimary && (
                     <View className="flex-row items-center gap-1 mb-3">
-                      <View className="bg-[#D4AF37]/20 px-2 py-1 rounded-full flex-row items-center gap-1">
-                        <Ionicons name="star" size={12} color="#D4AF37" />
-                        <Text className="text-[#D4AF37] text-xs font-bold">
+                      <View className="bg-[#FFD700]/25 px-3 py-1.5 rounded-full flex-row items-center gap-1.5">
+                        <Ionicons name="star" size={14} color="#FFD700" />
+                        <Text className="text-[#FFD700] text-xs font-bold">
                           PRIMARY
                         </Text>
                       </View>
@@ -164,21 +171,21 @@ export default function LinkedBankAccountsScreen() {
                       <Text className="text-white text-lg font-bold mb-1">
                         {account.bankName}
                       </Text>
-                      <Text className="text-white/70 text-sm">
+                      <Text className="text-white/80 text-sm">
                         {account.accountType}
                       </Text>
                     </View>
-                    <View className="w-12 h-12 bg-white/20 rounded-full items-center justify-center">
+                    <View className="w-12 h-12 bg-white/15 rounded-full items-center justify-center backdrop-blur-sm">
                       <Text className="text-2xl">{account.logo}</Text>
                     </View>
                   </View>
 
                   {/* Account Number */}
                   <View className="flex-row items-center justify-between mb-4">
-                    <Text className="text-white/90 text-base font-mono tracking-wider">
+                    <Text className="text-white text-base font-mono tracking-widest">
                       {account.accountNumber}
                     </Text>
-                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                   </View>
 
                   {/* Actions */}
@@ -189,7 +196,7 @@ export default function LinkedBankAccountsScreen() {
                           e.stopPropagation();
                           handleSetPrimary(account.id);
                         }}
-                        className="flex-1 bg-white/20 px-3 py-2 rounded-lg flex-row items-center justify-center gap-2"
+                        className="flex-1 bg-white/15 backdrop-blur-sm px-3 py-2.5 rounded-lg flex-row items-center justify-center gap-2"
                         activeOpacity={0.7}
                       >
                         <Ionicons name="star-outline" size={16} color="white" />
@@ -205,11 +212,11 @@ export default function LinkedBankAccountsScreen() {
                       }}
                       className={`${
                         account.isPrimary ? 'flex-1' : 'flex-1'
-                      } bg-white/10 border border-white/20 px-3 py-2 rounded-lg flex-row items-center justify-center gap-2`}
+                      } bg-white/10 border border-white/25 px-3 py-2.5 rounded-lg flex-row items-center justify-center gap-2`}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                      <Text className="text-red-400 text-xs font-semibold">
+                      <Ionicons name="trash-outline" size={16} color="#ff6b6b" />
+                      <Text className="text-[#ff6b6b] text-xs font-semibold">
                         Remove
                       </Text>
                     </TouchableOpacity>

@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { useColorScheme as useRNColorScheme } from 'react-native';
 import { useColorScheme as useNativewindColorScheme } from 'nativewind';
-import { Appearance } from 'react-native';
-
 import { COLORS } from '@/theme/colors';
 
 type ThemePreference = 'light' | 'dark' | 'system';
@@ -21,37 +20,23 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>('system');
-  const { colorScheme: nativewindColorScheme, setColorScheme: setNativewindColorScheme } = useNativewindColorScheme();
   
-  // Resolve the effective color scheme based on preference
-  const getEffectiveColorScheme = (): ColorScheme => {
+  // ✅ React Native's useColorScheme automatically detects system changes!
+  const systemColorScheme = useRNColorScheme();
+  const { setColorScheme: setNativewindColorScheme } = useNativewindColorScheme();
+  
+  // Calculate effective color scheme based on preference
+  const effectiveColorScheme = useMemo<ColorScheme>(() => {
     if (themePreference === 'system') {
-      const systemScheme = Appearance.getColorScheme();
-      return systemScheme === 'dark' ? 'dark' : 'light';
+      return systemColorScheme === 'dark' ? 'dark' : 'light';
     }
     return themePreference;
-  };
+  }, [themePreference, systemColorScheme]);
 
-  const [effectiveColorScheme, setEffectiveColorScheme] = useState<ColorScheme>(getEffectiveColorScheme());
-
-  // Update effective color scheme when preference changes
+  // Sync NativeWind with effective color scheme
   useEffect(() => {
-    const newScheme = getEffectiveColorScheme();
-    setEffectiveColorScheme(newScheme);
-    setNativewindColorScheme(newScheme);
-  }, [themePreference]);
-
-  // Listen to system theme changes when in system mode
-  useEffect(() => {
-    if (themePreference === 'system') {
-      const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-        const newScheme = colorScheme === 'dark' ? 'dark' : 'light';
-        setEffectiveColorScheme(newScheme);
-        setNativewindColorScheme(newScheme);
-      });
-      return () => subscription.remove();
-    }
-  }, [themePreference]);
+    setNativewindColorScheme(effectiveColorScheme);
+  }, [effectiveColorScheme, setNativewindColorScheme]);
 
   const setThemePreference = (preference: ThemePreference) => {
     setThemePreferenceState(preference);
@@ -59,7 +44,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setColorScheme = (scheme: ColorScheme) => {
     setThemePreferenceState(scheme);
-    setEffectiveColorScheme(scheme);
     setNativewindColorScheme(scheme);
   };
 

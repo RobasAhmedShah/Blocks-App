@@ -20,7 +20,7 @@ For mobile development:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd my-expo-app
+cd Blocks
 
 # Install dependencies
 npm install
@@ -54,7 +54,7 @@ npm run web      # Web browser
 ### Project Structure
 
 ```
-my-expo-app/
+Blocks/
 ├── app/                    # Main application code
 │   ├── (tabs)/            # Bottom tab screens
 │   ├── property/          # Property detail screens

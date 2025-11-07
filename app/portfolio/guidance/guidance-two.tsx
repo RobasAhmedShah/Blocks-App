@@ -33,14 +33,20 @@ export default function GuidedInvestmentScreen() {
 
   // Get top 3 properties by ROI that match the investment amount
   const recommendedProperties = useMemo(() => {
-    const amount = parseFloat(investAmount.replace(/,/g, '')) || 1000;
+    const amount = parseFloat(investAmount.replace(/,/g, ''));
+
+    // If amount is less than or equal to 0, return empty array
+    if (amount <= 0) {
+      return [];
+    }
     
     return mockProperties
       .filter(p => {
+        
         // Only show properties where the investment amount is enough to buy at least 0.1 tokens
         const tokens = amount / p.tokenPrice;
         return tokens >= 0.1;
-      })
+      } )
       .sort((a, b) => b.estimatedROI - a.estimatedROI)
       .map(p => ({
         property: p,
@@ -233,6 +239,7 @@ export default function GuidedInvestmentScreen() {
                     fontSize: 18,
                     fontWeight: '600',
                   }}
+                  maxLength={7}
                   value={investAmount}
                   onChangeText={setInvestAmount}
                   keyboardType="numeric"

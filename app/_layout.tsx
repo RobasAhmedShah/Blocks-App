@@ -18,6 +18,9 @@ export default function RootLayout() {
             }}
           >
             {/* <Stack.Screen name="index" /> */}
+            <Stack.Screen name="onboarding/splash" />
+            <Stack.Screen name="onboarding/onboard-one" />
+            <Stack.Screen name="onboarding/welcome" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="property/[id]" />
             <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />

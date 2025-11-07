@@ -91,7 +91,38 @@ export const mockSecuritySettings: SecuritySettings = {
 };
 
 // Bank Accounts
-export const mockBankAccounts: BankAccount[] = [
+// export const mockBankAccounts: BankAccount[] = [
+//   {
+//     id: "1",
+//     bankName: "Chase Bank",
+//     accountNumber: "****4829",
+//     accountType: "Checking",
+//     isPrimary: true,
+//     logo: "💳",
+//     backgroundColor: ["#1E40AF", "#1E3A8A"],
+//   },
+//   {
+//     id: "2",
+//     bankName: "Bank of America",
+//     accountNumber: "****7156",
+//     accountType: "Savings",
+//     isPrimary: false,
+//     logo: "💳",
+//     backgroundColor: ["#DC2626", "#B91C1C"],
+//   },
+//   {
+//     id: "3",
+//     bankName: "Wells Fargo",
+//     accountNumber: "****3492",
+//     accountType: "Checking",
+//     isPrimary: false,
+//     logo: "💳",
+//     backgroundColor: ["#CA8A04", "#A16207"],
+//   },
+// ];
+
+// In your types file or where you define initial bank accounts
+export const professionalBankAccounts: BankAccount[] = [
   {
     id: "1",
     bankName: "Chase Bank",
@@ -99,7 +130,8 @@ export const mockBankAccounts: BankAccount[] = [
     accountType: "Checking",
     isPrimary: true,
     logo: "💳",
-    backgroundColor: ["#1E40AF", "#1E3A8A"],
+    // Chase Blue - Professional navy blue gradient
+    backgroundColor: ["#0F4C81", "#1565C0"],
   },
   {
     id: "2",
@@ -108,7 +140,8 @@ export const mockBankAccounts: BankAccount[] = [
     accountType: "Savings",
     isPrimary: false,
     logo: "💳",
-    backgroundColor: ["#DC2626", "#B91C1C"],
+    // Bank of America Red - Elegant deep red gradient
+    backgroundColor: ["#C41E3A", "#8B0000"],
   },
   {
     id: "3",
@@ -117,7 +150,28 @@ export const mockBankAccounts: BankAccount[] = [
     accountType: "Checking",
     isPrimary: false,
     logo: "💳",
-    backgroundColor: ["#CA8A04", "#A16207"],
+    // Wells Fargo Red/Gold - Professional burgundy gradient
+    backgroundColor: ["#D71920", "#A50F15"],
+  },
+  {
+    id: "4",
+    bankName: "Citibank",
+    accountNumber: "****8521",
+    accountType: "Savings",
+    isPrimary: false,
+    logo: "💳",
+    // Citibank Blue - Corporate blue gradient
+    backgroundColor: ["#003DA5", "#002D72"],
+  },
+  {
+    id: "5",
+    bankName: "Capital One",
+    accountNumber: "****2946",
+    accountType: "Checking",
+    isPrimary: false,
+    logo: "💳",
+    // Capital One - Modern slate gradient
+    backgroundColor: ["#004977", "#003557"],
   },
 ];
 

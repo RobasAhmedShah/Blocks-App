@@ -20,8 +20,8 @@ export default function SetGoalScreen() {
   const { updateInvestmentPlan } = useGuidance();
   const { colors, isDarkColorScheme } = useColorScheme();
   const [inputMode, setInputMode] = useState<"goal" | "amount">("goal");
-  const [goalAmount, setGoalAmount] = useState("500");
-  const [investmentAmount, setInvestmentAmount] = useState("10000");
+  const [goalAmount, setGoalAmount] = useState("");
+  const [investmentAmount, setInvestmentAmount] = useState("0");
 
   // Calculate estimated investment based on average 5% annual return
   const calculateInvestment = (amount: string) => {

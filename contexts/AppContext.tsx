@@ -6,7 +6,8 @@ import { UserInfo, SecuritySettings, NotificationSettings, BankAccount } from '@
 import { mockProperties } from '@/data/mockProperties';
 import { initialBalance, mockTransactions } from '@/data/mockWallet';
 import { mockInvestments } from '@/data/mockPortfolio';
-import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, mockBankAccounts } from '@/data/mockProfile';
+import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@/data/mockProfile';
+import { professionalBankAccounts } from '@/data/mockProfile';
 
 interface AppState {
   // Wallet State
@@ -67,7 +68,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     userInfo: { ...mockUserInfo },
     securitySettings: { ...mockSecuritySettings },
     notificationSettings: { ...mockNotificationSettings },
-    bankAccounts: [...mockBankAccounts],
+    bankAccounts: [...professionalBankAccounts],
   });
 
   // Wallet Actions

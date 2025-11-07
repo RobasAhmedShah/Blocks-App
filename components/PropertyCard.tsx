@@ -87,6 +87,13 @@ function AnimatedCard({
     (item.monthlyRentalIncome / item.currentValue) * 100,
     100
   );
+  const handleDetailsPress = () => {
+    router.push({
+      pathname: "/portfolio/ownproperty/propertydetails",
+      params: { id: item.property.id },
+    });
+    setModalVisible(false);
+  };
 
   return (
     <>
@@ -293,7 +300,8 @@ function AnimatedCard({
                   <Text style={{ color: theme.primaryForeground, fontWeight: 'bold' }}>INVEST MORE</Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => router.push(`/property/${item.property.id}`)}
+                
+                  onPress={handleDetailsPress}
                   style={{
                     backgroundColor: isDarkColorScheme ? theme.muted : theme.secondary,
                     flex: 1,

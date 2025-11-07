@@ -62,7 +62,7 @@
 ## 📂 Project Structure
 
 ```
-my-expo-app/
+Blocks/
 ├── app/
 │   ├── (tabs)/                    # Main app screens
 │   │   ├── index.tsx             # Property listing

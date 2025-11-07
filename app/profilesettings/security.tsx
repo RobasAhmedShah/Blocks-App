@@ -59,10 +59,13 @@ export default function SecurityScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       {/* Header */}
-      <View className="flex-row items-center px-4 py-4">
+      <View 
+        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+        className="flex-row items-center px-4 py-4"
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           className="w-12 h-12 items-center justify-center"
@@ -90,8 +93,13 @@ export default function SecurityScreen() {
             </Text>
             
             <View
-            style={{ backgroundColor: colors.card, borderWidth: isDarkColorScheme ? 0 : 1, borderColor: colors.border }}
-             className="overflow-hidden rounded-xl bg-gray-500/10">
+              style={{ 
+                backgroundColor: colors.card, 
+                borderWidth: isDarkColorScheme ? 0 : 1, 
+                borderColor: colors.border 
+              }}
+              className="overflow-hidden rounded-xl"
+            >
               {/* Change Password */}
               <TouchableOpacity
                 onPress={handleChangePassword}
@@ -99,14 +107,21 @@ export default function SecurityScreen() {
                 activeOpacity={0.7}
               >
                 <View className="flex-row items-center gap-4 flex-1">
-                  <View className="w-10 h-10 items-center justify-center rounded-lg bg-[#0da5a5]/20">
-                    <Ionicons name="lock-closed" size={22} color="#0da5a5" />
+                  <View 
+                    style={{ 
+                      backgroundColor: isDarkColorScheme 
+                        ? 'rgba(13, 165, 165, 0.15)' 
+                        : 'rgba(13, 165, 165, 0.1)' 
+                    }}
+                    className="w-10 h-10 items-center justify-center rounded-lg"
+                  >
+                    <Ionicons name="lock-closed" size={22} color={colors.primary} />
                   </View>
-                  <Text className="flex-1 text-base font-medium text-white">
+                  <Text style={{ color: colors.textPrimary }} className="flex-1 text-base font-medium">
                     Change Password
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
 
               {/* Divider */}
@@ -115,17 +130,24 @@ export default function SecurityScreen() {
               {/* Two-Factor Authentication */}
               <View className="flex-row items-center justify-between px-4 py-4 min-h-[56px]">
                 <View className="flex-row items-center gap-4 flex-1">
-                  <View className="w-10 h-10 items-center justify-center rounded-lg bg-[#0da5a5]/20">
-                    <Ionicons name="shield-checkmark" size={22} color="#0da5a5" />
+                  <View 
+                    style={{ 
+                      backgroundColor: isDarkColorScheme 
+                        ? 'rgba(13, 165, 165, 0.15)' 
+                        : 'rgba(13, 165, 165, 0.1)' 
+                    }}
+                    className="w-10 h-10 items-center justify-center rounded-lg"
+                  >
+                    <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
                   </View>
-                  <Text className="flex-1 text-base font-medium text-white">
+                  <Text style={{ color: colors.textPrimary }} className="flex-1 text-base font-medium">
                     Two-Factor Authentication
                   </Text>
                 </View>
                 <Switch
                   value={settings.twoFactorAuth}
                   onValueChange={handleToggleTwoFactor}
-                  trackColor={{ false: "#3e4e4e", true: "#0da5a5" }}
+                  trackColor={{ false: "#3e4e4e", true: colors.primary }}
                   thumbColor="#ffffff"
                   ios_backgroundColor="#3e4e4e"
                 />
@@ -137,17 +159,24 @@ export default function SecurityScreen() {
               {/* Biometric Login */}
               <View className="flex-row items-center justify-between px-4 py-4 min-h-[56px]">
                 <View className="flex-row items-center gap-4 flex-1">
-                  <View className="w-10 h-10 items-center justify-center rounded-lg bg-[#0da5a5]/20">
-                    <Ionicons name="finger-print" size={22} color="#0da5a5" />
+                  <View 
+                    style={{ 
+                      backgroundColor: isDarkColorScheme 
+                        ? 'rgba(13, 165, 165, 0.15)' 
+                        : 'rgba(13, 165, 165, 0.1)' 
+                    }}
+                    className="w-10 h-10 items-center justify-center rounded-lg"
+                  >
+                    <Ionicons name="finger-print" size={22} color={colors.primary} />
                   </View>
-                  <Text className="flex-1 text-base font-medium text-white">
+                  <Text style={{ color: colors.textPrimary }} className="flex-1 text-base font-medium">
                     Biometric Login
                   </Text>
                 </View>
                 <Switch
                   value={settings.biometricLogin}
                   onValueChange={handleToggleBiometric}
-                  trackColor={{ false: "#3e4e4e", true: "#0da5a5" }}
+                  trackColor={{ false: "#3e4e4e", true: colors.primary }}
                   thumbColor="#ffffff"
                   ios_backgroundColor="#3e4e4e"
                 />
@@ -161,28 +190,41 @@ export default function SecurityScreen() {
               Session Management
             </Text>
             
-            <View style={{ backgroundColor: colors.card, borderWidth: isDarkColorScheme ? 0 : 1, borderColor: colors.border }} className="overflow-hidden rounded-xl">
+            <View 
+              style={{ 
+                backgroundColor: colors.card, 
+                borderWidth: isDarkColorScheme ? 0 : 1, 
+                borderColor: colors.border 
+              }} 
+              className="overflow-hidden rounded-xl"
+            >
               {/* Active Sessions */}
               <TouchableOpacity
                 onPress={handleActiveSessions}
-                style={{ backgroundColor: colors.card, borderWidth: isDarkColorScheme ? 0 : 1, borderColor: colors.border }}
                 className="flex-row items-center justify-between px-4 py-4"
                 activeOpacity={0.7}
               >
                 <View className="flex-row items-center gap-4 flex-1">
-                  <View className="w-10 h-10 items-center justify-center rounded-lg bg-[#0da5a5]/20">
-                    <Ionicons name="phone-portrait" size={22} color="#0da5a5" />
+                  <View 
+                    style={{ 
+                      backgroundColor: isDarkColorScheme 
+                        ? 'rgba(13, 165, 165, 0.15)' 
+                        : 'rgba(13, 165, 165, 0.1)' 
+                    }}
+                    className="w-10 h-10 items-center justify-center rounded-lg"
+                  >
+                    <Ionicons name="phone-portrait" size={22} color={colors.primary} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-medium text-white">
+                    <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
                       Active Sessions
                     </Text>
-                    <Text className="text-sm text-[#0da5a5]/70 mt-1">
+                    <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
                       iPhone 14 Pro, MacOS Sonoma
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
 
               {/* Divider */}
@@ -199,7 +241,6 @@ export default function SecurityScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
           </View>
 
           {/* Activity Section */}
@@ -208,7 +249,14 @@ export default function SecurityScreen() {
               Activity
             </Text>
             
-            <View style={{ backgroundColor: colors.card, borderWidth: isDarkColorScheme ? 0 : 1, borderColor: colors.border }} className="overflow-hidden rounded-xl">
+            <View 
+              style={{ 
+                backgroundColor: colors.card, 
+                borderWidth: isDarkColorScheme ? 0 : 1, 
+                borderColor: colors.border 
+              }} 
+              className="overflow-hidden rounded-xl"
+            >
               {/* View Activity Log */}
               <TouchableOpacity
                 onPress={handleViewActivityLog}
@@ -216,19 +264,26 @@ export default function SecurityScreen() {
                 activeOpacity={0.7}
               >
                 <View className="flex-row items-center gap-4 flex-1">
-                  <View className="w-10 h-10 items-center justify-center rounded-lg bg-[#0da5a5]/20">
-                    <Ionicons name="time" size={22} color="#0da5a5" />
+                  <View 
+                    style={{ 
+                      backgroundColor: isDarkColorScheme 
+                        ? 'rgba(13, 165, 165, 0.15)' 
+                        : 'rgba(13, 165, 165, 0.1)' 
+                    }}
+                    className="w-10 h-10 items-center justify-center rounded-lg"
+                  >
+                    <Ionicons name="time" size={22} color={colors.primary} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-medium text-white">
+                    <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
                       View Activity Log
                     </Text>
-                    <Text className="text-sm text-[#0da5a5]/70 mt-1">
+                    <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
                       Last activity: Today, 10:32 AM
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>

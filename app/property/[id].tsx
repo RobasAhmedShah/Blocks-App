@@ -14,6 +14,7 @@ import { useProperty } from "@/services/useProperty";
 import { useWallet } from "@/services/useWallet";
 import { useColorScheme } from "@/lib/useColorScheme";
 import InvestScreen from "@/app/invest/[id]";
+import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 
 const { width } = Dimensions.get("window");
 
@@ -25,6 +26,7 @@ export default function PropertyDetailScreen() {
   const [activeTab, setActiveTab] = useState("Financials");
   const [imageIndex, setImageIndex] = useState(0);
   const [showInvestModal, setShowInvestModal] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   if (loading || !property) {
@@ -463,23 +465,43 @@ export default function PropertyDetailScreen() {
             Invest
           </Text>
         </TouchableOpacity>
-        {["bookmark-outline", "share-outline", "chatbubble-outline"].map(
-          (icon) => (
-            <TouchableOpacity
-              key={icon}
-              style={{
-                width: 48,
-                height: 48,
-                backgroundColor: colors.muted,
-                borderRadius: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name={icon as any} size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-          )
-        )}
+        <TouchableOpacity
+          style={{
+            width: 48,
+            height: 48,
+            backgroundColor: colors.muted,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="bookmark-outline" size={22} color={colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            width: 48,
+            height: 48,
+            backgroundColor: colors.muted,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="share-outline" size={22} color={colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowChatbot(true)}
+          style={{
+            width: 48,
+            height: 48,
+            backgroundColor: colors.muted,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={22} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       {/* Investment Modal */}
@@ -487,6 +509,15 @@ export default function PropertyDetailScreen() {
         <InvestScreen 
           propertyId={id} 
           onClose={() => setShowInvestModal(false)} 
+        />
+      )}
+
+      {/* Chatbot Modal */}
+      {property && (
+        <PropertyChatbot
+          property={property}
+          visible={showChatbot}
+          onClose={() => setShowChatbot(false)}
         />
       )}
     </View>

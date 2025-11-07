@@ -1,5 +1,6 @@
 export interface Property {
   id: string;
+  displayCode?: string; // Database display code like "PROP-000018"
   title: string;
   location: string;
   city: string;

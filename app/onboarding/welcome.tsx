@@ -25,6 +25,34 @@ export default function WelcomeScreen() {
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
       <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: "space-between" }}>
+        {/* Back Button */}
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/onboarding/onboard-one" as any);
+            }
+          }}
+          style={{
+            position: "absolute",
+            top: 60,
+            left: 24,
+            zIndex: 10,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: isDarkColorScheme
+              ? "rgba(255, 255, 255, 0.1)"
+              : colors.muted,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+
         {/* Top Section */}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           {/* Logo */}
@@ -73,7 +101,7 @@ export default function WelcomeScreen() {
         {/* Bottom Buttons */}
         <View style={{ paddingBottom: 40, gap: 16 }}>
           <TouchableOpacity
-            onPress={() => router.push("/(tabs)" as any)}
+            onPress={() => router.push("/onboarding/signup" as any)}
             style={{
               backgroundColor: colors.primary,
               height: 56,
@@ -96,7 +124,7 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push("/(tabs)" as any)}
+            onPress={() => router.push("/onboarding/signin" as any)}
             style={{
               backgroundColor: "transparent",
               height: 56,

@@ -120,6 +120,43 @@ export default function OnboardingScreen() {
     <View style={{ flex: 1, backgroundColor: isDarkColorScheme ? "#102222" : colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
+      {/* Back Button */}
+      {currentIndex > 0 && (
+        <TouchableOpacity
+          onPress={() => {
+            if (currentIndex > 0) {
+              flatListRef.current?.scrollToIndex({
+                index: currentIndex - 1,
+                animated: true,
+              });
+              setCurrentIndex(currentIndex - 1);
+            } else {
+              // If on first slide, go back to splash or welcome
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/onboarding/splash" as any);
+              }
+            }
+          }}
+          style={{
+            position: "absolute",
+            top: 60,
+            left: 20,
+            zIndex: 10,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: isDarkColorScheme ? "rgba(255, 255, 255, 0.1)" : colors.muted,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+      )}
+
       {/* Skip Button */}
       {currentIndex < slides.length - 1 && (
         <TouchableOpacity
@@ -232,7 +269,7 @@ export default function OnboardingScreen() {
           // Last slide - Show CTA buttons
           <View style={{ gap: 12 }}>
             <TouchableOpacity
-              onPress={handleGetStarted}
+              onPress={() => router.push("/onboarding/signup" as any)}
               style={{
                 backgroundColor: colors.primary,
                 height: 56,
@@ -255,7 +292,7 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push("/(tabs)" as any)}
+              onPress={() => router.push("/onboarding/signin" as any)}
               style={{
                 backgroundColor: "transparent",
                 height: 56,
@@ -280,32 +317,72 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          // Other slides - Show Next button
-          <TouchableOpacity
-            onPress={handleNext}
-            style={{
-              backgroundColor: colors.primary,
-              height: 56,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "row",
-              gap: 8,
-            }}
-            activeOpacity={0.8}
-            >
-            <Text
+          // Other slides - Show Next button with optional Back button
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            {currentIndex > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  flatListRef.current?.scrollToIndex({
+                    index: currentIndex - 1,
+                    animated: true,
+                  });
+                  setCurrentIndex(currentIndex - 1);
+                }}
+                style={{
+                  backgroundColor: "transparent",
+                  height: 56,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: colors.primary,
+                  flex: 1,
+                  flexDirection: "row",
+                  gap: 8,
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={20} color={colors.primary} />
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 16,
+                    fontWeight: "bold",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Back
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={handleNext}
               style={{
-                color: colors.primaryForeground,
-                fontSize: 16,
-                fontWeight: "bold",
-                letterSpacing: 0.5,
+                backgroundColor: colors.primary,
+                height: 56,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 8,
+                flex: currentIndex > 0 ? 1 : undefined,
+                minWidth: currentIndex > 0 ? undefined : "100%",
               }}
+              activeOpacity={0.8}
             >
-              Next
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.primaryForeground} />
-          </TouchableOpacity>
+              <Text
+                style={{
+                  color: colors.primaryForeground,
+                  fontSize: 16,
+                  fontWeight: "bold",
+                  letterSpacing: 0.5,
+                }}
+              >
+                Next
+              </Text>
+              <Ionicons name="arrow-forward" size={20} color={colors.primaryForeground} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>

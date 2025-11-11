@@ -1,14 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
-import Constants from 'expo-constants';
 import { NotificationSettings } from '@/types/profilesettings';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -50,20 +49,22 @@ export function useNotifications() {
       const permissions = await requestPermissions();
       setPermissionStatus(permissions);
 
-      if (permissions.granted || permissions.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED) {
-        // Get push token if on a physical device
-        if (Device.isDevice) {
-          try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-            if (projectId) {
-              const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-              setExpoPushToken(tokenData.data);
-            }
-          } catch (error) {
-            console.error('Error getting push token:', error);
-          }
-        }
-      }
+      // Note: Push token retrieval is disabled since we're only using local notifications.
+      // If you need push notifications in the future, uncomment the code below and configure Firebase.
+      // if (permissions.granted || permissions.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED) {
+      //   // Get push token if on a physical device
+      //   if (Device.isDevice) {
+      //     try {
+      //       const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      //       if (projectId) {
+      //         const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+      //         setExpoPushToken(tokenData.data);
+      //       }
+      //     } catch (error) {
+      //       console.error('Error getting push token:', error);
+      //     }
+      //   }
+      // }
     } catch (error) {
       console.error('Error initializing notifications:', error);
     } finally {
@@ -127,7 +128,6 @@ export function useNotifications() {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
-          allowAnnouncements: false,
         },
       });
       finalStatus = status;
@@ -157,7 +157,7 @@ export function useNotifications() {
 
       if (!enabled) return;
 
-      // Schedule DND start (10 PM daily) - using daily trigger
+      // Schedule DND start (10 PM daily) - using daily trigger (automatically repeats daily)
       await Notifications.scheduleNotificationAsync({
         identifier: 'dnd-start',
         content: {
@@ -166,13 +166,13 @@ export function useNotifications() {
           sound: false,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: DND_START_HOUR,
           minute: 0,
-          repeats: true,
         },
       });
 
-      // Schedule DND end (8 AM daily) - using daily trigger
+      // Schedule DND end (8 AM daily) - using daily trigger (automatically repeats daily)
       await Notifications.scheduleNotificationAsync({
         identifier: 'dnd-end',
         content: {
@@ -181,9 +181,9 @@ export function useNotifications() {
           sound: false,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: DND_END_HOUR,
           minute: 0,
-          repeats: true,
         },
       });
     } catch (error) {
@@ -210,6 +210,7 @@ export function useNotifications() {
           data: { type: 'test' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 1,
         },
       });
@@ -225,21 +226,25 @@ export function useNotifications() {
     return currentHour >= DND_START_HOUR || currentHour < DND_END_HOUR;
   }, []);
 
-  const shouldShowNotification = useCallback((settings: NotificationSettings, type: keyof NotificationSettings): boolean => {
+  const shouldShowNotification = useCallback((settings: NotificationSettings, type: keyof NotificationSettings, isDndEnabled: boolean = false): boolean => {
     // Always show security alerts
-    if (type === 'securityAlerts') {
+    if (type === 'securityAlerts' as keyof NotificationSettings) {
       return true;
     }
 
     // Check if notification type is enabled
-    if (!settings[type]) {
+    if (settings[type] !== true) {
       return false;
     }
 
-    // Check Do Not Disturb (if push notifications are enabled)
-    if (settings.pushNotifications && isInDoNotDisturbWindow()) {
-      // Still allow security alerts during DND
-      return type === 'securityAlerts';
+    // Only check Do Not Disturb if it's explicitly enabled
+    // Note: This function is used for UI display, actual blocking is handled in notificationHelper
+    if (isDndEnabled && settings.pushNotifications) {
+      const isInDndWindow = isInDoNotDisturbWindow();
+      if (isInDndWindow) {
+        // Still allow security alerts during DND
+        return (type as string) === 'securityAlerts';
+      }
     }
 
     return true;

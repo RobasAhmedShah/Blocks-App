@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,21 +57,16 @@ export default function WelcomeScreen() {
         {/* Top Section */}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           {/* Logo */}
-          <View
+          <Image
+            source={require("@/assets/icon.png")}
             style={{
               width: 100,
               height: 100,
               borderRadius: 25,
-              backgroundColor: isDarkColorScheme ? "rgba(13, 165, 165, 0.2)" : `${colors.primary}20`,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 2,
-              borderColor: colors.primary,
               marginBottom: 24,
             }}
-          >
-            <Ionicons name="apps" size={50} color={colors.primary} />
-          </View>
+            resizeMode="contain"
+          />
 
           {/* Welcome Text */}
           <Text

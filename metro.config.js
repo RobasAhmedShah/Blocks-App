@@ -7,4 +7,13 @@ const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
+// Add font file extensions to assetExts
+config.resolver.assetExts.push(
+  'ttf',
+  'otf',
+  'woff',
+  'woff2',
+  'eot'
+);
+
 module.exports = withNativeWind(config, { input: './global.css', inlineRem: 16 });

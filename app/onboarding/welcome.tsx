@@ -97,7 +97,7 @@ export default function WelcomeScreen() {
         {/* Bottom Buttons */}
         <View style={{ paddingBottom: 40, gap: 16 }}>
           <TouchableOpacity
-            onPress={() => router.push("/onboarding/signup" as any)}
+            onPress={() => router.push("/onboarding/signin" as any)}
             style={{
               backgroundColor: colors.primary,
               height: 56,
@@ -119,30 +119,31 @@ export default function WelcomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push("/onboarding/signin" as any)}
+          {/* Info Note */}
+          <View
             style={{
-              backgroundColor: "transparent",
-              height: 56,
-              borderRadius: 16,
+              backgroundColor: isDarkColorScheme
+                ? "rgba(13, 165, 165, 0.1)"
+                : "rgba(13, 165, 165, 0.05)",
+              borderRadius: 12,
+              padding: 16,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 2,
-              borderColor: colors.primary,
+              gap: 12,
             }}
-            activeOpacity={0.8}
           >
+            <Ionicons name="information-circle" size={20} color={colors.primary} />
             <Text
               style={{
-                color: colors.primary,
-                fontSize: 16,
-                fontWeight: "bold",
-                letterSpacing: 0.5,
+                flex: 1,
+                fontSize: 13,
+                color: colors.textSecondary,
+                lineHeight: 20,
               }}
             >
-              I Already Have an Account
+              No signup needed! Simply enter your email and we'll send you a secure login code.
             </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* Terms */}
           <Text

@@ -3,10 +3,12 @@ import * as React from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useSegments } from 'expo-router';
+import { verifySession, getUserInfo, logout as magicLogout, getStoredDIDToken } from '@/services/magicService';
 
 // --- Define Storage Keys ---
 const TOKEN_KEY = 'auth_token';
 const BIOMETRIC_TOKEN_KEY = 'biometric_auth_token';
+const MAGIC_USER_INFO_KEY = 'magic_user_info';
 
 // --- Define State and Context Shapes ---
 interface AuthState {
@@ -15,10 +17,12 @@ interface AuthState {
   isLoading: boolean;
   isBiometricSupported: boolean;
   isBiometricEnrolled: boolean;
+  userEmail: string | null;
+  userWalletAddress: string | null;
 }
 
 interface AuthContextProps extends Omit<AuthState, 'token'> {
-  signIn: (token: string, enableBiometrics?: boolean) => Promise<void>;
+  signIn: (token: string, enableBiometrics?: boolean, userInfo?: { email?: string; publicAddress?: string }) => Promise<void>;
   signOut: () => void;
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<boolean>;
@@ -35,6 +39,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
     isBiometricSupported: false,
     isBiometricEnrolled: false,
+    userEmail: null,
+    userWalletAddress: null,
   });
   
   const router = useRouter();
@@ -75,18 +81,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isAuthenticated: false,
           }));
         } else {
-          // No biometric token, check for a standard token
-          const token = await SecureStore.getItemAsync(TOKEN_KEY);
-          if (token) {
-            // TODO: Add token validation with the backend here
-            setAuthState(prev => ({
-              ...prev,
-              token: token,
-              isAuthenticated: true,
-              isLoading: false,
-            }));
+          // Check Magic session first
+          const isMagicSessionValid = await verifySession();
+          
+          if (isMagicSessionValid) {
+            // Get user info from Magic
+            try {
+              const userInfo = await getUserInfo();
+              // Get DID token from Magic service (it stores it)
+              const didToken = await getStoredDIDToken();
+              // Also store in TOKEN_KEY for compatibility
+              if (didToken) {
+                await SecureStore.setItemAsync(TOKEN_KEY, didToken);
+              }
+              
+              setAuthState(prev => ({
+                ...prev,
+                token: didToken,
+                isAuthenticated: true,
+                isLoading: false,
+                userEmail: userInfo.email || null,
+                userWalletAddress: userInfo.publicAddress || null,
+              }));
+            } catch (error) {
+              console.error('Error fetching Magic user info:', error);
+              // Fall back to stored token
+              const token = await getStoredDIDToken() || await SecureStore.getItemAsync(TOKEN_KEY);
+              if (token) {
+                setAuthState(prev => ({
+                  ...prev,
+                  token: token,
+                  isAuthenticated: true,
+                  isLoading: false,
+                }));
+              } else {
+                setAuthState(prev => ({
+                  ...prev,
+                  isLoading: false,
+                  isAuthenticated: false,
+                }));
+              }
+            }
           } else {
-            // No tokens at all
+            // No valid session
             setAuthState(prev => ({
               ...prev,
               isLoading: false,
@@ -119,10 +156,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authState.isAuthenticated, authState.isLoading, segments, router]);
 
   // --- Auth Actions ---
-  const signIn = async (token: string, enableBiometrics: boolean = false) => {
+  const signIn = async (token: string, enableBiometrics: boolean = false, userInfo?: { email?: string; publicAddress?: string }) => {
     try {
       const key = enableBiometrics ? BIOMETRIC_TOKEN_KEY : TOKEN_KEY;
       await SecureStore.setItemAsync(key, token);
+      
+      // Store user info if provided
+      if (userInfo) {
+        await SecureStore.setItemAsync(MAGIC_USER_INFO_KEY, JSON.stringify(userInfo));
+      }
       
       setAuthState(prev => ({
         ...prev,
@@ -130,6 +172,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: true,
         isLoading: false,
         isBiometricEnrolled: enableBiometrics,
+        userEmail: userInfo?.email || null,
+        userWalletAddress: userInfo?.publicAddress || null,
       }));
     } catch (e) {
       console.error('Error saving token:', e);
@@ -138,15 +182,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      // Clear BOTH keys on sign out
+      // Logout from Magic first
+      try {
+        await magicLogout();
+      } catch (error) {
+        console.error('Error logging out from Magic:', error);
+      }
+      
+      // Clear ALL keys on sign out
       await SecureStore.deleteItemAsync(TOKEN_KEY);
       await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(MAGIC_USER_INFO_KEY);
       
       setAuthState(prev => ({
         ...prev,
         token: null,
         isAuthenticated: false,
         isBiometricEnrolled: false,
+        userEmail: null,
+        userWalletAddress: null,
       }));
     } catch (e) {
       console.error('Error removing token:', e);
@@ -234,6 +288,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: authState.isLoading,
     isBiometricSupported: authState.isBiometricSupported,
     isBiometricEnrolled: authState.isBiometricEnrolled,
+    userEmail: authState.userEmail,
+    userWalletAddress: authState.userWalletAddress,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

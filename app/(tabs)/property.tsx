@@ -12,6 +12,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useApp } from '@/contexts/AppContext';
 import { mockProperties } from '@/data/mockProperties';
 import { propertyFilters } from '@/data/mockCommon';
 
@@ -20,12 +21,29 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { isBookmarked, getBookmarkedProperties } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<typeof propertyFilters[number]>('Trending');
+  const [activeFilter, setActiveFilter] = useState<string>('Trending');
 
-  const filters = propertyFilters;
+  const filters = [...propertyFilters, 'Bookmarks'] as const;
 
-  const filteredProperties = mockProperties.filter(
+  // Get properties based on filter
+  let propertiesToShow = mockProperties;
+  
+  if (activeFilter === 'Bookmarks') {
+    propertiesToShow = getBookmarkedProperties();
+  } else if (activeFilter === 'Trending') {
+    // Show all properties for trending
+    propertiesToShow = mockProperties;
+  } else if (activeFilter === 'High Yield') {
+    propertiesToShow = mockProperties.filter(p => p.estimatedYield >= 9);
+  } else if (activeFilter === 'New Listings') {
+    propertiesToShow = mockProperties.filter(p => p.status === 'funding');
+  } else if (activeFilter === 'Completed') {
+    propertiesToShow = mockProperties.filter(p => p.status === 'completed' || p.status === 'generating-income');
+  }
+
+  const filteredProperties = propertiesToShow.filter(
     (property) =>
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.city.toLowerCase().includes(searchQuery.toLowerCase())
@@ -157,8 +175,18 @@ export default function HomeScreen() {
                 </Text>
               </View>
               {/* Bookmark */}
-              <TouchableOpacity className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur items-center justify-center">
-                <MaterialIcons name="bookmark-border" size={20} color="white" />
+              <TouchableOpacity 
+                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur items-center justify-center"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  // Bookmark functionality handled in detail screen
+                }}
+              >
+                <MaterialIcons 
+                  name={isBookmarked(property.id) ? "bookmark" : "bookmark-border"} 
+                  size={20} 
+                  color="white" 
+                />
               </TouchableOpacity>
             </View>
 

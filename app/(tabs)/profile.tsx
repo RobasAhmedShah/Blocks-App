@@ -21,9 +21,11 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function BlocksProfileScreen() {
   const router = useRouter(); // Add this hook
   const { themePreference, setThemePreference, colors, isDarkColorScheme } = useColorScheme();
-  const { state } = useApp();
+  const { state, getBookmarkedProperties } = useApp();
   const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  
+  const bookmarkedProperties = getBookmarkedProperties();
 
   const themeOptions = [
     { value: 'light' as const, label: 'Light', icon: 'sunny-outline' },
@@ -199,6 +201,53 @@ export default function BlocksProfileScreen() {
             {state.userInfo.email}
           </Text>
         </View>
+
+        {/* My Bookmarks Section */}
+        {bookmarkedProperties.length > 0 && (
+          <View className="mb-8">
+            <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
+              My Bookmarks
+            </Text>
+            <View 
+              style={{ 
+                backgroundColor: colors.card,
+                borderWidth: isDarkColorScheme ? 0 : 1,
+                borderColor: colors.border,
+              }}
+              className="rounded-xl shadow-sm overflow-hidden"
+            >
+              {bookmarkedProperties.map((property, idx) => (
+                <TouchableOpacity
+                  key={property.id}
+                  onPress={() => router.push(`/property/${property.id}`)}
+                  style={{ backgroundColor: colors.card }}
+                  className="flex-row items-center justify-between px-4 py-4"
+                  activeOpacity={0.7}
+                >
+                  <View className="flex-row items-center gap-4 flex-1">
+                    <View 
+                      style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)' 
+                      }}
+                      className="w-10 h-10 rounded-lg items-center justify-center"
+                    >
+                      <Ionicons name="bookmark" size={22} color={colors.primary} />
+                    </View>
+                    <View className="flex-1">
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
+                        {property.title}
+                      </Text>
+                      <Text style={{ color: colors.textMuted }} className="text-xs mt-0.5">
+                        {property.location}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Sections */}
         {sections.map((section, idx) => (

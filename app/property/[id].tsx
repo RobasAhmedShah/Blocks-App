@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  Alert,
+  Platform,
+  Share,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +16,9 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProperty } from "@/services/useProperty";
 import { useWallet } from "@/services/useWallet";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { useApp } from "@/contexts/AppContext";
+import * as Linking from "expo-linking";
+import * as Clipboard from "expo-clipboard";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 
@@ -23,12 +29,15 @@ export default function PropertyDetailScreen() {
   const router = useRouter();
   const { property, loading } = useProperty(id || "");
   const { balance } = useWallet();
+  const { toggleBookmark, isBookmarked } = useApp();
   const [activeTab, setActiveTab] = useState("Financials");
   const [imageIndex, setImageIndex] = useState(0);
   const [showInvestModal, setShowInvestModal] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
+  
+  const bookmarked = id ? isBookmarked(id) : false;
   if (loading || !property) {
     return (
       <View className="flex-1 bg-[#f6f8f8] items-center justify-center">
@@ -46,6 +55,62 @@ export default function PropertyDetailScreen() {
       } as any);
     } else {
       setShowInvestModal(true);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!id) return;
+    try {
+      await toggleBookmark(id);
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+    }
+  };
+
+  const handleShare = async () => {
+    if (!id || !property) return;
+    
+    try {
+      // Create a deep link URL to the property
+      const propertyUrl = Linking.createURL(`/property/${id}`);
+      const shareMessage = `Check out ${property.title} - ${property.location}\n\nEstimated ROI: ${property.estimatedROI}%\nToken Price: $${property.tokenPrice.toFixed(2)}\n\nView property: ${propertyUrl}`;
+      
+      if (Platform.OS === 'web') {
+        // For web, try to use Web Share API
+        if (navigator.share) {
+          await navigator.share({
+            title: property.title,
+            text: shareMessage,
+            url: propertyUrl,
+          });
+        } else {
+          // Fallback: copy to clipboard
+          await Clipboard.setStringAsync(shareMessage);
+          Alert.alert('Copied!', 'Property link copied to clipboard.');
+        }
+      } else {
+        // Use React Native Share API for native platforms
+        const result = await Share.share({
+          message: shareMessage,
+          title: property.title,
+          url: propertyUrl, // iOS only, but doesn't hurt on Android
+        });
+        
+        if (result.action === Share.sharedAction) {
+          // User shared successfully
+          console.log('Shared successfully');
+        } else if (result.action === Share.dismissedAction) {
+          // User dismissed share dialog
+          console.log('Share dismissed');
+        }
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      // Don't show error alert if user cancelled
+      if (error instanceof Error && !error.message.includes('cancelled') && !error.message.includes('dismissed')) {
+        Alert.alert('Error', 'Failed to share property. Please try again.');
+      }
     }
   };
 
@@ -466,18 +531,24 @@ export default function PropertyDetailScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          onPress={handleBookmark}
           style={{
             width: 48,
             height: 48,
-            backgroundColor: colors.muted,
+            backgroundColor: bookmarked ? colors.primary : colors.muted,
             borderRadius: 12,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="bookmark-outline" size={22} color={colors.textMuted} />
+          <Ionicons 
+            name={bookmarked ? "bookmark" : "bookmark-outline"} 
+            size={22} 
+            color={bookmarked ? colors.primaryForeground : colors.textMuted} 
+          />
         </TouchableOpacity>
         <TouchableOpacity
+          onPress={handleShare}
           style={{
             width: 48,
             height: 48,

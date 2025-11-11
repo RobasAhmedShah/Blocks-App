@@ -47,7 +47,10 @@ export default function InvestmentConfirmScreen() {
           Investment Successful
         </Text>
         <TouchableOpacity
-          onPress={() => router.push('/(tabs)/portfolio')}
+          onPress={() => router.push({
+            pathname: '/portfolio/ownproperty/propertydetails',
+            params: { id: id },
+          } as any)}
           style={{ width: 48, alignItems: 'flex-end' }}
         >
           <Ionicons name="close" size={28} color={colors.textMuted} />
@@ -149,7 +152,10 @@ export default function InvestmentConfirmScreen() {
         {/* CTA Buttons */}
         <View style={{ width: '100%', maxWidth: 384, gap: 16, paddingTop: 32 }}>
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/portfolio')}
+            onPress={() => router.push({
+              pathname: '/portfolio/ownproperty/propertydetails',
+              params: { id: id },
+            } as any)}
             style={{ 
               width: '100%', 
               height: 48, 
@@ -160,7 +166,7 @@ export default function InvestmentConfirmScreen() {
             }}
           >
             <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
-              View Portfolio
+              View My Property
             </Text>
           </TouchableOpacity>
           <TouchableOpacity 

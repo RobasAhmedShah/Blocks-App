@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { Property } from '@/types/property';
 import { WalletBalance, Transaction } from '@/types/wallet';
 import { Investment } from '@/types/portfolio';
@@ -8,6 +8,8 @@ import { initialBalance, mockTransactions } from '@/data/mockWallet';
 import { mockInvestments } from '@/data/mockPortfolio';
 import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@/data/mockProfile';
 import { professionalBankAccounts } from '@/data/mockProfile';
+import * as SecureStore from 'expo-secure-store';
+import { NotificationHelper } from '@/services/notificationHelper';
 
 interface AppState {
   // Wallet State
@@ -25,6 +27,9 @@ interface AppState {
   securitySettings: SecuritySettings;
   notificationSettings: NotificationSettings;
   bankAccounts: BankAccount[];
+  
+  // Bookmarks State
+  bookmarkedPropertyIds: string[];
 }
 
 interface AppContextType {
@@ -55,9 +60,16 @@ interface AppContextType {
   addBankAccount: (account: Omit<BankAccount, 'id'>) => Promise<void>;
   removeBankAccount: (accountId: string) => Promise<void>;
   setPrimaryBankAccount: (accountId: string) => Promise<void>;
+  
+  // Bookmark Actions
+  toggleBookmark: (propertyId: string) => Promise<void>;
+  isBookmarked: (propertyId: string) => boolean;
+  getBookmarkedProperties: () => Property[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const BOOKMARKS_STORAGE_KEY = 'bookmarked_property_ids';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>({
@@ -69,14 +81,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     securitySettings: { ...mockSecuritySettings },
     notificationSettings: { ...mockNotificationSettings },
     bankAccounts: [...professionalBankAccounts],
+    bookmarkedPropertyIds: [],
   });
+
+  // Load bookmarks from secure storage on mount
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      try {
+        const stored = await SecureStore.getItemAsync(BOOKMARKS_STORAGE_KEY);
+        if (stored) {
+          const bookmarkedIds = JSON.parse(stored);
+          setState(prev => ({
+            ...prev,
+            bookmarkedPropertyIds: bookmarkedIds,
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading bookmarks:', error);
+      }
+    };
+    loadBookmarks();
+  }, []);
 
   // Wallet Actions
   const deposit = useCallback(async (amount: number, method: string) => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
     
+    let notificationSettings: NotificationSettings | undefined;
+    
     setState(prev => {
+      notificationSettings = prev.notificationSettings;
+      
       const newTransaction: Transaction = {
         id: `tx-${Date.now()}`,
         type: 'deposit',
@@ -99,15 +135,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         transactions: [newTransaction, ...prev.transactions],
       };
     });
+
+    // Send notification after state update
+    await NotificationHelper.depositSuccess(amount, method, notificationSettings);
   }, []);
 
   const withdraw = useCallback(async (amount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
     
+    let notificationSettings: NotificationSettings | undefined;
+    
     setState(prev => {
       if (prev.balance.usdc < amount) {
         throw new Error('Insufficient funds');
       }
+
+      notificationSettings = prev.notificationSettings;
 
       const newTransaction: Transaction = {
         id: `tx-${Date.now()}`,
@@ -131,21 +174,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         transactions: [newTransaction, ...prev.transactions],
       };
     });
+
+    // Send notification after state update
+    await NotificationHelper.withdrawalSuccess(amount, notificationSettings);
   }, []);
 
   // Investment Actions
   const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
     
+    let property: Property | undefined;
+    let notificationSettings: NotificationSettings | undefined;
+    let totalPortfolioValue: number = 0;
+    
     setState(prev => {
       if (prev.balance.usdc < amount) {
         throw new Error('Insufficient funds');
       }
 
-      const property = prev.properties.find(p => p.id === propertyId);
+      property = prev.properties.find(p => p.id === propertyId);
       if (!property) {
         throw new Error('Property not found');
       }
+
+      notificationSettings = prev.notificationSettings;
 
       // Update property tokens
       const updatedProperties = prev.properties.map(p => {
@@ -170,7 +222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (idx === existingInvestmentIndex) {
             const newTokens = inv.tokens + tokenCount;
             const newInvestedAmount = inv.investedAmount + amount;
-            const estimatedValue = newTokens * property.tokenPrice * 1.15; // 15% growth estimate
+            const estimatedValue = newTokens * property!.tokenPrice * 1.15; // 15% growth estimate
             const newROI = ((estimatedValue - newInvestedAmount) / newInvestedAmount) * 100;
             
             return {
@@ -179,7 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               investedAmount: newInvestedAmount,
               currentValue: estimatedValue,
               roi: newROI,
-              monthlyRentalIncome: (estimatedValue * property.estimatedYield / 100) / 12,
+              monthlyRentalIncome: (estimatedValue * property!.estimatedYield / 100) / 12,
             };
           }
           return inv;
@@ -199,6 +251,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         updatedInvestments = [...prev.investments, newInvestment];
       }
+
+      // Calculate total portfolio value for milestone check
+      totalPortfolioValue = updatedInvestments.reduce((sum, inv) => sum + inv.currentValue, 0);
 
       // Add transaction
       const newTransaction: Transaction = {
@@ -239,6 +294,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
         properties: updatedProperties,
       };
     });
+
+    // Send notifications after state update
+    if (property) {
+      await NotificationHelper.investmentSuccess(
+        property.title,
+        amount,
+        tokenCount,
+        property.id,
+        notificationSettings
+      );
+
+      // Check for portfolio milestones (e.g., $10k, $50k, $100k, etc.)
+      const milestones = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+      const previousValue = totalPortfolioValue - (property.tokenPrice * tokenCount * 1.15);
+      const crossedMilestone = milestones.find(
+        milestone => previousValue < milestone && totalPortfolioValue >= milestone
+      );
+
+      if (crossedMilestone && notificationSettings) {
+        await NotificationHelper.portfolioMilestone(
+          `$${(crossedMilestone / 1000).toFixed(0)}k Portfolio`,
+          totalPortfolioValue,
+          notificationSettings
+        );
+      }
+    }
   }, []);
 
   // Property Actions
@@ -327,6 +408,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // Bookmark Actions
+  const toggleBookmark = useCallback(async (propertyId: string) => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    setState(prev => {
+      const isBookmarked = prev.bookmarkedPropertyIds.includes(propertyId);
+      const newBookmarkedIds = isBookmarked
+        ? prev.bookmarkedPropertyIds.filter(id => id !== propertyId)
+        : [...prev.bookmarkedPropertyIds, propertyId];
+      
+      // Persist to secure storage
+      SecureStore.setItemAsync(BOOKMARKS_STORAGE_KEY, JSON.stringify(newBookmarkedIds)).catch(
+        error => console.error('Error saving bookmarks:', error)
+      );
+      
+      return {
+        ...prev,
+        bookmarkedPropertyIds: newBookmarkedIds,
+      };
+    });
+  }, []);
+
+  const isBookmarked = useCallback((propertyId: string) => {
+    return state.bookmarkedPropertyIds.includes(propertyId);
+  }, [state.bookmarkedPropertyIds]);
+
+  const getBookmarkedProperties = useCallback(() => {
+    return state.properties.filter(p => state.bookmarkedPropertyIds.includes(p.id));
+  }, [state.properties, state.bookmarkedPropertyIds]);
+
   return (
     <AppContext.Provider
       value={{
@@ -346,6 +457,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addBankAccount,
         removeBankAccount,
         setPrimaryBankAccount,
+        toggleBookmark,
+        isBookmarked,
+        getBookmarkedProperties,
       }}
     >
       {children}

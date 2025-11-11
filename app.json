@@ -14,7 +14,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow this app to use Face ID to sign you in securely."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

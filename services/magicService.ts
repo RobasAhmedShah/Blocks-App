@@ -1,17 +1,42 @@
 import { Magic } from '@magic-sdk/react-native-expo';
 import * as SecureStore from 'expo-secure-store';
 
+/**
+ * IMPORTANT: Mobile Allowlist Configuration
+ * If Mobile Allowlist is enabled in Magic Dashboard, you must add your App IDs:
+ * - iOS Bundle Identifier: com.intelik.Blocks
+ * - Android Package Name: com.intelik.Blocks
+ * 
+ * Dashboard: Settings > Allowed Origins & Redirects > Mobile App
+ * Without this, loginWithEmailOTP will be blocked and no events will fire.
+ */
+
 // Initialize Magic instance with your publishable key
-const MAGIC_PUBLISHABLE_KEY = 'pk_live_9E93488C0CC96A3B';
+const MAGIC_PUBLISHABLE_KEY = 'pk_live_3488C0CC96A3B';9E9
 const DID_TOKEN_KEY = 'magic_did_token';
 
 // Create Magic instance
 let magicInstance: Magic | null = null;
 
 export const getMagicInstance = (): Magic => {
+  console.log('🔧 [MAGIC] getMagicInstance called');
+  console.log('   🔑 Publishable key:', MAGIC_PUBLISHABLE_KEY ? `${MAGIC_PUBLISHABLE_KEY.substring(0, 10)}...` : 'MISSING');
+  
   if (!magicInstance) {
-    magicInstance = new Magic(MAGIC_PUBLISHABLE_KEY);
+    console.log('   🆕 Creating new Magic instance...');
+    try {
+      magicInstance = new Magic(MAGIC_PUBLISHABLE_KEY);
+      console.log('   ✅ Magic instance created successfully');
+      console.log('   🔍 Instance type:', typeof magicInstance);
+      console.log('   🔍 Instance has auth:', !!magicInstance?.auth);
+    } catch (error) {
+      console.error('   ❌ Error creating Magic instance:', error);
+      throw error;
+    }
+  } else {
+    console.log('   ♻️  Using existing Magic instance');
   }
+  
   return magicInstance;
 };
 

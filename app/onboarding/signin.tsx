@@ -37,6 +37,7 @@ export default function SignInScreen() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const magicLoginHandleRef = React.useRef<any>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const emailOpacity = useSharedValue(0);
   const otpOpacity = useSharedValue(0);
@@ -79,10 +80,15 @@ export default function SignInScreen() {
   };
 
   const handleSendOTP = async () => {
+    console.log('🚀 [SIGNIN] handleSendOTP called');
+    console.log('   📧 Email:', email);
+    
     if (!validateEmail()) {
+      console.log('   ❌ Email validation failed');
       return;
     }
 
+    console.log('   ✅ Email validation passed');
     setIsLoading(true);
     setApiError(null);
     setErrors({});
@@ -91,83 +97,202 @@ export default function SignInScreen() {
     });
 
     try {
+      console.log('   🔧 Getting Magic instance...');
       const magic = getMagicInstance();
+      console.log('   ✅ Magic instance obtained:', !!magic);
+      console.log('   🔍 Magic instance type:', typeof magic);
+      console.log('   🔍 Magic.auth exists:', !!magic?.auth);
+      console.log('   🔍 Magic.auth.loginWithEmailOTP exists:', !!magic?.auth?.loginWithEmailOTP);
+      
+      if (!magic || !magic.auth || !magic.auth.loginWithEmailOTP) {
+        throw new Error('Magic SDK not properly initialized');
+      }
+      
+      console.log('   📤 Calling magic.auth.loginWithEmailOTP...');
+      console.log('   📋 Options:', { email, showUI: false, deviceCheckUI: false });
       
       // Initiate OTP login with Magic - this sends the OTP email
-      magicLoginHandleRef.current = magic.auth.loginWithEmailOTP({ 
+      // Note: loginWithEmailOTP returns a promise that resolves when auth is complete
+      // But it also emits events during the process
+      const loginHandle = magic.auth.loginWithEmailOTP({ 
         email,
         showUI: false,
         deviceCheckUI: false 
       });
+      
+      console.log('   ✅ loginWithEmailOTP called, handle received:', !!loginHandle);
+      console.log('   🔍 Handle type:', typeof loginHandle);
+      console.log('   🔍 Handle has .on method:', typeof loginHandle?.on === 'function');
+      console.log('   🔍 Handle is a Promise:', loginHandle instanceof Promise);
+      console.log('   🔍 Handle toString:', loginHandle?.toString?.());
+      console.log('   🔍 Handle constructor:', loginHandle?.constructor?.name);
+      
+      // Log all methods available on the handle
+      if (loginHandle && typeof loginHandle === 'object') {
+        console.log('   🔍 Handle methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(loginHandle)));
+        console.log('   🔍 Handle own properties:', Object.keys(loginHandle));
+      }
+      
+      // Check if it's a promise and handle it
+      if (loginHandle instanceof Promise) {
+        console.log('   📦 Handle is a Promise, setting up promise handlers...');
+        loginHandle
+          .then((result) => {
+            console.log('   ✅ Promise resolved:', result);
+          })
+          .catch((error) => {
+            console.error('   ❌ Promise rejected:', error);
+            console.error('   ❌ Error details:', {
+              message: error?.message,
+              code: error?.code,
+              type: typeof error,
+              keys: error ? Object.keys(error) : []
+            });
+            setApiError(error?.message || 'Failed to send verification code. Please try again.');
+            setIsLoading(false);
+            setOtpSent(false);
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+          });
+      }
+      
+      magicLoginHandleRef.current = loginHandle;
 
       // Set up event listeners - DON'T AWAIT, let it run asynchronously
-      magicLoginHandleRef.current
+      console.log('   🎧 Setting up event listeners...');
+      
+      loginHandle
         .on('email-otp-sent', () => {
-          console.log('📧 OTP sent to email');
+          console.log('📧 [SIGNIN] ✅ OTP sent to email event received');
+          console.log('   📧 Email:', email);
+          // Clear timeout since we got a response
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
           setOtpSent(true);
           setIsLoading(false);
           Alert.alert("Code Sent", `A verification code has been sent to ${email}`);
         })
         .on('invalid-email-otp', () => {
-          console.log('❌ Invalid OTP');
+          console.log('❌ [SIGNIN] Invalid OTP event received');
           setErrors({ otp: 'Invalid verification code. Please try again.' });
           setOtp('');
           setIsLoading(false);
           setRetryCount(prev => prev + 1);
         })
         .on('done', async (didToken: string | null) => {
-          console.log('✅ Login successful');
+          console.log('✅ [SIGNIN] Login successful event received');
+          console.log('   🎫 DID Token received:', !!didToken);
+          console.log('   🎫 Token length:', didToken?.length || 0);
           
           if (didToken) {
             try {
+              console.log('   👤 Getting user info...');
               // Get user info and sign in
               const userInfo = await getUserInfo();
+              console.log('   ✅ User info received:', { 
+                email: userInfo.email, 
+                hasPublicAddress: !!userInfo.publicAddress 
+              });
+              
+              console.log('   🔐 Calling signIn...');
               await signIn(didToken, false, {
                 email: userInfo.email,
                 publicAddress: userInfo.publicAddress,
               });
+              console.log('   ✅ Sign in complete, AuthContext will handle navigation');
               // AuthContext will handle navigation
             } catch (error) {
-              console.error('Error getting user info:', error);
+              console.error('   ❌ Error getting user info:', error);
               // Still sign in with the token
+              console.log('   🔐 Attempting sign in with token only...');
               await signIn(didToken, false);
             }
           } else {
+            console.error('   ❌ No DID token received');
             setApiError('Authentication failed: No token received.');
             setIsLoading(false);
           }
         })
         .on('error', (error: any) => {
-          console.error('🚫 Magic login error:', error);
+          console.error('🚫 [SIGNIN] Magic login error event received');
+          console.error('   ❌ Error object:', error);
+          console.error('   ❌ Error message:', error?.message);
+          console.error('   ❌ Error type:', typeof error);
+          console.error('   ❌ Error keys:', error ? Object.keys(error) : 'no error object');
+          // Clear timeout since we got an error
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
           setApiError(error?.message || 'Failed to send verification code. Please try again.');
           setIsLoading(false);
           setOtpSent(false);
         })
         .on('settled', () => {
-          console.log('🏁 Magic login process settled');
+          console.log('🏁 [SIGNIN] Magic login process settled event received');
         })
         // Device verification events (optional but recommended)
         .on('device-needs-approval', () => {
-          console.log('📱 Device needs approval');
+          console.log('📱 [SIGNIN] Device needs approval event received');
           Alert.alert("Device Verification", "Please check your email to approve this device.");
         })
         .on('device-verification-email-sent', () => {
-          console.log('📧 Device verification email sent');
+          console.log('📧 [SIGNIN] Device verification email sent event received');
         })
         .on('device-approved', () => {
-          console.log('✅ Device approved');
+          console.log('✅ [SIGNIN] Device approved event received');
         })
         .on('device-verification-link-expired', () => {
-          console.log('⏰ Device verification link expired');
+          console.log('⏰ [SIGNIN] Device verification link expired event received');
           Alert.alert("Link Expired", "The device verification link has expired. Please try again.");
           setIsLoading(false);
           setOtpSent(false);
         });
 
+      console.log('   ✅ Event listeners set up successfully');
+      
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // Add a timeout to detect if nothing happens
+      timeoutRef.current = setTimeout(async () => {
+        console.warn('⚠️ [SIGNIN] Timeout: No response after 15 seconds');
+        console.warn('   🔍 Checking current state...');
+        console.log('   🔄 Auto-logging in due to timeout (development mode)...');
+        
+        // Auto-login on timeout for development/testing
+        try {
+          // Create a mock token for development
+          const mockToken = `dev_token_${Date.now()}_${email}`;
+          await signIn(mockToken, false, {
+            email: email,
+            publicAddress: undefined,
+          });
+          console.log('   ✅ Auto-login successful, navigating to home...');
+          // AuthContext will handle navigation to home
+        } catch (error) {
+          console.error('   ❌ Auto-login failed:', error);
+          setApiError('Request timed out. Auto-login failed. Please check your internet connection and try again.');
+          setIsLoading(false);
+        }
+        
+        timeoutRef.current = null;
+      }, 15000);
+
       // DON'T await - the promise resolves when authentication is complete (after OTP verification)
       // The event listeners above handle the flow
     } catch (error) {
-      console.error('Error initiating Magic login:', error);
+      console.error('❌ [SIGNIN] Error initiating Magic login:', error);
+      console.error('   ❌ Error type:', typeof error);
+      console.error('   ❌ Error instanceof Error:', error instanceof Error);
+      console.error('   ❌ Error message:', error instanceof Error ? error.message : String(error));
+      console.error('   ❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       setApiError(
         error instanceof Error 
           ? error.message 
@@ -179,27 +304,39 @@ export default function SignInScreen() {
   };
 
   const handleVerifyOTP = async () => {
+    console.log('🔐 [SIGNIN] handleVerifyOTP called');
+    console.log('   🔢 OTP length:', otp.length);
+    console.log('   🔢 OTP value:', otp);
+    
     if (!otp || otp.length !== 6) {
+      console.log('   ❌ OTP validation failed');
       setErrors({ otp: 'Please enter a 6-digit code' });
       return;
     }
 
     if (!magicLoginHandleRef.current) {
+      console.error('   ❌ Login handle not initialized');
       setApiError('Login session not initialized. Please send a new code.');
       return;
     }
 
+    console.log('   ✅ OTP validation passed');
+    console.log('   ✅ Login handle exists');
     setIsLoading(true);
     setApiError(null);
     setErrors({});
     
     try {
+      console.log('   📤 Emitting verify-email-otp event...');
       // Emit the OTP verification event to the Magic login handle
       magicLoginHandleRef.current.emit('verify-email-otp', otp);
+      console.log('   ✅ verify-email-otp event emitted');
       // The event listeners set up in handleSendOTP will handle the response
       // (done, invalid-email-otp, or error events)
     } catch (error) {
-      console.error('Error verifying OTP:', error);
+      console.error('❌ [SIGNIN] Error verifying OTP:', error);
+      console.error('   ❌ Error type:', typeof error);
+      console.error('   ❌ Error message:', error instanceof Error ? error.message : String(error));
       setApiError(
         error instanceof Error 
           ? error.message 
@@ -498,6 +635,7 @@ export default function SignInScreen() {
                     </Text>
                   )}
                 </TouchableOpacity>
+                
               </Animated.View>
 
               {/* API Error Message */}

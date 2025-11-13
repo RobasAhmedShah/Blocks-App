@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
+import { authApi } from "@/services/api/auth.api";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -130,22 +131,14 @@ export default function SignInScreen() {
     });
 
     try {
-      // TODO: Replace this with your actual API call
-      // Example: const response = await fetch('https://your-api.com/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await response.json();
+      // Call the real API
+      const response = await authApi.login({
+        email: email.trim(),
+        password: password,
+      });
       
-      // Simulating API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Mock response - replace with actual API response
-      const mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token";
-      
-      // Call signIn from AuthContext with the token
-      await signIn(mockToken);
+      // Call signIn from AuthContext with both tokens
+      await signIn(response.token, response.refreshToken);
       
       // The AuthContext will handle the navigation to /(tabs)/home
     } catch (error) {

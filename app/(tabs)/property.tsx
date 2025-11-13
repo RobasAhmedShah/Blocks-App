@@ -8,12 +8,13 @@ import {
   TextInput,
   Dimensions,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
-import { mockProperties } from '@/data/mockProperties';
 import { propertyFilters } from '@/data/mockCommon';
 
 const { width } = Dimensions.get('window');
@@ -21,32 +22,63 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { isBookmarked, getBookmarkedProperties } = useApp();
+  const { 
+    state, 
+    isBookmarked, 
+    getBookmarkedProperties, 
+    isLoadingProperties, 
+    propertiesError,
+    refreshProperties 
+  } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('Trending');
+  const [refreshing, setRefreshing] = useState(false);
 
   const filters = [...propertyFilters, 'Bookmarks'] as const;
 
+  // Handle refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshProperties();
+    } catch (error) {
+      console.error('Error refreshing properties:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Get properties based on filter
-  let propertiesToShow = mockProperties;
+  let propertiesToShow = state.properties;
   
   if (activeFilter === 'Bookmarks') {
     propertiesToShow = getBookmarkedProperties();
   } else if (activeFilter === 'Trending') {
-    // Show all properties for trending
-    propertiesToShow = mockProperties;
+    // Show all properties for trending (or filter by sold percentage > 30%)
+    propertiesToShow = state.properties.filter(
+      p => p.totalTokens > 0 && (p.soldTokens / p.totalTokens) > 0.3
+    );
   } else if (activeFilter === 'High Yield') {
-    propertiesToShow = mockProperties.filter(p => p.estimatedYield >= 9);
+    propertiesToShow = state.properties.filter(p => p.estimatedYield >= 10);
   } else if (activeFilter === 'New Listings') {
-    propertiesToShow = mockProperties.filter(p => p.status === 'funding');
+    // Properties created in last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    propertiesToShow = state.properties.filter(p => {
+      const createdDate = new Date(p.createdAt || 0);
+      return createdDate >= thirtyDaysAgo;
+    });
   } else if (activeFilter === 'Completed') {
-    propertiesToShow = mockProperties.filter(p => p.status === 'completed' || p.status === 'generating-income');
+    propertiesToShow = state.properties.filter(
+      p => p.status === 'completed' || p.status === 'generating-income'
+    );
   }
 
   const filteredProperties = propertiesToShow.filter(
     (property) =>
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.city.toLowerCase().includes(searchQuery.toLowerCase())
+      (property.city && property.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (property.location && property.location.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -149,7 +181,52 @@ export default function HomeScreen() {
         className="flex-1 px-4"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || isLoadingProperties}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
+        {/* Loading State */}
+        {isLoadingProperties && !refreshing && filteredProperties.length === 0 && (
+          <View className="flex-1 items-center justify-center py-20">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base">
+              Loading properties...
+            </Text>
+          </View>
+        )}
+
+        {/* Error State */}
+        {propertiesError && !isLoadingProperties && filteredProperties.length === 0 && (
+          <View className="flex-1 items-center justify-center py-20 px-4">
+            <MaterialIcons name="error-outline" size={48} color={colors.textMuted} />
+            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
+              {propertiesError}
+            </Text>
+            <TouchableOpacity
+              onPress={onRefresh}
+              style={{ backgroundColor: colors.primary }}
+              className="mt-6 px-6 py-3 rounded-full"
+            >
+              <Text className="text-white font-semibold">Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Empty State */}
+        {!isLoadingProperties && !propertiesError && filteredProperties.length === 0 && (
+          <View className="flex-1 items-center justify-center py-20 px-4">
+            <MaterialIcons name="search-off" size={48} color={colors.textMuted} />
+            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
+              {searchQuery ? 'No properties found matching your search' : 'No properties available'}
+            </Text>
+          </View>
+        )}
+
+        {/* Properties List */}
         {filteredProperties.map((property) => (
           <TouchableOpacity
             key={property.id}
@@ -161,9 +238,14 @@ export default function HomeScreen() {
             {/* Property Image */}
             <View className="relative">
               <Image
-                source={{ uri: property.images[0] }}
+                source={{ 
+                  uri: property.images && property.images.length > 0 
+                    ? property.images[0] 
+                    : 'https://via.placeholder.com/400x300?text=No+Image'
+                }}
                 className="w-full h-56"
                 resizeMode="cover"
+                defaultSource={require('@/assets/blank.png')}
               />
               {/* Status Badge */}
               <View 
@@ -196,7 +278,9 @@ export default function HomeScreen() {
                 {property.title}
               </Text>
               <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
-                PKR {((typeof property.valuation === 'number' ? property.valuation : parseFloat(String(property.valuation).replace(/[^0-9.]/g, ''))) / 1000000).toFixed(0)}M Valuation
+                ${typeof property.valuation === 'number' 
+                  ? property.valuation.toLocaleString() 
+                  : property.valuation} Valuation
               </Text>
 
               {/* Investment Info */}
@@ -223,31 +307,33 @@ export default function HomeScreen() {
               </View>
 
               {/* Progress Bar */}
-              <View className="mt-3">
-                <View className="flex-row justify-between mb-1.5">
-                  <Text style={{ color: colors.textSecondary }} className="text-xs">
-                    Funding Progress
-                  </Text>
-                  <Text style={{ color: colors.textPrimary }} className="text-xs font-semibold">
-                    {((property.soldTokens / property.totalTokens) * 100).toFixed(0)}%
+              {property.totalTokens > 0 && (
+                <View className="mt-3">
+                  <View className="flex-row justify-between mb-1.5">
+                    <Text style={{ color: colors.textSecondary }} className="text-xs">
+                      Funding Progress
+                    </Text>
+                    <Text style={{ color: colors.textPrimary }} className="text-xs font-semibold">
+                      {((property.soldTokens / property.totalTokens) * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                  <View 
+                    style={{ backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }}
+                    className="w-full h-2 rounded-full"
+                  >
+                    <View
+                      style={{ 
+                        backgroundColor: colors.primary,
+                        width: `${Math.min((property.soldTokens / property.totalTokens) * 100, 100)}%`
+                      }}
+                      className="h-2 rounded-full"
+                    />
+                  </View>
+                  <Text style={{ color: colors.textSecondary }} className="text-xs mt-1.5">
+                    {property.soldTokens.toLocaleString()} / {property.totalTokens.toLocaleString()} Tokens
                   </Text>
                 </View>
-                <View 
-                  style={{ backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }}
-                  className="w-full h-2 rounded-full"
-                >
-                  <View
-                    style={{ 
-                      backgroundColor: colors.primary,
-                      width: `${(property.soldTokens / property.totalTokens) * 100}%`
-                    }}
-                    className="h-2 rounded-full"
-                  />
-                </View>
-                <Text style={{ color: colors.textSecondary }} className="text-xs mt-1.5">
-                  {property.soldTokens} / {property.totalTokens} Tokens
-                </Text>
-              </View>
+              )}
             </View>
           </TouchableOpacity>
         ))}

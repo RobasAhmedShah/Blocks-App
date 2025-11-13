@@ -124,17 +124,31 @@ export default function ConfirmInvestmentScreen() {
           <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
             {/* Property Image and Info */}
             <View style={{ flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <Image
-                source={{ uri: property.images[0] }}
-                style={{ width: 128, height: 128, borderRadius: 12 }}
-                resizeMode="cover"
-              />
+              {property.images && property.images.length > 0 ? (
+                <Image
+                  source={{ uri: property.images[0] }}
+                  style={{ width: 128, height: 128, borderRadius: 12 }}
+                  resizeMode="cover"
+                  defaultSource={require('@/assets/blank.png')}
+                />
+              ) : (
+                <View style={{ 
+                  width: 128, 
+                  height: 128, 
+                  borderRadius: 12, 
+                  backgroundColor: colors.card,
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Ionicons name="image-outline" size={48} color={colors.textMuted} />
+                </View>
+              )}
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
                   {property.title}
                 </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 4 }}>
-                  {property.location}
+                  {property.location || property.city || 'Location not available'}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
                   <Ionicons name="star" size={14} color={colors.warning} />

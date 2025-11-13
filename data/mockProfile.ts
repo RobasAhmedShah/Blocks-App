@@ -552,6 +552,7 @@ export const profileSections: ProfileSection[] = [
     items: [
       { icon: "person-outline", label: "Personal Information", action: 'personalinfo' },
       { icon: "shield-outline", label: "Security", action: 'security' },
+      { icon: "card-outline", label: "Payment Methods", action: 'paymentmethods' },
       { icon: "card-outline", label: "Linked Bank Accounts", action: 'linkedbankaccounts' },
     ],
   },

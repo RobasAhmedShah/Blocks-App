@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Share,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,7 +28,7 @@ const { width } = Dimensions.get("window");
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { property, loading } = useProperty(id || "");
+  const { property, loading, error } = useProperty(id || "");
   const { balance } = useWallet();
   const { toggleBookmark, isBookmarked } = useApp();
   const [activeTab, setActiveTab] = useState("Financials");
@@ -38,10 +39,32 @@ export default function PropertyDetailScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   
   const bookmarked = id ? isBookmarked(id) : false;
-  if (loading || !property) {
+  
+  if (loading) {
     return (
-      <View className="flex-1 bg-[#f6f8f8] items-center justify-center">
-        <Text className="text-black">Loading...</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background }} className="items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textSecondary }} className="mt-4 text-base">
+          Loading property...
+        </Text>
+      </View>
+    );
+  }
+
+  if (error || !property) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }} className="items-center justify-center px-4">
+        <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+        <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
+          {error || 'Property not found'}
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ backgroundColor: colors.primary }}
+          className="mt-6 px-6 py-3 rounded-full"
+        >
+          <Text className="text-white font-semibold">Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -119,37 +142,49 @@ export default function PropertyDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} ref={scrollViewRef}>
         {/* Image Gallery */}
         <View className="relative h-[60vh]">
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width);
-              setImageIndex(index);
-            }}
-            scrollEventThrottle={16}
-          >
-            {property.images.map((img, idx) => (
-              <Image
-                key={idx}
-                source={{ uri: img }}
-                style={{ width, height: '100%' }}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
+          {property.images && property.images.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                  setImageIndex(index);
+                }}
+                scrollEventThrottle={16}
+              >
+                {property.images.map((img, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: img }}
+                    style={{ width, height: '100%' }}
+                    resizeMode="cover"
+                    defaultSource={require('@/assets/blank.png')}
+                  />
+                ))}
+              </ScrollView>
 
-          {/* Image Indicators */}
-          {property.images.length > 1 && (
-            <View className="absolute bottom-4 left-0 right-0 flex-row justify-center gap-2">
-              {property.images.map((_, idx) => (
-                <View
-                  key={idx}
-                  className={`h-1.5 rounded-full ${
-                    imageIndex === idx ? 'bg-white w-6' : 'bg-white/50 w-1.5'
-                  }`}
-                />
-              ))}
+              {/* Image Indicators */}
+              {property.images.length > 1 && (
+                <View className="absolute bottom-4 left-0 right-0 flex-row justify-center gap-2">
+                  {property.images.map((_, idx) => (
+                    <View
+                      key={idx}
+                      className={`h-1.5 rounded-full ${
+                        imageIndex === idx ? 'bg-white w-6' : 'bg-white/50 w-1.5'
+                      }`}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View className="w-full h-full items-center justify-center bg-gray-200">
+              <Ionicons name="image-outline" size={64} color={colors.textMuted} />
+              <Text style={{ color: colors.textMuted }} className="mt-4 text-base">
+                No images available
+              </Text>
             </View>
           )}
 

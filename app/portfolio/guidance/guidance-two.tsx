@@ -8,16 +8,18 @@ import {
   StatusBar,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
-import { mockProperties } from "@/data/mockProperties";
+import { useApp } from "@/contexts/AppContext";
 import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function GuidedInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
+  const { state, isLoadingProperties } = useApp();
   const { colors, isDarkColorScheme } = useColorScheme();
   const [investmentMode, setInvestmentMode] = useState<"amount" | "earning">("amount");
   const [investAmount, setInvestAmount] = useState(
@@ -40,21 +42,22 @@ export default function GuidedInvestmentScreen() {
       return [];
     }
     
-    return mockProperties
+    // Use properties from AppContext (API data)
+    return state.properties
       .filter(p => {
-        
         // Only show properties where the investment amount is enough to buy at least 0.1 tokens
         const tokens = amount / p.tokenPrice;
-        return tokens >= 0.1;
-      } )
+        return tokens >= 0.1 && p.totalTokens > 0 && p.soldTokens < p.totalTokens; // Only show available properties
+      })
       .sort((a, b) => b.estimatedROI - a.estimatedROI)
+      .slice(0, 10) // Limit to top 10 recommendations
       .map(p => ({
         property: p,
         expectedMonthlyReturn: ((amount * p.estimatedYield) / 100 / 12).toFixed(2),
         breakEven: (100 / p.estimatedROI).toFixed(1),
         tokensCount: amount / p.tokenPrice, // Calculate tokens here
       }));
-  }, [investAmount]);
+  }, [investAmount, state.properties]);
 
   // Clear selection if the selected property is no longer in recommended list
   useEffect(() => {
@@ -73,7 +76,7 @@ export default function GuidedInvestmentScreen() {
     
     // First check if user has explicitly selected a property
     let selectedProp = selectedPropertyId 
-      ? mockProperties.find(p => p.id === selectedPropertyId)
+      ? state.properties.find(p => p.id === selectedPropertyId)
       : null;
     
     // If no explicit selection, use first recommended property
@@ -301,34 +304,47 @@ export default function GuidedInvestmentScreen() {
 
             {/* Property Cards */}
             <View style={{ flexDirection: 'column', gap: 16 }}>
-              <ScrollView 
-                style={{ flex: 1, height: 300 }}
-                showsVerticalScrollIndicator={false} 
-                contentContainerStyle={{ gap: 16 }}
-              >
-                {recommendedProperties.length > 0 ? (
-                  recommendedProperties.map(({ property, expectedMonthlyReturn, breakEven, tokensCount }) => {
-                    const isSelected = selectedPropertyId === property.id;
-                    return (
-                      <TouchableOpacity
-                        key={property.id}
-                        onPress={() => handlePropertySelect(property.id)}
-                        style={{
-                          flexDirection: 'row',
-                          gap: 16,
-                          backgroundColor: colors.card,
-                          borderRadius: 12,
-                          padding: 12,
-                          borderWidth: 2,
-                          borderColor: isSelected ? colors.primary : 'transparent',
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Image
-                          source={{ uri: property.images[0] }}
-                          style={{ width: 96, height: 96, borderRadius: 8 }}
-                          resizeMode="cover"
-                        />
+              {isLoadingProperties ? (
+                <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 12 }}>
+                    Loading properties...
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView 
+                  style={{ flex: 1, height: 300 }}
+                  showsVerticalScrollIndicator={false} 
+                  contentContainerStyle={{ gap: 16 }}
+                >
+                  {recommendedProperties.length > 0 ? (
+                    recommendedProperties.map(({ property, expectedMonthlyReturn, breakEven, tokensCount }) => {
+                      const isSelected = selectedPropertyId === property.id;
+                      return (
+                        <TouchableOpacity
+                          key={property.id}
+                          onPress={() => handlePropertySelect(property.id)}
+                          style={{
+                            flexDirection: 'row',
+                            gap: 16,
+                            backgroundColor: colors.card,
+                            borderRadius: 12,
+                            padding: 12,
+                            borderWidth: 2,
+                            borderColor: isSelected ? colors.primary : 'transparent',
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Image
+                            source={{ 
+                              uri: property.images && property.images.length > 0 
+                                ? property.images[0] 
+                                : 'https://via.placeholder.com/96x96?text=No+Image'
+                            }}
+                            style={{ width: 96, height: 96, borderRadius: 8 }}
+                            resizeMode="cover"
+                            defaultSource={require('@/assets/blank.png')}
+                          />
 
                         <View style={{ flex: 1, justifyContent: 'space-between' }}>
                           <View>
@@ -336,7 +352,7 @@ export default function GuidedInvestmentScreen() {
                               {property.title}
                             </Text>
                             <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                              {property.location}
+                              {property.location || property.city || 'Location not available'}
                             </Text>
                           </View>
 
@@ -380,22 +396,23 @@ export default function GuidedInvestmentScreen() {
                       </TouchableOpacity>
                     );
                   })
-                ) : (
-                  <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.destructive, fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
-                      We&apos;re Sorry!
-                    </Text>
-                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 12 }}>
-                      Your savings don&apos;t meet the minimum to invest in our properties yet.
-                    </Text>
-                 
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
-                      Try increasing your savings or let us know if you want updates
-                      when new options become available.
-                    </Text>
-                  </View>
+                    ) : (
+                      <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: colors.destructive, fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 8 }}>
+                          We&apos;re Sorry!
+                        </Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 12 }}>
+                          Your savings don&apos;t meet the minimum to invest in our properties yet.
+                        </Text>
+                     
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
+                          Try increasing your savings or let us know if you want updates
+                          when new options become available.
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
                 )}
-              </ScrollView>
             </View>
           </View>
         </View>

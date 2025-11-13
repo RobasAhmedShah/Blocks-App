@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
+import { authApi } from "@/services/api/auth.api";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,6 +28,7 @@ export default function SignUpScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const { signIn } = useAuth();
   
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,22 +36,30 @@ export default function SignUpScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{
+    fullName?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
   }>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const fullNameOpacity = useSharedValue(0);
   const emailOpacity = useSharedValue(0);
   const passwordOpacity = useSharedValue(0);
   const confirmPasswordOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
   React.useEffect(() => {
+    fullNameOpacity.value = withTiming(1, { duration: 300 });
     emailOpacity.value = withTiming(1, { duration: 400 });
     passwordOpacity.value = withTiming(1, { duration: 600 });
     confirmPasswordOpacity.value = withTiming(1, { duration: 800 });
   }, []);
+
+  const fullNameAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: fullNameOpacity.value,
+    transform: [{ translateY: withSpring((1 - fullNameOpacity.value) * 20) }],
+  }));
 
   const emailAnimatedStyle = useAnimatedStyle(() => ({
     opacity: emailOpacity.value,
@@ -72,10 +82,18 @@ export default function SignUpScreen() {
 
   const validateForm = () => {
     const newErrors: {
+      fullName?: string;
       email?: string;
       password?: string;
       confirmPassword?: string;
     } = {};
+
+    // Full Name validation
+    if (!fullName.trim()) {
+      newErrors.fullName = "Full name is required";
+    } else if (fullName.trim().length < 2) {
+      newErrors.fullName = "Full name must be at least 2 characters";
+    }
 
     // Email validation
     if (!email.trim()) {
@@ -116,22 +134,16 @@ export default function SignUpScreen() {
     });
 
     try {
-      // TODO: Replace this with your actual API call
-      // Example: const response = await fetch('https://your-api.com/auth/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await response.json();
+      // Call the real API
+      const response = await authApi.register({
+        email: email.trim(),
+        password: password,
+        fullName: fullName.trim(),
+        // phone is optional, can be added later if needed
+      });
       
-      // Simulating API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Mock response - replace with actual API response
-      const mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.token";
-      
-      // Call signIn from AuthContext with the token to automatically log the user in
-      await signIn(mockToken);
+      // Call signIn from AuthContext with both tokens to automatically log the user in
+      await signIn(response.token, response.refreshToken);
       
       // The AuthContext will handle the navigation to /(tabs)/home
     } catch (error) {
@@ -221,6 +233,73 @@ export default function SignUpScreen() {
 
             {/* Form */}
             <View style={{ gap: 24 }}>
+              {/* Full Name Input */}
+              <Animated.View style={fullNameAnimatedStyle}>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: colors.textPrimary,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Full Name
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: isDarkColorScheme
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : colors.input,
+                      borderRadius: 12,
+                      borderWidth: errors.fullName ? 1 : 0,
+                      borderColor: colors.destructive,
+                      paddingHorizontal: 16,
+                      height: 56,
+                    }}
+                  >
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color={errors.fullName ? colors.destructive : colors.textMuted}
+                      style={{ marginRight: 12 }}
+                    />
+                    <TextInput
+                      value={fullName}
+                      onChangeText={(text) => {
+                        setFullName(text);
+                        if (errors.fullName) {
+                          setErrors({ ...errors, fullName: undefined });
+                        }
+                      }}
+                      placeholder="Enter your full name"
+                      placeholderTextColor={colors.textMuted}
+                      style={{
+                        flex: 1,
+                        fontSize: 16,
+                        color: colors.textPrimary,
+                      }}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+                  {errors.fullName && (
+                    <Text
+                      style={{
+                        color: colors.destructive,
+                        fontSize: 12,
+                        marginTop: 6,
+                        marginLeft: 4,
+                      }}
+                    >
+                      {errors.fullName}
+                    </Text>
+                  )}
+                </View>
+              </Animated.View>
+
               {/* Email Input */}
               <Animated.View style={emailAnimatedStyle}>
                 <View>

@@ -10,6 +10,7 @@ import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@
 import { professionalBankAccounts } from '@/data/mockProfile';
 import * as SecureStore from 'expo-secure-store';
 import { NotificationHelper } from '@/services/notificationHelper';
+import { propertiesApi } from '@/services/api/properties.api';
 
 interface AppState {
   // Wallet State
@@ -36,6 +37,10 @@ interface AppContextType {
   // State
   state: AppState;
   
+  // Loading States
+  isLoadingProperties: boolean;
+  propertiesError: string | null;
+  
   // Wallet Actions
   deposit: (amount: number, method: string) => Promise<void>;
   withdraw: (amount: number) => Promise<void>;
@@ -45,6 +50,7 @@ interface AppContextType {
   
   // Property Actions
   getProperty: (id: string) => Property | undefined;
+  refreshProperties: () => Promise<void>;
   
   // Portfolio Actions
   getInvestments: () => Investment[];
@@ -76,13 +82,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
     balance: { ...initialBalance },
     transactions: [...mockTransactions],
     investments: [...mockInvestments],
-    properties: [...mockProperties],
+    properties: [...mockProperties], // Start with mock data, will be replaced by API
     userInfo: { ...mockUserInfo },
     securitySettings: { ...mockSecuritySettings },
     notificationSettings: { ...mockNotificationSettings },
     bankAccounts: [...professionalBankAccounts],
     bookmarkedPropertyIds: [],
   });
+
+  const [isLoadingProperties, setIsLoadingProperties] = useState(false);
+  const [propertiesError, setPropertiesError] = useState<string | null>(null);
+
+  // Fetch properties from API
+  const fetchProperties = useCallback(async () => {
+    try {
+      setIsLoadingProperties(true);
+      setPropertiesError(null);
+      
+      // Fetch all properties (with pagination if needed)
+      let allProperties: Property[] = [];
+      let page = 1;
+      let hasMore = true;
+      const limit = 100; // Fetch 100 at a time
+      
+      while (hasMore) {
+        const response = await propertiesApi.getProperties({ page, limit });
+        allProperties = [...allProperties, ...response.data];
+        
+        if (page >= response.meta.totalPages) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+      
+      // Transform API properties to match app structure
+      const transformedProperties: Property[] = allProperties.map(prop => ({
+        ...prop,
+        // Ensure completionDate is a string (can be null from API)
+        completionDate: prop.completionDate || '',
+        // Ensure documents and updates arrays exist (API doesn't return these yet)
+        documents: prop.documents || [],
+        updates: prop.updates || [],
+        // Ensure rentalIncome exists for generating-income properties
+        rentalIncome: prop.rentalIncome || (prop.status === 'generating-income' ? undefined : undefined),
+      }));
+      
+      setState(prev => ({
+        ...prev,
+        properties: transformedProperties,
+      }));
+    } catch (error: any) {
+      console.error('Error fetching properties:', error);
+      setPropertiesError(error.message || 'Failed to load properties');
+      // Keep mock data on error for fallback
+    } finally {
+      setIsLoadingProperties(false);
+    }
+  }, []);
+
+  // Load properties on mount
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
 
   // Load bookmarks from secure storage on mount
   useEffect(() => {
@@ -324,8 +386,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Property Actions
   const getProperty = useCallback((id: string) => {
-    return state.properties.find(p => p.id === id);
+    return state.properties.find(p => p.id === id || p.displayCode === id);
   }, [state.properties]);
+
+  const refreshProperties = useCallback(async () => {
+    await fetchProperties();
+  }, [fetchProperties]);
 
   // Portfolio Actions
   const getInvestments = useCallback(() => {
@@ -442,10 +508,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         state,
+        isLoadingProperties,
+        propertiesError,
         deposit,
         withdraw,
         invest,
         getProperty,
+        refreshProperties,
         getInvestments,
         getTotalValue,
         getTotalInvested,

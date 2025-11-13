@@ -43,6 +43,9 @@ export default function BlocksProfileScreen() {
       case 'security':
         router.push('../profilesettings/security');
         break;
+      case 'paymentmethods':
+        router.push('../profilesettings/paymentmethods');
+        break;
       case 'linkedbankaccounts':
         router.push('../profilesettings/linkedbank');
         break;

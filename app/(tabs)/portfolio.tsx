@@ -368,10 +368,12 @@ export default function PortfolioScreen() {
               Deposit
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity className="flex-col items-center justify-center p-2 flex-1">
+          <TouchableOpacity 
+          onPress={() => router.push('/portfolio/myassets/assets-first')}
+          className="flex-col items-center justify-center p-2 flex-1">
             <Ionicons name="remove" size={24} color={colors.textPrimary} />
             <Text style={{ color: colors.textPrimary }} className="text-xs font-medium mt-0.5">
-              Withdraw
+             My Assets
             </Text>
           </TouchableOpacity>
           <TouchableOpacity 

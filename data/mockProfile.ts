@@ -212,7 +212,7 @@ export const languages: Language[] = [
   { code: "nl", name: "Dutch", nativeName: "Nederlands", flag: "🇳🇱" },
   { code: "pl", name: "Polish", nativeName: "Polski", flag: "🇵🇱" },
   { code: "sv", name: "Swedish", nativeName: "Svenska", flag: "🇸🇪" },
-];
+  ];
 
   export const faqs: FAQItem[] = [
     // Getting Started

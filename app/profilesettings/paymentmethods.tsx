@@ -42,10 +42,22 @@ export default function PaymentMethodsScreen() {
 
   const handleSetDefault = async (methodId: string) => {
     try {
+      // Optimistic update: immediately update UI
+      setPaymentMethods(prevMethods => 
+        prevMethods.map(method => ({
+          ...method,
+          isDefault: method.id === methodId
+        }))
+      );
+      
+      // Call API to update backend
       await paymentMethodsApi.setDefaultPaymentMethod(methodId, true);
+      
+      // Reload to ensure consistency with backend
       await loadPaymentMethods();
-      Alert.alert('Success', 'Default payment method updated');
     } catch (error: any) {
+      // Revert optimistic update on error
+      await loadPaymentMethods();
       Alert.alert('Error', error.message || 'Failed to set default payment method');
     }
   };

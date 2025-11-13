@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,47 +7,120 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { quickAmounts } from '@/data/mockWallet';
 import { useWallet } from '@/services/useWallet';
+import { paymentMethodsApi, PaymentMethod } from '@/services/api/paymentMethods.api';
 
 export default function CardDepositScreen() {
   const router = useRouter();
-  const { amount: suggestedAmount } = useLocalSearchParams();
+  const { amount: suggestedAmount, selectedMethodId } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { deposit } = useWallet();
+  const { deposit, loadWallet } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardHolder, setCardHolder] = useState('');
-  const [saveCard, setSaveCard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Payment method selection
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
+  const [showMethodSelector, setShowMethodSelector] = useState(false);
+
+  // Load payment methods on mount
+  useEffect(() => {
+    loadPaymentMethods();
+  }, []);
+
+  // Handle returning from add card screen
+  useEffect(() => {
+    if (selectedMethodId && paymentMethods.length > 0) {
+      const method = paymentMethods.find(m => m.id === selectedMethodId);
+      if (method) {
+        setSelectedMethod(method);
+      }
+    }
+  }, [selectedMethodId, paymentMethods]);
+
+  const loadPaymentMethods = async () => {
+    try {
+      setIsLoadingMethods(true);
+      const methods = await paymentMethodsApi.getPaymentMethods();
+      setPaymentMethods(methods);
+      
+      // Auto-select default payment method
+      const defaultMethod = methods.find(m => m.isDefault && m.status === 'verified');
+      if (defaultMethod) {
+        setSelectedMethod(defaultMethod);
+      } else if (methods.length > 0) {
+        // If no default, select the first verified method
+        const firstVerified = methods.find(m => m.status === 'verified');
+        if (firstVerified) {
+          setSelectedMethod(firstVerified);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error loading payment methods:', error);
+    } finally {
+      setIsLoadingMethods(false);
+    }
+  };
+
+  const handleSelectMethod = (method: PaymentMethod) => {
+    setSelectedMethod(method);
+    setShowMethodSelector(false);
+  };
+
+  const handleAddNewCard = () => {
+    setShowMethodSelector(false);
+    router.push({
+      pathname: '../profilesettings/addcard',
+      params: {
+        returnTo: 'wallet/deposit/card',
+        returnAmount: amount,
+      },
+    } as any);
+  };
 
   const handleDeposit = async () => {
-    if (!amount || !cardNumber || !expiryDate || !cvv || !cardHolder) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!amount) {
+      Alert.alert('Error', 'Please enter an amount');
+      return;
+    }
+
+    if (!selectedMethod) {
+      Alert.alert('Error', 'Please select a payment method');
       return;
     }
 
     try {
       setIsProcessing(true);
       const depositAmount = parseFloat(amount);
-      await deposit(depositAmount, 'Debit Card');
+      
+      // Call deposit with payment method ID
+      await deposit(depositAmount, selectedMethod.id);
+      
+      // Reload wallet to get updated balance
+      if (loadWallet) {
+        await loadWallet();
+      }
+      
       router.push({
         pathname: '/wallet/deposit/card-successfull',
         params: {
           amount: depositAmount.toString(),
-          method: 'Debit Card',
-          cardLast4: cardNumber.slice(-4),
+          method: selectedMethod.provider,
+          cardLast4: selectedMethod.cardDetails?.cardNumber || '****',
         },
       } as any);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process deposit');
+    } catch (error: any) {
+      console.error('Deposit error:', error);
+      Alert.alert('Error', error.message || 'Failed to process deposit');
     } finally {
       setIsProcessing(false);
     }
@@ -161,125 +234,102 @@ export default function CardDepositScreen() {
           </View>
         </View>
 
-        {/* Card Details */}
+        {/* Payment Method Selection */}
         <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 12 }}>
-          Card Details
+          Payment Method
         </Text>
 
-        <View style={{ gap: 12, marginBottom: 24 }}>
-          {/* Card Number */}
-          <View>
-            <TextInput
-              value={cardNumber}
-              onChangeText={setCardNumber}
-              keyboardType="numeric"
-              placeholder="Card Number"
-              maxLength={19}
-              placeholderTextColor={colors.textMuted}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 16,
-                borderRadius: 12,
-                fontSize: 16,
-                backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
-                color: colors.textPrimary,
-                borderWidth: isDarkColorScheme ? 1 : 0,
-                borderColor: `${colors.primary}33`,
-              }}
-            />
+        {isLoadingMethods ? (
+          <View style={{
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: colors.card,
+            alignItems: 'center',
+            marginBottom: 24,
+          }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Loading payment methods...</Text>
           </View>
-
-          {/* Expiry and CVV */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <TextInput
-                value={expiryDate}
-                onChangeText={setExpiryDate}
-                placeholder="MM/YY"
-                maxLength={5}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textMuted}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 16,
-                  borderRadius: 12,
-                  fontSize: 16,
-                  backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
-                  color: colors.textPrimary,
-                  borderWidth: isDarkColorScheme ? 1 : 0,
-                  borderColor: `${colors.primary}33`,
-                }}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TextInput
-                value={cvv}
-                onChangeText={setCvv}
-                placeholder="CVV"
-                maxLength={4}
-                keyboardType="numeric"
-                secureTextEntry
-                placeholderTextColor={colors.textMuted}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 16,
-                  borderRadius: 12,
-                  fontSize: 16,
-                  backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
-                  color: colors.textPrimary,
-                  borderWidth: isDarkColorScheme ? 1 : 0,
-                  borderColor: `${colors.primary}33`,
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Cardholder Name */}
-          <View>
-            <TextInput
-              value={cardHolder}
-              onChangeText={setCardHolder}
-              placeholder="Cardholder Name"
-              autoCapitalize="words"
-              placeholderTextColor={colors.textMuted}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 16,
-                borderRadius: 12,
-                fontSize: 16,
-                backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
-                color: colors.textPrimary,
-                borderWidth: isDarkColorScheme ? 1 : 0,
-                borderColor: `${colors.primary}33`,
-              }}
-            />
-          </View>
-
-          {/* Save Card Option */}
+        ) : selectedMethod ? (
+          /* Selected Payment Method Card */
           <TouchableOpacity
-            onPress={() => setSaveCard(!saveCard)}
-            style={{ flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => setShowMethodSelector(true)}
+            style={{
+              padding: 16,
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              marginBottom: 24,
+            }}
+            activeOpacity={0.7}
           >
-            <View
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                borderWidth: 2,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-                backgroundColor: saveCard ? colors.primary : 'transparent',
-                borderColor: saveCard ? colors.primary : colors.border,
-              }}
-            >
-              {saveCard && <MaterialIcons name="check" size={16} color={colors.primaryForeground} />}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: `${colors.primary}20`,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                  <Ionicons name="card" size={24} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+                    {selectedMethod.provider}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                    {selectedMethod.cardDetails?.cardNumber || 'Card ending in ****'}
+                  </Text>
+                  {selectedMethod.isDefault && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                      <Ionicons name="star" size={12} color="#FFD700" />
+                      <Text style={{ color: '#FFD700', fontSize: 12, marginLeft: 4 }}>Default</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowMethodSelector(true)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 6,
+                  backgroundColor: `${colors.primary}20`,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Change</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={{ color: colors.textPrimary }}>
-              Save card for future deposits
+          </TouchableOpacity>
+        ) : (
+          /* No Payment Method */
+          <TouchableOpacity
+            onPress={handleAddNewCard}
+            style={{
+              padding: 20,
+              borderRadius: 12,
+              backgroundColor: colors.card,
+              borderWidth: 2,
+              borderColor: colors.border,
+              borderStyle: 'dashed',
+              alignItems: 'center',
+              marginBottom: 24,
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add-circle-outline" size={48} color={colors.textMuted} />
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginTop: 12 }}>
+              No Payment Method
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 4 }}>
+              Tap to add a payment method
             </Text>
           </TouchableOpacity>
-        </View>
+        )}
 
         {/* Fee Info */}
         <View style={{
@@ -339,6 +389,114 @@ export default function CardDepositScreen() {
         <View style={{ height: 128 }} />
       </ScrollView>
 
+      {/* Payment Method Selector Modal */}
+      <Modal
+        visible={showMethodSelector}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMethodSelector(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{
+            backgroundColor: colors.background,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingTop: 16,
+            paddingBottom: 32,
+            maxHeight: '80%',
+          }}>
+            {/* Modal Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
+                Select Payment Method
+              </Text>
+              <TouchableOpacity onPress={() => setShowMethodSelector(false)}>
+                <Ionicons name="close" size={28} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+              {/* Payment Methods List */}
+              {paymentMethods.map((method) => (
+                <TouchableOpacity
+                  key={method.id}
+                  onPress={() => handleSelectMethod(method)}
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    backgroundColor: colors.card,
+                    borderWidth: 2,
+                    borderColor: selectedMethod?.id === method.id ? colors.primary : colors.border,
+                    marginBottom: 12,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: `${colors.primary}20`,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}>
+                      <Ionicons name="card" size={24} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+                          {method.provider}
+                        </Text>
+                        {method.isDefault && (
+                          <View style={{ backgroundColor: '#FFD700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
+                            <Text style={{ color: '#000', fontSize: 10, fontWeight: 'bold' }}>DEFAULT</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 2 }}>
+                        {method.cardDetails?.cardNumber || 'Card ending in ****'}
+                      </Text>
+                      {method.cardDetails && (
+                        <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                          Expires {method.cardDetails.expiryMonth}/{method.cardDetails.expiryYear}
+                        </Text>
+                      )}
+                    </View>
+                    {selectedMethod?.id === method.id && (
+                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Add New Card Button */}
+              <TouchableOpacity
+                onPress={handleAddNewCard}
+                style={{
+                  padding: 16,
+                  borderRadius: 12,
+                  backgroundColor: colors.card,
+                  borderWidth: 2,
+                  borderColor: colors.primary,
+                  borderStyle: 'dashed',
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="add-circle" size={24} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 16, fontWeight: 'bold', marginLeft: 12 }}>
+                    Add New Payment Method
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom CTA */}
       <View
         style={{
@@ -351,17 +509,22 @@ export default function CardDepositScreen() {
       >
         <TouchableOpacity
           onPress={handleDeposit}
+          disabled={isProcessing || !selectedMethod}
           style={{
-            backgroundColor: colors.primary,
+            backgroundColor: (!selectedMethod || isProcessing) ? colors.border : colors.primary,
             paddingVertical: 16,
             borderRadius: 12,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
-            Deposit Funds
-          </Text>
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={colors.primaryForeground} />
+          ) : (
+            <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
+              {selectedMethod ? 'Deposit Funds' : 'Select Payment Method'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

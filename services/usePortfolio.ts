@@ -8,18 +8,19 @@ export function usePortfolio() {
     getTotalValue, 
     getTotalInvested, 
     getTotalROI, 
-    getMonthlyRentalIncome 
+    getMonthlyRentalIncome,
+    loadInvestments,
   } = useApp();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPortfolio = async () => {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadInvestments();
       setLoading(false);
     };
     fetchPortfolio();
-  }, []);
+  }, [loadInvestments]);
 
   const investments = getInvestments();
   const totalValue = getTotalValue();
@@ -34,6 +35,7 @@ export function usePortfolio() {
     totalInvested,
     totalROI,
     monthlyRentalIncome,
+    loadInvestments,
   };
 }
 

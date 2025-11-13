@@ -11,13 +11,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { paymentMethodsApi, CreatePaymentMethodDto } from "@/services/api/paymentMethods.api";
 
 export default function AddCardScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { returnTo, returnAmount } = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
 
   // Card Details
@@ -94,13 +95,25 @@ export default function AddCardScreen() {
         },
       };
 
-      await paymentMethodsApi.createPaymentMethod(dto);
-      Alert.alert('Success', 'Payment method added successfully and ready to use!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      const newMethod = await paymentMethodsApi.createPaymentMethod(dto);
+      
+      // If returnTo is specified, navigate back with the new method ID
+      if (returnTo) {
+        router.replace({
+          pathname: `../${returnTo}`,
+          params: {
+            selectedMethodId: newMethod.id,
+            amount: returnAmount,
+          },
+        } as any);
+      } else {
+        Alert.alert('Success', 'Payment method added successfully and ready to use!', [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]);
+      }
     } catch (error: any) {
       console.error('Error adding payment method:', error);
       Alert.alert('Error', error.message || 'Failed to add payment method');

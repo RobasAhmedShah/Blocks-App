@@ -8,19 +8,34 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
 
 export default function WalletScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { balance, transactions, loading } = useWallet();
+  const { balance, transactions, loading, loadWallet, loadTransactions } = useWallet();
   const [activeTab, setActiveTab] = useState('all');
 
-  const filteredTransactions = transactions.filter((tx) =>
-    activeTab === 'all' ? true : tx.type === activeTab
+  // Refresh wallet balance and transactions when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (loadWallet && loadTransactions) {
+        loadWallet();
+        loadTransactions();
+      }
+    }, [loadWallet, loadTransactions])
   );
+
+  const filteredTransactions = transactions.filter((tx) => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'rental_income') {
+      // Show both 'rental' and 'rental_income' when filtering by rental_income
+      return tx.type === 'rental' || tx.type === 'rental_income';
+    }
+    return tx.type === activeTab;
+  });
 
   if (loading) {
     return (
@@ -39,6 +54,7 @@ export default function WalletScreen() {
       case 'investment':
         return 'trending-up';
       case 'rental':
+      case 'rental_income':
         return 'payments';
       case 'transfer':
         return 'swap-horiz';
@@ -51,6 +67,7 @@ export default function WalletScreen() {
     switch (type) {
       case 'deposit':
       case 'rental':
+      case 'rental_income':
         return colors.primary;
       case 'withdraw':
         return colors.destructive;
@@ -174,25 +191,31 @@ export default function WalletScreen() {
         {/* Transaction Filters */}
         <View className="px-4 mb-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {['all', 'deposit', 'withdraw', 'investment', 'rental'].map((filter) => (
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'deposit', label: 'Deposit' },
+              { value: 'withdraw', label: 'Withdraw' },
+              { value: 'investment', label: 'Investment' },
+              { value: 'rental_income', label: 'Rental' },
+            ].map((filter) => (
               <TouchableOpacity
-                key={filter}
-                onPress={() => setActiveTab(filter)}
+                key={filter.value}
+                onPress={() => setActiveTab(filter.value)}
                 style={{
-                  backgroundColor: activeTab === filter ? colors.primary : colors.card,
-                  borderWidth: activeTab === filter ? 0 : 1,
+                  backgroundColor: activeTab === filter.value ? colors.primary : colors.card,
+                  borderWidth: activeTab === filter.value ? 0 : 1,
                   borderColor: colors.border,
                 }}
                 className="px-4 py-2 rounded-full"
               >
                 <Text
                   style={{
-                    color: activeTab === filter ? '#FFFFFF' : colors.textSecondary,
-                    fontWeight: activeTab === filter ? '600' : '400',
+                    color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
+                    fontWeight: activeTab === filter.value ? '600' : '400',
                   }}
-                  className="text-sm capitalize"
+                  className="text-sm"
                 >
-                  {filter}
+                  {filter.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -204,7 +227,14 @@ export default function WalletScreen() {
           <Text style={{ color: colors.textPrimary }} className="text-base font-bold mb-3">
             Recent Transactions
           </Text>
-          {filteredTransactions.map((transaction) => (
+          {filteredTransactions.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={{ color: colors.textSecondary }} className="text-sm">
+                No transactions found
+              </Text>
+            </View>
+          ) : (
+            filteredTransactions.map((transaction) => (
             <TouchableOpacity
               key={transaction.id}
               style={{ backgroundColor: colors.card }}
@@ -238,22 +268,23 @@ export default function WalletScreen() {
                   className="text-lg font-bold"
                   style={{
                     color:
-                      transaction.type === 'deposit' || transaction.type === 'rental'
+                      transaction.type === 'deposit' || transaction.type === 'rental' || transaction.type === 'rental_income'
                         ? colors.primary
                         : transaction.type === 'withdraw'
                         ? colors.destructive
                         : colors.textPrimary,
                   }}
                 >
-                  {transaction.type === 'deposit' || transaction.type === 'rental' ? '+' : '-'}$
-                  {transaction.amount.toFixed(2)}
+                  {transaction.amount >= 0 ? '+' : ''}$
+                  {Math.abs(transaction.amount).toFixed(2)}
                 </Text>
                 <Text style={{ color: colors.textSecondary }} className="text-xs">
-                  {transaction.currency}
+                  {transaction.currency || 'USDC'}
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </View>

@@ -11,6 +11,10 @@ import { professionalBankAccounts } from '@/data/mockProfile';
 import * as SecureStore from 'expo-secure-store';
 import { NotificationHelper } from '@/services/notificationHelper';
 import { propertiesApi } from '@/services/api/properties.api';
+import { profileApi, ProfileResponse } from '@/services/api/profile.api';
+import { walletApi } from '@/services/api/wallet.api';
+import { transactionsApi } from '@/services/api/transactions.api';
+import { investmentsApi } from '@/services/api/investments.api';
 
 interface AppState {
   // Wallet State
@@ -42,10 +46,13 @@ interface AppContextType {
   propertiesError: string | null;
   
   // Wallet Actions
-  deposit: (amount: number, method: string) => Promise<void>;
+  loadWallet: () => Promise<void>;
+  loadTransactions: () => Promise<void>;
+  deposit: (amount: number, paymentMethodId?: string) => Promise<void>;
   withdraw: (amount: number) => Promise<void>;
   
   // Investment Actions
+  loadInvestments: () => Promise<void>;
   invest: (amount: number, propertyId: string, tokenCount: number) => Promise<void>;
   
   // Property Actions
@@ -60,6 +67,7 @@ interface AppContextType {
   getMonthlyRentalIncome: () => number;
   
   // Profile Actions
+  loadProfile: () => Promise<void>;
   updateUserInfo: (updates: Partial<UserInfo>) => Promise<void>;
   updateSecuritySettings: (updates: Partial<SecuritySettings>) => Promise<void>;
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => Promise<void>;
@@ -166,41 +174,76 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Wallet Actions
-  const deposit = useCallback(async (amount: number, method: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    let notificationSettings: NotificationSettings | undefined;
-    
-    setState(prev => {
-      notificationSettings = prev.notificationSettings;
-      
-      const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
-        type: 'deposit',
-        amount,
-        currency: 'USDC',
-        status: 'completed',
-        date: new Date().toISOString(),
-        description: `Deposit via ${method}`,
-      };
-
-      const newBalance: WalletBalance = {
-        ...prev.balance,
-        usdc: prev.balance.usdc + amount,
-        totalValue: (prev.balance.totalValue || prev.balance.usdc) + amount,
-      };
-
-      return {
+  const loadWallet = useCallback(async () => {
+    try {
+      const walletBalance = await walletApi.getWallet();
+      setState(prev => ({
         ...prev,
-        balance: newBalance,
-        transactions: [newTransaction, ...prev.transactions],
-      };
-    });
-
-    // Send notification after state update
-    await NotificationHelper.depositSuccess(amount, method, notificationSettings);
+        balance: {
+          usdc: walletBalance.usdc,
+          totalValue: walletBalance.totalValue,
+          totalInvested: walletBalance.totalInvested,
+          totalEarnings: walletBalance.totalEarnings,
+          pendingDeposits: walletBalance.pendingDeposits,
+        },
+      }));
+    } catch (error) {
+      console.error('Error loading wallet:', error);
+      // Keep existing state on error
+    }
   }, []);
+
+  const loadTransactions = useCallback(async () => {
+    try {
+      const response = await transactionsApi.getTransactions({
+        page: 1,
+        limit: 50, // Load more transactions for the wallet screen
+      });
+      setState(prev => ({
+        ...prev,
+        transactions: response.data,
+      }));
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      // Keep existing state on error
+    }
+  }, []);
+
+  const deposit = useCallback(async (amount: number, paymentMethodId?: string) => {
+    try {
+      // Call backend API to process deposit
+      const response = await walletApi.deposit({
+        amountUSDT: amount,
+        paymentMethodId: paymentMethodId,
+      });
+
+      // Update wallet balance with the response from backend
+      setState(prev => ({
+        ...prev,
+        balance: {
+          usdc: response.wallet.usdc,
+          totalValue: response.wallet.totalValue,
+          totalInvested: response.wallet.totalInvested,
+          totalEarnings: response.wallet.totalEarnings,
+          pendingDeposits: response.wallet.pendingDeposits,
+        },
+      }));
+
+      // Reload transactions to show the new deposit
+      await loadTransactions();
+
+      // Send notification after successful deposit
+      const notificationSettings = state.notificationSettings;
+      await NotificationHelper.depositSuccess(
+        amount,
+        'Card', // Using card as default method for now
+        notificationSettings,
+      );
+    } catch (error: any) {
+      console.error('Error processing deposit:', error);
+      throw error;
+    }
+  }, [state.notificationSettings, loadTransactions]);
 
   const withdraw = useCallback(async (amount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -242,7 +285,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Investment Actions
+  const loadInvestments = useCallback(async () => {
+    try {
+      const investments = await investmentsApi.getMyInvestments();
+      
+      // Transform API investments to app format
+      const transformedInvestments: Investment[] = investments.map((inv) => {
+        // Find property from state or create minimal property object
+        const propertyData = state.properties.find(p => p.id === inv.property.id) || {
+          id: inv.property.id,
+          displayCode: inv.property.displayCode,
+          title: inv.property.title,
+          images: inv.property.images || [],
+          tokenPrice: inv.property.tokenPrice,
+          status: inv.property.status as any,
+          city: inv.property.city,
+          country: inv.property.country,
+        } as Property;
+
+        return {
+          id: inv.id,
+          property: propertyData,
+          tokens: inv.tokens,
+          investedAmount: inv.investedAmount,
+          currentValue: inv.currentValue,
+          roi: inv.roi,
+          rentalYield: inv.rentalYield,
+          monthlyRentalIncome: inv.monthlyRentalIncome,
+        };
+      });
+
+      setState(prev => ({
+        ...prev,
+        investments: transformedInvestments,
+      }));
+    } catch (error) {
+      console.error('Error loading investments:', error);
+      // Keep existing state on error
+    }
+  }, [state.properties]);
+
   const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
+    try {
+      // Call backend API to create investment
+      const investment = await investmentsApi.createInvestment({
+        propertyId,
+        tokenCount,
+      });
+
+      // Reload wallet balance and transactions after investment
+      await loadWallet();
+      await loadTransactions();
+      await loadInvestments();
+
+      // Send notification with correct parameters
+      const notificationSettings = state.notificationSettings;
+      const propertyTitle = investment.property?.title || 'Property';
+      const investedAmount = investment.investedAmount || amount;
+      
+      await NotificationHelper.investmentSuccess(
+        propertyTitle,
+        investedAmount,
+        tokenCount,
+        propertyId,
+        notificationSettings
+      );
+    } catch (error: any) {
+      console.error('Error creating investment:', error);
+      throw error;
+    }
+  }, [state.notificationSettings, loadWallet, loadTransactions, loadInvestments]);
+
+  // Legacy invest function for backward compatibility (not used anymore)
+  const investLegacy = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     let property: Property | undefined;
@@ -416,13 +531,86 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return state.investments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
   }, [state.investments]);
 
+  // Load profile from backend
+  const loadProfile = useCallback(async () => {
+    try {
+      const profile = await profileApi.getProfile();
+      setState(prev => ({
+        ...prev,
+        userInfo: profile.userInfo as UserInfo,
+        securitySettings: profile.securitySettings as SecuritySettings,
+        notificationSettings: profile.notificationSettings as NotificationSettings,
+      }));
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Keep existing state on error
+    }
+  }, []);
+
+  // Load profile on mount if authenticated
+  useEffect(() => {
+    const checkAndLoadProfile = async () => {
+      const token = await SecureStore.getItemAsync('auth_token');
+      if (token) {
+        await loadProfile();
+      }
+    };
+    
+    // Check immediately
+    checkAndLoadProfile();
+    
+    // Also check after a short delay in case token was just set (e.g., after sign up)
+    const timeout = setTimeout(checkAndLoadProfile, 2000);
+    
+    return () => clearTimeout(timeout);
+  }, [loadProfile]);
+
+  // Load wallet and investments on mount if authenticated
+  useEffect(() => {
+    const checkAndLoadData = async () => {
+      const token = await SecureStore.getItemAsync('auth_token');
+      if (token) {
+        await Promise.all([
+          loadWallet(),
+          loadTransactions(),
+          loadInvestments(),
+        ]);
+      }
+    };
+    
+    // Check immediately
+    checkAndLoadData();
+    
+    // Also check after a short delay in case token was just set (e.g., after sign up)
+    const timeout = setTimeout(checkAndLoadData, 2000);
+    
+    return () => clearTimeout(timeout);
+  }, [loadWallet, loadTransactions, loadInvestments]);
+
   // Profile Actions
   const updateUserInfo = useCallback(async (updates: Partial<UserInfo>) => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setState(prev => ({
-      ...prev,
-      userInfo: { ...prev.userInfo, ...updates },
-    }));
+    try {
+      // Update backend
+      const profile = await profileApi.updateProfile({
+        fullName: updates.fullName,
+        email: updates.email,
+        phone: updates.phone || undefined,
+        dob: updates.dob || undefined,
+        address: updates.address || undefined,
+        profileImage: updates.profileImage || undefined,
+      });
+      
+      // Update local state
+      setState(prev => ({
+        ...prev,
+        userInfo: profile.userInfo as UserInfo,
+        securitySettings: profile.securitySettings as SecuritySettings,
+        notificationSettings: profile.notificationSettings as NotificationSettings,
+      }));
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
   }, []);
 
   const updateSecuritySettings = useCallback(async (updates: Partial<SecuritySettings>) => {
@@ -510,8 +698,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         state,
         isLoadingProperties,
         propertiesError,
+        loadWallet,
+        loadTransactions,
         deposit,
         withdraw,
+        loadInvestments,
         invest,
         getProperty,
         refreshProperties,
@@ -520,6 +711,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getTotalInvested,
         getTotalROI,
         getMonthlyRentalIncome,
+        loadProfile,
         updateUserInfo,
         updateSecuritySettings,
         updateNotificationSettings,

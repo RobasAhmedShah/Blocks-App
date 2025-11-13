@@ -3,7 +3,7 @@ import { WalletBalance, Transaction } from '@/types/wallet';
 import { useApp } from '@/contexts/AppContext';
 
 export function useWallet() {
-  const { state, deposit: depositAction, withdraw: withdrawAction } = useApp();
+  const { state, deposit: depositAction, withdraw: withdrawAction, loadWallet, loadTransactions } = useApp();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,8 +16,8 @@ export function useWallet() {
     initialize();
   }, []);
 
-  const deposit = async (amount: number, method: string = 'Debit Card') => {
-    await depositAction(amount, method);
+  const deposit = async (amount: number, paymentMethodId?: string) => {
+    await depositAction(amount, paymentMethodId);
   };
 
   const withdraw = async (amount: number) => {
@@ -36,5 +36,7 @@ export function useWallet() {
     deposit,
     withdraw,
     invest,
+    loadWallet,
+    loadTransactions,
   };
 }

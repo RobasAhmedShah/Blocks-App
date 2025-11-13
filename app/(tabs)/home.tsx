@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -20,9 +21,9 @@ import FeaturedSection, { Stat as FeaturedStat} from "@/components/home/Featured
 import AffordableSection from "@/components/home/AffordableSection";
 import InvestmentSection from "@/components/home/InvestmentSection";
 import CTAButton from "@/components/home/CTAButton";
-import { mockProperties } from "@/data/mockProperties";
 import { useColorScheme } from "@/lib/useColorScheme";
-import { midrangeInvestments as midrange } from "@/data/mockHome";
+import { useApp } from "@/contexts/AppContext";
+import { Property } from "@/types/property";
 
 const { width, height } = Dimensions.get("window");
 
@@ -74,6 +75,116 @@ export default function BlocksHomeScreen() {
   const router = useRouter();
   const scrollY = useSharedValue(0);
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { state, loadWallet } = useApp();
+  
+  // Refresh wallet balance when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadWallet();
+    }, [loadWallet])
+  );
+  
+  // Get user's wallet balance
+  const balance = state.balance.usdc;
+  
+  // Filter properties based on user's purchase power
+  const { affordable, featured, midRange } = useMemo(() => {
+    const allProperties = state.properties.filter(
+      (p) => p.totalTokens > 0 && p.soldTokens < p.totalTokens // Only available properties
+    );
+    
+    // If user has no balance, show default properties (all properties)
+    if (balance <= 0) {
+      return {
+        affordable: allProperties
+          .sort((a, b) => a.tokenPrice - b.tokenPrice)
+          .slice(0, 2)
+          .map((property) => ({
+            id: property.id,
+            name: property.title,
+            entry: `$${property.tokenPrice.toFixed(2)}`,
+            roi: `${property.estimatedROI}%`,
+            image: property.images?.[0] || '',
+          })),
+        featured: allProperties
+          .sort((a, b) => b.estimatedROI - a.estimatedROI)
+          .slice(0, 2)
+          .map((property) => ({
+            id: property.id,
+            title: property.title,
+            roi: `${property.estimatedROI}%`,
+            funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
+            minInvestment: `$${property.minInvestment || property.tokenPrice.toFixed(2)}`,
+            image: property.images?.[0] || '',
+          })),
+        midRange: allProperties
+          .filter((p) => {
+            // Mid-range: properties between 30% and 100% of average property price
+            const avgPrice = allProperties.reduce((sum, prop) => sum + prop.tokenPrice, 0) / allProperties.length;
+            return p.tokenPrice >= avgPrice * 0.3 && p.tokenPrice <= avgPrice;
+          })
+          .sort((a, b) => b.estimatedROI - a.estimatedROI)
+          .slice(0, 3)
+          .map((property) => ({
+            name: property.title,
+            value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
+            roi: `${property.estimatedROI}%`,
+            image: property.images?.[0] || '',
+            path: "M0,30 Q25,20 50,25 T100,30", // Simple path for chart
+          })),
+      };
+    }
+    
+    // User has balance - filter by affordability
+    // Affordable: Properties where user can buy at least 1 token (tokenPrice <= balance)
+    const affordableProperties = allProperties.filter(
+      (p) => p.tokenPrice <= balance
+    );
+    
+    // Featured: High ROI properties user can afford (can buy at least 0.1 tokens)
+    const featuredProperties = allProperties.filter(
+      (p) => balance >= p.tokenPrice * 0.1 // Can buy at least 0.1 tokens
+    );
+    
+    // Mid-range: Properties where user can buy 0.1 to 1 tokens (balance * 0.1 <= tokenPrice <= balance)
+    const midRangeProperties = allProperties.filter(
+      (p) => p.tokenPrice >= balance * 0.1 && p.tokenPrice <= balance
+    );
+    
+    return {
+      affordable: affordableProperties
+        .sort((a, b) => a.tokenPrice - b.tokenPrice)
+        .slice(0, 2)
+        .map((property) => ({
+          id: property.id,
+          name: property.title,
+          entry: `$${property.tokenPrice.toFixed(2)}`,
+          roi: `${property.estimatedROI}%`,
+          image: property.images?.[0] || '',
+        })),
+      featured: featuredProperties
+        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .slice(0, 2)
+        .map((property) => ({
+          id: property.id,
+          title: property.title,
+          roi: `${property.estimatedROI}%`,
+          funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
+          minInvestment: `$${property.minInvestment || property.tokenPrice.toFixed(2)}`,
+          image: property.images?.[0] || '',
+        })),
+      midRange: midRangeProperties
+        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .slice(0, 3)
+        .map((property) => ({
+          name: property.title,
+          value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
+          roi: `${property.estimatedROI}%`,
+          image: property.images?.[0] || '',
+          path: "M0,30 Q25,20 50,25 T100,30", // Simple path for chart
+        })),
+    };
+  }, [balance, state.properties]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -138,27 +249,6 @@ export default function BlocksHomeScreen() {
     };
   });
 
-  // Get featured properties (first 2 properties)
-  const featured = mockProperties.slice(0, 2).map((property) => ({
-    id: property.id,
-    title: property.title,
-    roi: `${property.estimatedROI}%`,
-    funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
-    minInvestment: `$${property.minInvestment}`,
-    image: property.images[0],
-  }));
-
-  // Get affordable properties (properties with lower token prices, limit to 2)
-  const affordable = mockProperties
-    .sort((a, b) => a.tokenPrice - b.tokenPrice)
-    .slice(0, 2)
-    .map((property) => ({
-      id: property.id,
-      name: property.title,
-      entry: `$${property.tokenPrice.toFixed(2)}`,
-      roi: `${property.estimatedROI}%`,
-      image: property.images[0],
-    }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -205,7 +295,9 @@ export default function BlocksHomeScreen() {
             borderWidth: 1,
             borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
           }}>
-            <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>$15,430</Text>
+            <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
+              ${balance.toFixed(2)}
+            </Text>
           </View>
         </Animated.View>
 
@@ -377,9 +469,9 @@ export default function BlocksHomeScreen() {
 
         {/* Content sections with smooth entrance */}
         <Animated.View style={[contentParallaxStyle]}>
-          <FeaturedSection featured={featured} />
-          <AffordableSection affordable={affordable} />
-          <InvestmentSection title="Mid-Range Investments" data={midrange} />
+          {featured.length > 0 && <FeaturedSection featured={featured} />}
+          {affordable.length > 0 && <AffordableSection affordable={affordable} />}
+          {midRange.length > 0 && <InvestmentSection title="Mid-Range Investments" data={midRange} />}
           <CTAButton />
         </Animated.View>
       </Animated.ScrollView>

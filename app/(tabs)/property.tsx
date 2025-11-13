@@ -103,7 +103,7 @@ export default function HomeScreen() {
                 Hello,
               </Text>
               <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-                Investor
+                {state.userInfo.fullName}
               </Text>
             </View>
           </View>

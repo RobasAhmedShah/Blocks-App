@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { usePortfolio } from "@/services/usePortfolio";
 import { PropertyCardStack } from "@/components/PropertyCard";
 import { useColorScheme } from "@/lib/useColorScheme";
@@ -24,7 +24,17 @@ export default function PortfolioScreen() {
     totalROI,
     monthlyRentalIncome,
     loading,
+    loadInvestments,
   } = usePortfolio();
+
+  // Refresh investments when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (loadInvestments) {
+        loadInvestments();
+      }
+    }, [loadInvestments])
+  );
 
   // Generate chart data - MUST be called before any early returns
   const chartData = useMemo(() => {

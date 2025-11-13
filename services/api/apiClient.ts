@@ -27,9 +27,13 @@ class ApiClient {
     const token = await this.getAuthToken();
     
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
       ...options.headers,
     };
+
+    // Only set Content-Type for requests with a body
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Automatically add Authorization header if token exists
     if (token) {
@@ -56,6 +60,11 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
       throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    // Handle 204 No Content responses (common for DELETE requests)
+    if (response.status === 204) {
+      return null as T;
     }
 
     return response.json();

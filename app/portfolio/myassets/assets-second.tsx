@@ -1,3 +1,5 @@
+// asset-second-redesigned.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -11,14 +13,16 @@ import {
   Share,
   Alert,
   PanResponder,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
+import { BlurView } from 'expo-blur';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface StatCard {
   label: string;
@@ -26,9 +30,10 @@ interface StatCard {
   change: string;
   changeType: 'up' | 'down' | 'neutral';
   changeColor: string;
+  icon: string;
 }
 
-export default function AssetsSecondScreen() {
+export default function AssetSecondScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { investments } = usePortfolio();
@@ -36,104 +41,85 @@ export default function AssetsSecondScreen() {
   
   const [selectedRange, setSelectedRange] = useState('6M');
   const scrollY = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current; // Start from bottom
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backgroundOpacity = useRef(new Animated.Value(0)).current;
-  const scaleValue = useRef(new Animated.Value(0.9)).current;
+  const scaleValue = useRef(new Animated.Value(0.95)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
   const [isAtTop, setIsAtTop] = useState(true);
 
-  // Find the investment by ID, or use the first one
   const investment = investmentId 
     ? investments.find(inv => inv.id === investmentId) 
     : investments[0];
 
   const property = investment?.property;
 
-  // Entrance animation - slide up from bottom with scale
+  // Entrance animation with staggered effects
   useEffect(() => {
     Animated.parallel([
       Animated.spring(translateY, {
         toValue: 0,
-        tension: 65,
-        friction: 12,
+        tension: 70,
+        friction: 11,
         useNativeDriver: true,
       }),
       Animated.spring(scaleValue, {
         toValue: 1,
-        tension: 65,
-        friction: 12,
+        tension: 70,
+        friction: 11,
         useNativeDriver: true,
       }),
       Animated.timing(backgroundOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: 350,
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  // Pan responder for swipe down to close - Reels style
+  // Header opacity based on scroll
+  useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      const opacity = Math.min(value / 100, 1);
+      headerOpacity.setValue(opacity);
+    });
+
+    return () => scrollY.removeListener(listenerId);
+  }, []);
+
+  // Pan responder for swipe down
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only handle swipe down at the top of the scroll
-        return gestureState.dy > 0 && isAtTop;
+        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy > 5 && isAtTop;
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
           const progress = Math.min(gestureState.dy / SCREEN_HEIGHT, 1);
-          
-          // Smooth slide down with preview effect
           translateY.setValue(gestureState.dy);
-          
-          // Fade out background as we swipe down
-          backgroundOpacity.setValue(1 - progress * 0.7);
-          
-          // Scale down slightly to show preview of screen behind
-          const scale = 1 - progress * 0.1;
-          scaleValue.setValue(Math.max(scale, 0.9));
+          backgroundOpacity.setValue(1 - progress * 0.8);
+          const scale = 1 - progress * 0.08;
+          scaleValue.setValue(Math.max(scale, 0.92));
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        const threshold = 150; // Threshold for dismissal
+        const threshold = 120;
         
-        if (gestureState.dy > threshold || gestureState.vy > 0.5) {
-          // Swipe down threshold met - navigate back with smooth animation
-          Animated.parallel([
-            Animated.spring(translateY, {
-              toValue: SCREEN_HEIGHT,
-              velocity: gestureState.vy,
-              tension: 50,
-              friction: 10,
-              useNativeDriver: true,
-            }),
-            Animated.timing(backgroundOpacity, {
-              toValue: 0,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleValue, {
-              toValue: 0.85,
-              duration: 250,
-              useNativeDriver: true,
-            }),
-          ]).start(() => {
-            router.back();
-          });
+        if (gestureState.dy > threshold || gestureState.vy > 0.65) {
+          handleBack();
         } else {
-          // Return to position with spring animation
           Animated.parallel([
             Animated.spring(translateY, {
               toValue: 0,
               velocity: gestureState.vy,
-              tension: 65,
-              friction: 12,
+              tension: 70,
+              friction: 11,
               useNativeDriver: true,
             }),
             Animated.spring(scaleValue, {
               toValue: 1,
-              tension: 65,
-              friction: 12,
+              tension: 70,
+              friction: 11,
               useNativeDriver: true,
             }),
             Animated.timing(backgroundOpacity, {
@@ -147,7 +133,6 @@ export default function AssetsSecondScreen() {
     })
   ).current;
 
-  // Generate stats from investment data
   const statsData: StatCard[] = investment && property ? [
     {
       label: 'Current ROI',
@@ -155,45 +140,50 @@ export default function AssetsSecondScreen() {
       change: `+${(investment.roi * 0.1).toFixed(1)}%`,
       changeType: 'up',
       changeColor: colors.primary,
+      icon: 'trending-up',
     },
     {
-      label: 'Monthly Yield',
-      value: `$${investment.monthlyRentalIncome.toFixed(2)}`,
+      label: 'Monthly Income',
+      value: `$${investment.monthlyRentalIncome.toFixed(0)}`,
       change: `+${(investment.rentalYield * 0.05).toFixed(1)}%`,
       changeType: 'up',
       changeColor: colors.primary,
+      icon: 'calendar',
     },
     {
       label: 'Total Invested',
-      value: `$${investment.investedAmount.toLocaleString()}`,
-      change: '0.0%',
+      value: `$${(investment.investedAmount / 1000).toFixed(1)}k`,
+      change: 'Principal',
       changeType: 'neutral',
       changeColor: colors.textMuted,
+      icon: 'wallet',
     },
     {
       label: 'Current Value',
-      value: `$${investment.currentValue.toLocaleString()}`,
+      value: `$${(investment.currentValue / 1000).toFixed(1)}k`,
       change: `+${((investment.currentValue - investment.investedAmount) / investment.investedAmount * 100).toFixed(1)}%`,
       changeType: 'up',
       changeColor: colors.primary,
+      icon: 'cash',
     },
     {
       label: 'Rental Yield',
       value: `${investment.rentalYield.toFixed(2)}%`,
-      change: `+${(investment.rentalYield * 0.08).toFixed(1)}%`,
-      changeType: 'up',
-      changeColor: colors.primary,
-    },
-    {
-      label: 'Tokens Owned',
-      value: investment.tokens.toLocaleString(),
-      change: `${((investment.tokens / property.totalTokens) * 100).toFixed(2)}%`,
+      change: 'Annual',
       changeType: 'neutral',
       changeColor: colors.textSecondary,
+      icon: 'stats-chart',
+    },
+    {
+      label: 'Ownership',
+      value: `${((investment.tokens / property.totalTokens) * 100).toFixed(2)}%`,
+      change: `${investment.tokens.toFixed(2)} tokens`,
+      changeType: 'neutral',
+      changeColor: colors.textSecondary,
+      icon: 'pie-chart',
     },
   ] : [];
 
-  // Generate news/updates from property updates
   const newsData = property?.updates?.slice(0, 3).map(update => ({
     id: update.title,
     icon: update.type === 'financial' ? 'cash-outline' : update.type === 'project' ? 'construct-outline' : 'people-outline',
@@ -209,18 +199,18 @@ export default function AssetsSecondScreen() {
     Animated.parallel([
       Animated.spring(translateY, {
         toValue: SCREEN_HEIGHT,
-        tension: 50,
+        tension: 55,
         friction: 10,
         useNativeDriver: true,
       }),
       Animated.timing(backgroundOpacity, {
         toValue: 0,
-        duration: 250,
+        duration: 280,
         useNativeDriver: true,
       }),
       Animated.timing(scaleValue, {
-        toValue: 0.85,
-        duration: 250,
+        toValue: 0.88,
+        duration: 280,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -228,78 +218,57 @@ export default function AssetsSecondScreen() {
     });
   };
 
-  const handleIncreaseInvestment = () => {
-    if (property) {
-      router.push({
-        pathname: '/invest/[id]',
-        params: { id: property.id },
-      } as any);
-    }
-  };
-
-  const handleViewProperty = () => {
-    if (property) {
-      router.push({
-        pathname: '/property/[id]',
-        params: { id: property.id },
-      } as any);
-    }
-  };
-
   const handleShare = async () => {
-    if (!investment) return;
-    const prop = investment.property;
-    if (!prop) return;
+    if (!investment || !property) return;
     
-    const ownershipPercentage = ((investment.tokens / prop.totalTokens) * 100).toFixed(2);
+    const ownershipPercentage = ((investment.tokens / property.totalTokens) * 100).toFixed(2);
     
     try {
       const result = await Share.share({
-        message: `📊 My Investment Performance:\n\n🏢 ${prop.title}\n📍 ${prop.location}\n\n💰 Current Value: $${investment.currentValue.toLocaleString()}\n📈 ROI: ${investment.roi.toFixed(1)}%\n💵 Monthly Income: $${investment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest in real estate with Blocks!`,
-        title: `Investment Performance: ${prop.title}`,
+        message: `📊 Investment Performance\n\n🏢 ${property.title}\n📍 ${property.location}\n\n💰 Value: $${investment.currentValue.toLocaleString()}\n📈 ROI: ${investment.roi.toFixed(1)}%\n💵 Monthly: $${investment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest with Blocks!`,
+        title: `${property.title} - Investment`,
       });
       
       if (result.action === Share.sharedAction) {
-        Alert.alert('Success', 'Investment details shared successfully!');
+        Alert.alert('Success', 'Shared successfully!');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to share investment details');
-      console.error('Share error:', error);
+      Alert.alert('Error', 'Failed to share');
     }
   };
 
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     scrollY.setValue(offsetY);
-    setIsAtTop(offsetY <= 0);
+    setIsAtTop(offsetY <= 10);
   };
 
   if (!investment || !property) {
     return (
-      <View 
-        style={{ backgroundColor: colors.background }} 
-        className="flex-1 items-center justify-center px-4"
-      >
-        <Ionicons name="alert-circle-outline" size={64} color={colors.textMuted} />
-        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mt-4 text-center">
-          Investment not found
+      <View style={{ backgroundColor: colors.background }} className="flex-1 items-center justify-center px-4">
+        <Ionicons name="alert-circle-outline" size={72} color={colors.textMuted} />
+        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mt-6 text-center">
+          Investment Not Found
         </Text>
-        <Text style={{ color: colors.textSecondary }} className="text-center mt-2">
-          The investment you're looking for doesn't exist or has been removed.
+        <Text style={{ color: colors.textSecondary }} className="text-center mt-2 mb-8">
+          Unable to load investment details
         </Text>
         <TouchableOpacity 
           onPress={handleBack}
-          style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 8 }}
+          style={{ backgroundColor: colors.primary }}
+          className="px-8 py-3.5 rounded-xl"
         >
-          <Text style={{ color: colors.primaryForeground, fontWeight: 'bold' }}>Go Back</Text>
+          <Text style={{ color: colors.primaryForeground }} className="font-bold">Go Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  const ownershipPercentage = ((investment.tokens / property.totalTokens) * 100).toFixed(3);
+
   return (
-    <View style={{ backgroundColor: colors.background }} className="flex-1">
-      {/* Dimmed Background Overlay */}
+    <View style={{ backgroundColor: 'transparent' }} className="flex-1">
+      {/* Backdrop with blur effect */}
       <Animated.View
         style={{
           position: 'absolute',
@@ -307,76 +276,93 @@ export default function AssetsSecondScreen() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.4)',
           opacity: backgroundOpacity,
         }}
-        pointerEvents="none"
-      />
-      
-      {/* Background Image with Gradient Overlay */}
-      <ImageBackground
-        source={{ uri: property.images[0] || property.image }}
-        className="absolute top-0 left-0 h-full w-full opacity-10"
-        resizeMode="cover"
       >
-        <LinearGradient
-          colors={isDarkColorScheme
-            ? ['transparent', 'rgba(11, 12, 16, 0.8)', colors.background]
-            : ['transparent', 'rgba(255, 255, 255, 0.8)', colors.background]}
-          className="absolute inset-0"
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={handleBack}
+          className="flex-1"
         />
-      </ImageBackground>
+      </Animated.View>
 
-      <SafeAreaView className="flex-1">
-        {/* Animated Container - slides in from bottom with scale */}
-        <Animated.View 
-          style={{ 
-            flex: 1,
-            transform: [
-              { translateY },
-              { scale: scaleValue },
-            ],
-          }}
-          {...panResponder.panHandlers}
-        >
-          {/* Header */}
-          <View 
-            style={{ 
-              backgroundColor: colors.card,
-              borderBottomColor: colors.border,
-            }}
-            className="px-4 py-3 flex-row items-center justify-between border-b"
-          >
-            <TouchableOpacity 
-              onPress={handleBack} 
-              className="w-10 h-10 items-center justify-center -ml-2"
-            >
-              <Ionicons name="chevron-down" size={28} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <View className="flex-1 items-center px-4">
-              <Text 
-                style={{ color: colors.textPrimary }}
-                className="text-lg font-bold"
-                numberOfLines={1}
-              >
-                {property.title}
-              </Text>
-              <Text 
-                style={{ color: colors.textSecondary }}
-                className="text-xs"
-                numberOfLines={1}
-              >
-                {property.location}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              onPress={handleShare}
+      {/* Modal Container */}
+      <Animated.View 
+        style={{ 
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: SCREEN_HEIGHT * 0.92,
+          transform: [
+            { translateY },
+            { scale: scaleValue },
+          ],
+          backgroundColor: colors.background,
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
+          elevation: 20,
+        }}
+        {...panResponder.panHandlers}
+      >
+        <SafeAreaView className="flex-1">
+          {/* Drag Handle */}
+          <View className="items-center pt-2 pb-1">
+            <View 
               style={{ backgroundColor: colors.muted }}
-              className="w-10 h-10 items-center justify-center rounded-full"
-            >
-              <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
+              className="w-10 h-1 rounded-full"
+            />
           </View>
+
+          {/* Floating Header with backdrop */}
+          <Animated.View
+            style={{
+              opacity: headerOpacity,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(11, 12, 16, 0.95)' 
+                : 'rgba(255, 255, 255, 0.95)',
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+            }}
+          >
+            <SafeAreaView>
+              <View className="px-4 py-3 flex-row items-center justify-between">
+                <TouchableOpacity 
+                  onPress={handleBack} 
+                  className="w-10 h-10 items-center justify-center rounded-full -ml-2"
+                  style={{ backgroundColor: colors.muted }}
+                >
+                  <Ionicons name="chevron-down" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+                <View className="flex-1 items-center px-4">
+                  <Text 
+                    style={{ color: colors.textPrimary }}
+                    className="text-base font-bold"
+                    numberOfLines={1}
+                  >
+                    {property.title}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={handleShare}
+                  style={{ backgroundColor: colors.muted }}
+                  className="w-10 h-10 items-center justify-center rounded-full"
+                >
+                  <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </Animated.View>
 
           {/* Scrollable Content */}
           <ScrollView
@@ -386,119 +372,153 @@ export default function AssetsSecondScreen() {
             scrollEventThrottle={16}
             bounces={true}
           >
-            <View className="flex-col gap-6 p-4 pb-8">
-              {/* Status Badge */}
-              <View className="flex-row items-center justify-between">
+            {/* Hero Section */}
+            <View className="px-5 pt-4 pb-6">
+              {/* Property Image */}
+              <View className="rounded-2xl overflow-hidden mb-4 shadow-lg">
+                <Image
+                  source={{ uri: property.images[0] || property.image }}
+                  style={{ width: '100%', height: 240 }}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0, 0, 0, 0.7)']}
+                  className="absolute bottom-0 left-0 right-0 p-4"
+                >
+                  <Text style={{ color: '#fff' }} className="text-2xl font-bold mb-1">
+                    {property.title}
+                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <Ionicons name="location" size={16} color="#fff" />
+                    <Text style={{ color: '#fff' }} className="text-sm">
+                      {property.location}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </View>
+
+              {/* Status and Actions Row */}
+              <View className="flex-row items-center justify-between mb-6">
                 <View
                   style={{
                     backgroundColor: isDarkColorScheme 
-                      ? 'rgba(22, 163, 74, 0.2)' 
+                      ? 'rgba(22, 163, 74, 0.15)' 
                       : 'rgba(22, 163, 74, 0.1)',
                     borderColor: colors.primary,
                   }}
-                  className="px-3 py-1.5 rounded-full border"
+                  className="px-3.5 py-2 rounded-full border flex-row items-center gap-1.5"
                 >
+                  <View 
+                    style={{ backgroundColor: colors.primary }}
+                    className="w-2 h-2 rounded-full"
+                  />
                   <Text style={{ color: colors.primary }} className="text-sm font-bold">
-                    ● Active Investment
+                    Active
                   </Text>
                 </View>
-                <Text style={{ color: colors.textMuted }} className="text-sm">
-                  Updated just now
-                </Text>
+                <TouchableOpacity 
+                  onPress={handleShare}
+                  style={{ backgroundColor: colors.muted }}
+                  className="px-4 py-2 rounded-full flex-row items-center gap-2"
+                >
+                  <Ionicons name="share-social" size={16} color={colors.textPrimary} />
+                  <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                    Share
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Performance Overview */}
-              <View>
-                <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-4">
-                  Performance Overview
+              {/* Key Metrics Cards */}
+              <View className="mb-6">
+                <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-3">
+                  Performance
                 </Text>
-                
-                {/* Stats Grid */}
                 <View className="flex-row flex-wrap gap-3">
                   {statsData.map((stat, index) => (
-                    <StatCard 
+                    <EnhancedStatCard 
                       key={index} 
                       stat={stat} 
                       colors={colors} 
-                      isDarkColorScheme={isDarkColorScheme} 
+                      isDarkColorScheme={isDarkColorScheme}
                     />
                   ))}
                 </View>
               </View>
 
-              {/* Investment Summary */}
-              <View 
-                style={{ 
-                  backgroundColor: colors.card,
-                 
-                }}
-                className="rounded-lg p-4"
-              >
-                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
-                  Investment Summary
+              {/* Investment Details Card */}
+              <View className="mb-6">
+                <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-3">
+                  Investment Details
                 </Text>
-                <View className="gap-3">
-                  <View className="flex-row justify-between items-center">
-                    <Text style={{ color: colors.textSecondary }}>Ownership Percentage</Text>
-                    <Text style={{ color: colors.primary }} className="font-bold text-lg">
-                      {((investment.tokens / property.totalTokens) * 100).toFixed(2)}%
-                    </Text>
-                  </View>
-                  <View 
-                    style={{ backgroundColor: colors.border }}
-                    className="h-px"
+                <View 
+                  style={{ backgroundColor: colors.card }}
+                  className="rounded-2xl p-4 gap-4"
+                >
+                  <DetailRow 
+                    label="Ownership Share"
+                    value={`${ownershipPercentage}%`}
+                    icon="pie-chart"
+                    colors={colors}
+                    highlight
                   />
-                  <View className="flex-row justify-between items-center">
-                    <Text style={{ color: colors.textSecondary }}>Property Status</Text>
-                    <Text style={{ color: colors.textPrimary }} className="font-semibold capitalize">
-                      {property.status.replace('-', ' ')}
-                    </Text>
-                  </View>
-                  <View 
-                    style={{ backgroundColor: colors.border }}
-                    className="h-px"
+                  <View style={{ backgroundColor: colors.border }} className="h-px" />
+                  <DetailRow 
+                    label="Tokens Owned"
+                    value={investment.tokens.toFixed(3)}
+                    icon="cube"
+                    colors={colors}
                   />
-                  <View className="flex-row justify-between items-center">
-                    <Text style={{ color: colors.textSecondary }}>Estimated Annual Return</Text>
-                    <Text style={{ color: colors.primary }} className="font-bold">
-                      ${(investment.monthlyRentalIncome * 12).toFixed(2)}
-                    </Text>
-                  </View>
+                  <View style={{ backgroundColor: colors.border }} className="h-px" />
+                  <DetailRow 
+                    label="Property Status"
+                    value={property.status.replace('-', ' ')}
+                    icon="checkmark-circle"
+                    colors={colors}
+                    capitalize
+                  />
+                  <View style={{ backgroundColor: colors.border }} className="h-px" />
+                  <DetailRow 
+                    label="Annual Return (Est.)"
+                    value={`$${(investment.monthlyRentalIncome * 12).toFixed(2)}`}
+                    icon="trending-up"
+                    colors={colors}
+                    highlight
+                  />
                 </View>
               </View>
 
-              {/* Payout History Section */}
-              <View>
-                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
-                  Payout History
-                </Text>
-
-                {/* Time Range Selector */}
-                <View 
-                  style={{ backgroundColor: colors.card}}
-                  className="flex-row h-10 rounded-full p-1 mb-4"
-                >
-                  {timeRanges.map((range) => (
-                    <TouchableOpacity
-                      key={range}
-                      onPress={() => setSelectedRange(range)}
-                      style={{
-                        backgroundColor: selectedRange === range ? colors.primary : 'transparent',
-                      }}
-                      className="flex-1 items-center justify-center rounded-full"
-                    >
-                      <Text
+              {/* Payout History */}
+              <View className="mb-6">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+                    Payout History
+                  </Text>
+                  <View 
+                    style={{ backgroundColor: colors.card }}
+                    className="flex-row rounded-full p-1"
+                  >
+                    {timeRanges.map((range) => (
+                      <TouchableOpacity
+                        key={range}
+                        onPress={() => setSelectedRange(range)}
                         style={{
-                          color: selectedRange === range 
-                            ? colors.primaryForeground 
-                            : colors.textSecondary,
+                          backgroundColor: selectedRange === range ? colors.primary : 'transparent',
                         }}
-                        className="text-sm font-medium"
+                        className="px-3 py-1.5 rounded-full"
                       >
-                        {range}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={{
+                            color: selectedRange === range 
+                              ? colors.primaryForeground 
+                              : colors.textSecondary,
+                          }}
+                          className="text-xs font-semibold"
+                        >
+                          {range}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
 
                 {/* Chart Placeholder */}
@@ -507,103 +527,93 @@ export default function AssetsSecondScreen() {
                     backgroundColor: colors.card,
                     borderColor: colors.border,
                   }}
-                  className="w-full h-48 rounded-lg border items-center justify-center"
+                  className="rounded-2xl border p-6 items-center justify-center"
+                  style={{ height: 200 }}
                 >
-                  <Ionicons name="bar-chart-outline" size={48} color={colors.textMuted} />
-                  <Text style={{ color: colors.textMuted }} className="mt-2 text-sm">
-                    Payout History Chart
+                  <Ionicons name="bar-chart" size={56} color={colors.textMuted} />
+                  <Text style={{ color: colors.textPrimary }} className="mt-3 text-base font-semibold">
+                    Payout Visualization
                   </Text>
-                  <Text style={{ color: colors.textMuted }} className="mt-1 text-xs">
-                    {selectedRange} data visualization
+                  <Text style={{ color: colors.textMuted }} className="mt-1 text-sm">
+                    {selectedRange} period data
                   </Text>
                 </View>
               </View>
 
-              {/* Latest News Section */}
+              {/* Latest Updates */}
               {newsData.length > 0 && (
-                <View>
-                  <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
+                <View className="mb-6">
+                  <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-3">
                     Latest Updates
                   </Text>
-
-                  {/* News Feed */}
-                  <View className="flex-col gap-3">
+                  <View className="gap-3">
                     {newsData.map((news) => (
-                      <NewsCard 
+                      <UpdateCard 
                         key={news.id} 
                         news={news} 
                         colors={colors}
-                        isDarkColorScheme={isDarkColorScheme}
                       />
                     ))}
                   </View>
                 </View>
               )}
 
-              {/* Quick Actions Section */}
-              <View>
-                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
-                  Quick Actions
-                </Text>
+              {/* Action Buttons */}
+              <View className="gap-3 pt-2">
+                <TouchableOpacity 
+                  onPress={() => {
+                    router.push({
+                      pathname: '/invest/[id]',
+                      params: { id: property.id },
+                    } as any);
+                  }}
+                  style={{ backgroundColor: colors.primary }}
+                  className="flex-row items-center justify-center gap-2.5 rounded-2xl py-4 shadow-lg"
+                >
+                  <Ionicons name="add-circle" size={24} color={colors.primaryForeground} />
+                  <Text style={{ color: colors.primaryForeground }} className="text-base font-bold">
+                    Increase Investment
+                  </Text>
+                </TouchableOpacity>
 
-                {/* Action Buttons */}
-                <View className="flex-col gap-3">
-                  <TouchableOpacity 
-                    onPress={handleIncreaseInvestment}
-                    style={{ backgroundColor: colors.primary }}
-                    className="flex-row items-center justify-center gap-2 rounded-lg px-4 py-3.5"
-                  >
-                    <Ionicons name="add-circle-outline" size={22} color={colors.primaryForeground} />
-                    <Text style={{ color: colors.primaryForeground }} className="text-base font-bold">
-                      Increase Investment
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={handleViewProperty}
-                    style={{ 
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    }}
-                    className="flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3.5"
-                  >
-                    <Ionicons name="home-outline" size={22} color={colors.textPrimary} />
-                    <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
-                      View Property Details
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={handleShare}
-                    style={{ 
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    }}
-                    className="flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3.5"
-                  >
-                    <Ionicons name="share-social-outline" size={22} color={colors.textPrimary} />
-                    <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
-                      Share Performance
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity 
+                  onPress={() => {
+                    router.push({
+                      pathname: '/property/[id]',
+                      params: { id: property.id },
+                    } as any);
+                  }}
+                  style={{ 
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  }}
+                  className="flex-row items-center justify-center gap-2.5 rounded-2xl border py-4"
+                >
+                  <Ionicons name="home" size={24} color={colors.textPrimary} />
+                  <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                    View Property Details
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
+
+            {/* Bottom Spacing */}
+            <View className="h-8" />
           </ScrollView>
-        </Animated.View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </Animated.View>
     </View>
   );
 }
 
-// Stat Card Component
-interface StatCardProps {
+// Enhanced Stat Card Component
+interface EnhancedStatCardProps {
   stat: StatCard;
   colors: any;
   isDarkColorScheme: boolean;
 }
 
-function StatCard({ stat, colors, isDarkColorScheme }: StatCardProps) {
+function EnhancedStatCard({ stat, colors, isDarkColorScheme }: EnhancedStatCardProps) {
   const getArrowIcon = () => {
     if (stat.changeType === 'up') return 'arrow-up';
     if (stat.changeType === 'down') return 'arrow-down';
@@ -614,29 +624,85 @@ function StatCard({ stat, colors, isDarkColorScheme }: StatCardProps) {
     <View 
       style={{ 
         backgroundColor: colors.card,
-      
-        width: '48%',
+        width: (SCREEN_WIDTH - 56) / 2,
+        borderColor: colors.border,
       }}
-      className="flex-col gap-2 rounded-lg p-4 "
+      className="rounded-xl p-4 border"
     >
-      <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
+      <View className="flex-row items-center justify-between mb-2">
+        <View 
+          style={{ backgroundColor: `${colors.primary}15` }}
+          className="w-9 h-9 rounded-full items-center justify-center"
+        >
+          <Ionicons name={stat.icon as any} size={18} color={colors.primary} />
+        </View>
+        {stat.changeType !== 'neutral' && (
+          <View 
+            style={{ 
+              backgroundColor: stat.changeType === 'up' 
+                ? 'rgba(22, 163, 74, 0.1)' 
+                : 'rgba(220, 38, 38, 0.1)' 
+            }}
+            className="px-2 py-0.5 rounded-full flex-row items-center gap-0.5"
+          >
+            <Ionicons name={getArrowIcon()} size={12} color={stat.changeColor} />
+            <Text style={{ color: stat.changeColor }} className="text-xs font-semibold">
+              {stat.change}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={{ color: colors.textSecondary }} className="text-xs font-medium mb-1">
         {stat.label}
       </Text>
-      <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
+      <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
         {stat.value}
       </Text>
-      <View className="flex-row items-center">
-        <Ionicons name={getArrowIcon()} size={16} color={stat.changeColor} />
-        <Text style={{ color: stat.changeColor }} className="text-sm font-medium ml-1">
+      {stat.changeType === 'neutral' && (
+        <Text style={{ color: colors.textMuted }} className="text-xs mt-0.5">
           {stat.change}
         </Text>
-      </View>
+      )}
     </View>
   );
 }
 
-// News Card Component
-interface NewsCardProps {
+// Detail Row Component
+interface DetailRowProps {
+  label: string;
+  value: string;
+  icon: string;
+  colors: any;
+  highlight?: boolean;
+  capitalize?: boolean;
+}
+
+function DetailRow({ label, value, icon, colors, highlight, capitalize }: DetailRowProps) {
+  return (
+    <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center gap-2.5 flex-1">
+        <View 
+          style={{ backgroundColor: colors.muted }}
+          className="w-9 h-9 rounded-full items-center justify-center"
+        >
+          <Ionicons name={icon as any} size={18} color={colors.textSecondary} />
+        </View>
+        <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
+          {label}
+        </Text>
+      </View>
+      <Text 
+        style={{ color: highlight ? colors.primary : colors.textPrimary }} 
+        className={`text-base font-bold ${capitalize ? 'capitalize' : ''}`}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+// Update Card Component
+interface UpdateCardProps {
   news: {
     id: string;
     icon: string;
@@ -646,35 +712,37 @@ interface NewsCardProps {
     time: string;
   };
   colors: any;
-  isDarkColorScheme: boolean;
 }
 
-function NewsCard({ news, colors, isDarkColorScheme }: NewsCardProps) {
+function UpdateCard({ news, colors }: UpdateCardProps) {
   return (
     <TouchableOpacity 
       style={{ 
-        backgroundColor: colors.muted,
+        backgroundColor: colors.card,
         borderColor: colors.border,
       }}
-      className="flex-row items-start gap-4 rounded-lg p-4 border"
+      className="flex-row gap-3.5 rounded-xl p-4 border"
       activeOpacity={0.7}
     >
       <View
         style={{ backgroundColor: news.iconBg }}
-        className="h-10 w-10 rounded-full items-center justify-center flex-shrink-0"
+        className="w-11 h-11 rounded-full items-center justify-center flex-shrink-0"
       >
-        <Ionicons name={news.icon as any} size={20} color={colors.primary} />
+        <Ionicons name={news.icon as any} size={22} color={colors.primary} />
       </View>
-      <View className="flex-1 flex-col">
-        <Text style={{ color: colors.textPrimary }} className="font-semibold">
+      <View className="flex-1">
+        <Text style={{ color: colors.textPrimary }} className="font-bold text-base mb-1">
           {news.title}
         </Text>
-        <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
+        <Text style={{ color: colors.textSecondary }} className="text-sm mb-2" numberOfLines={2}>
           {news.description}
         </Text>
-        <Text style={{ color: colors.textMuted }} className="text-xs mt-1.5">
-          {news.time}
-        </Text>
+        <View className="flex-row items-center gap-1">
+          <Ionicons name="time-outline" size={14} color={colors.textMuted} />
+          <Text style={{ color: colors.textMuted }} className="text-xs">
+            {news.time}
+          </Text>
+        </View>
       </View>
     </TouchableOpacity>
   );

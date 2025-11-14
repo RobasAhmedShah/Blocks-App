@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Property } from '@/types/property';
 import { WalletBalance, Transaction } from '@/types/wallet';
 import { Investment } from '@/types/portfolio';
@@ -15,6 +15,7 @@ import { profileApi, ProfileResponse } from '@/services/api/profile.api';
 import { walletApi } from '@/services/api/wallet.api';
 import { transactionsApi } from '@/services/api/transactions.api';
 import { investmentsApi, InvestmentResponse } from '@/services/api/investments.api';
+import { useAuth } from './AuthContext';
 
 interface AppState {
   // Wallet State
@@ -86,6 +87,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const BOOKMARKS_STORAGE_KEY = 'bookmarked_property_ids';
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const currentUserIdRef = useRef<string | null>(null);
+  
   const [state, setState] = useState<AppState>({
     balance: { ...initialBalance },
     transactions: [...mockTransactions],
@@ -100,6 +104,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
+
+  // Function to clear all user-specific data
+  const clearUserData = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      balance: { ...initialBalance },
+      transactions: [],
+      investments: [],
+      userInfo: { ...mockUserInfo },
+      securitySettings: { ...mockSecuritySettings },
+      notificationSettings: { ...mockNotificationSettings },
+      bankAccounts: [],
+      bookmarkedPropertyIds: [],
+    }));
+    currentUserIdRef.current = null;
+  }, []);
 
   // Fetch properties from API
   const fetchProperties = useCallback(async () => {
@@ -599,6 +619,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async () => {
     try {
       const profile = await profileApi.getProfile();
+      const userId = profile.userInfo.id;
+      
+      // Check if this is a different user
+      if (userId && currentUserIdRef.current && currentUserIdRef.current !== userId) {
+        // Different user signed in - clear old data first
+        clearUserData();
+      }
+      
+      // Update user ID reference
+      currentUserIdRef.current = userId;
+      
       setState(prev => ({
         ...prev,
         userInfo: profile.userInfo as UserInfo,
@@ -609,47 +640,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Error loading profile:', error);
       // Keep existing state on error
     }
-  }, []);
+  }, [clearUserData]);
 
-  // Load profile on mount if authenticated
+  // Watch for authentication changes and clear/reload data accordingly
   useEffect(() => {
-    const checkAndLoadProfile = async () => {
-      const token = await SecureStore.getItemAsync('auth_token');
-      if (token) {
+    if (!isAuthenticated) {
+      // User signed out - clear all user data
+      clearUserData();
+      return;
+    }
+
+    // User is authenticated - load data
+    const loadUserData = async () => {
+      try {
+        // Load profile first to get user ID
         await loadProfile();
-      }
-    };
-    
-    // Check immediately
-    checkAndLoadProfile();
-    
-    // Also check after a short delay in case token was just set (e.g., after sign up)
-    const timeout = setTimeout(checkAndLoadProfile, 2000);
-    
-    return () => clearTimeout(timeout);
-  }, [loadProfile]);
-
-  // Load wallet and investments on mount if authenticated
-  useEffect(() => {
-    const checkAndLoadData = async () => {
-      const token = await SecureStore.getItemAsync('auth_token');
-      if (token) {
+        
+        // Then load other user-specific data
         await Promise.all([
           loadWallet(),
           loadTransactions(),
           loadInvestments(),
         ]);
+      } catch (error) {
+        console.error('Error loading user data:', error);
       }
     };
-    
-    // Check immediately
-    checkAndLoadData();
-    
-    // Also check after a short delay in case token was just set (e.g., after sign up)
-    const timeout = setTimeout(checkAndLoadData, 2000);
-    
-    return () => clearTimeout(timeout);
-  }, [loadWallet, loadTransactions, loadInvestments]);
+
+    loadUserData();
+  }, [isAuthenticated, loadProfile, loadWallet, loadTransactions, loadInvestments, clearUserData]);
 
   // Profile Actions
   const updateUserInfo = useCallback(async (updates: Partial<UserInfo>) => {

@@ -48,16 +48,29 @@ export default function AssetsFirstScreen() {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   
-  // Simple animation values that get created fresh each time
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const scaleValue = useRef(new Animated.Value(1)).current;
-  const rotateValue = useRef(new Animated.Value(0)).current;
+  // Animation values for current card
+  const currentCardX = useRef(new Animated.Value(0)).current;
+  const currentCardScale = useRef(new Animated.Value(1)).current;
+  const currentCardRotate = useRef(new Animated.Value(0)).current;
+  const currentCardOpacity = useRef(new Animated.Value(1)).current;
+  
+  // Animation values for next/prev cards
+  const nextCardX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const nextCardOpacity = useRef(new Animated.Value(0)).current;
+  const prevCardX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const prevCardOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Vertical animation for swipe up
   const verticalValue = useRef(new Animated.Value(0)).current;
-  const opacityValue = useRef(new Animated.Value(1)).current;
+  const verticalOpacity = useRef(new Animated.Value(1)).current;
+  const verticalScale = useRef(new Animated.Value(1)).current;
 
   const currentInvestment = investments[currentIndex];
+  const nextInvestment = currentIndex < investments.length - 1 ? investments[currentIndex + 1] : null;
+  const prevInvestment = currentIndex > 0 ? investments[currentIndex - 1] : null;
 
-  const panResponder = PanResponder.create({
+  // Card pan responder
+  const cardPanResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, gesture) => {
       return Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5;
@@ -68,120 +81,168 @@ export default function AssetsFirstScreen() {
       const isVertical = Math.abs(gesture.dy) > Math.abs(gesture.dx);
       
       if (isHorizontal) {
-        // Horizontal swipe
-        animatedValue.setValue(gesture.dx);
-        const rotation = (gesture.dx / SCREEN_WIDTH) * 15;
-        rotateValue.setValue(rotation);
-        const scale = 1 - (Math.abs(gesture.dx) / SCREEN_WIDTH) * 0.1;
-        scaleValue.setValue(Math.max(scale, 0.9));
+        // Current card animation
+        currentCardX.setValue(gesture.dx);
+        const rotation = (gesture.dx / SCREEN_WIDTH) * 18;
+        currentCardRotate.setValue(rotation);
+        const scale = 1 - (Math.abs(gesture.dx) / SCREEN_WIDTH) * 0.12;
+        currentCardScale.setValue(Math.max(scale, 0.88));
+        
+        // Next/Prev card sliding in smoothly
+        if (gesture.dx < 0 && nextInvestment) {
+          // Swiping left - show next card sliding from right
+          const progress = Math.min(Math.abs(gesture.dx) / SCREEN_WIDTH, 1);
+          nextCardX.setValue(SCREEN_WIDTH - Math.abs(gesture.dx));
+          nextCardOpacity.setValue(progress);
+        } else if (gesture.dx > 0 && prevInvestment) {
+          // Swiping right - show prev card sliding from left
+          const progress = Math.min(Math.abs(gesture.dx) / SCREEN_WIDTH, 1);
+          prevCardX.setValue(-SCREEN_WIDTH + gesture.dx);
+          prevCardOpacity.setValue(progress);
+        }
       } else if (isVertical && gesture.dy < 0) {
-        // Vertical swipe up
+        // Vertical swipe up - reels style with preview
+        const progress = Math.min(Math.abs(gesture.dy) / SCREEN_HEIGHT, 1);
         verticalValue.setValue(gesture.dy);
-        const progress = Math.min(Math.abs(gesture.dy) / 150, 1);
-        opacityValue.setValue(1 - progress * 0.3);
-        scaleValue.setValue(1 - progress * 0.1);
+        verticalOpacity.setValue(1 - progress * 0.5);
+        verticalScale.setValue(1 - progress * 0.15);
       }
     },
     
     onPanResponderRelease: (_, gesture) => {
-      const threshold = SCREEN_WIDTH * 0.25;
-      const verticalThreshold = -80; // Swipe up threshold
+      const threshold = SCREEN_WIDTH * 0.22;
+      const verticalThreshold = -100;
       const isHorizontal = Math.abs(gesture.dx) > Math.abs(gesture.dy);
       const isVertical = Math.abs(gesture.dy) > Math.abs(gesture.dx);
       
-      // Check for vertical swipe up first
+      // Check for vertical swipe up first - Navigate with reels-style transition
       if (isVertical && gesture.dy < verticalThreshold) {
         console.log('Swiping up to details page');
         
         Animated.parallel([
-          Animated.timing(verticalValue, {
+          Animated.spring(verticalValue, {
             toValue: -SCREEN_HEIGHT,
-            duration: 300,
+            velocity: gesture.vy,
+            tension: 50,
+            friction: 10,
             useNativeDriver: true,
           }),
-          Animated.timing(opacityValue, {
+          Animated.timing(verticalOpacity, {
             toValue: 0,
             duration: 300,
             useNativeDriver: true,
           }),
-          Animated.timing(scaleValue, {
+          Animated.timing(verticalScale, {
             toValue: 0.85,
             duration: 300,
             useNativeDriver: true,
           }),
         ]).start(() => {
-          // Navigate to assets second page
           router.push({
             pathname: '/portfolio/myassets/assets-second',
             params: { investmentId: currentInvestment?.id },
           } as any);
           
-          // Reset values after navigation
           setTimeout(() => {
             verticalValue.setValue(0);
-            opacityValue.setValue(1);
-            scaleValue.setValue(1);
+            verticalOpacity.setValue(1);
+            verticalScale.setValue(1);
           }, 100);
         });
         return;
       }
       
       if (!isHorizontal) {
-        // Reset if not enough vertical swipe
+        // Reset vertical swipe if not enough
         Animated.parallel([
-          Animated.spring(animatedValue, {
-            toValue: 0,
-            useNativeDriver: true,
-          }),
           Animated.spring(verticalValue, {
             toValue: 0,
+            velocity: gesture.vy,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(scaleValue, {
+          Animated.spring(verticalOpacity, {
             toValue: 1,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(rotateValue, {
+          Animated.spring(verticalScale, {
+            toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.spring(currentCardX, {
             toValue: 0,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(opacityValue, {
+          Animated.spring(currentCardScale, {
             toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.spring(currentCardRotate, {
+            toValue: 0,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
         ]).start();
         return;
       }
       
-      // Check if we should change card
+      // Handle horizontal swipe with smooth card transitions
       if (gesture.dx > threshold && currentIndex > 0) {
         // Swipe right - go to previous
         console.log('Swiping to previous:', currentIndex - 1);
         
         Animated.parallel([
-          Animated.timing(animatedValue, {
-            toValue: SCREEN_WIDTH,
-            duration: 250,
+          // Current card slides out to the right
+          Animated.spring(currentCardX, {
+            toValue: SCREEN_WIDTH * 1.3,
+            velocity: gesture.vx,
+            tension: 50,
+            friction: 9,
             useNativeDriver: true,
           }),
-          Animated.timing(scaleValue, {
-            toValue: 0.8,
-            duration: 250,
+          Animated.timing(currentCardOpacity, {
+            toValue: 0,
+            duration: 300,
             useNativeDriver: true,
           }),
-          Animated.timing(rotateValue, {
-            toValue: 20,
-            duration: 250,
+          // Previous card slides in from the left
+          Animated.spring(prevCardX, {
+            toValue: 0,
+            velocity: gesture.vx,
+            tension: 50,
+            friction: 9,
+            useNativeDriver: true,
+          }),
+          Animated.timing(prevCardOpacity, {
+            toValue: 1,
+            duration: 300,
             useNativeDriver: true,
           }),
         ]).start(() => {
-          console.log('Animation complete, changing index');
-          // Reset values immediately
-          animatedValue.setValue(0);
-          scaleValue.setValue(1);
-          rotateValue.setValue(0);
-          // Change index
-          setCurrentIndex(prev => prev - 1);
+          // Reset all animation values first (synchronously)
+          currentCardX.setValue(0);
+          currentCardScale.setValue(1);
+          currentCardRotate.setValue(0);
+          currentCardOpacity.setValue(1);
+          prevCardX.setValue(-SCREEN_WIDTH);
+          prevCardOpacity.setValue(0);
+          nextCardX.setValue(SCREEN_WIDTH);
+          nextCardOpacity.setValue(0);
+          
+          // Then change index in next frame to avoid flickering
+          requestAnimationFrame(() => {
+            setCurrentIndex(prev => prev - 1);
+          });
         });
         
       } else if (gesture.dx < -threshold && currentIndex < investments.length - 1) {
@@ -189,51 +250,167 @@ export default function AssetsFirstScreen() {
         console.log('Swiping to next:', currentIndex + 1);
         
         Animated.parallel([
-          Animated.timing(animatedValue, {
-            toValue: -SCREEN_WIDTH,
-            duration: 250,
+          // Current card slides out to the left
+          Animated.spring(currentCardX, {
+            toValue: -SCREEN_WIDTH * 1.3,
+            velocity: gesture.vx,
+            tension: 50,
+            friction: 9,
             useNativeDriver: true,
           }),
-          Animated.timing(scaleValue, {
-            toValue: 0.8,
-            duration: 250,
+          Animated.timing(currentCardOpacity, {
+            toValue: 0,
+            duration: 300,
             useNativeDriver: true,
           }),
-          Animated.timing(rotateValue, {
-            toValue: -20,
-            duration: 250,
+          // Next card slides in from the right
+          Animated.spring(nextCardX, {
+            toValue: 0,
+            velocity: gesture.vx,
+            tension: 50,
+            friction: 9,
+            useNativeDriver: true,
+          }),
+          Animated.timing(nextCardOpacity, {
+            toValue: 1,
+            duration: 300,
             useNativeDriver: true,
           }),
         ]).start(() => {
-          console.log('Animation complete, changing index');
-          // Reset values immediately
-          animatedValue.setValue(0);
-          scaleValue.setValue(1);
-          rotateValue.setValue(0);
-          // Change index
-          setCurrentIndex(prev => prev + 1);
+          // Reset all animation values first (synchronously)
+          currentCardX.setValue(0);
+          currentCardScale.setValue(1);
+          currentCardRotate.setValue(0);
+          currentCardOpacity.setValue(1);
+          prevCardX.setValue(-SCREEN_WIDTH);
+          prevCardOpacity.setValue(0);
+          nextCardX.setValue(SCREEN_WIDTH);
+          nextCardOpacity.setValue(0);
+          
+          // Then change index in next frame to avoid flickering
+          requestAnimationFrame(() => {
+            setCurrentIndex(prev => prev + 1);
+          });
         });
         
       } else {
-        // Snap back
+        // Snap back to center
         console.log('Snapping back to center');
         Animated.parallel([
-          Animated.spring(animatedValue, {
+          Animated.spring(currentCardX, {
             toValue: 0,
-            tension: 40,
-            friction: 7,
+            velocity: gesture.vx,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(scaleValue, {
+          Animated.spring(currentCardScale, {
             toValue: 1,
-            tension: 40,
-            friction: 7,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(rotateValue, {
+          Animated.spring(currentCardRotate, {
             toValue: 0,
-            tension: 40,
-            friction: 7,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.spring(nextCardX, {
+            toValue: SCREEN_WIDTH,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.timing(nextCardOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.spring(prevCardX, {
+            toValue: -SCREEN_WIDTH,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.timing(prevCardOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    },
+  });
+
+  // Footer swipe-up pan responder
+  const footerPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gesture) => {
+      return gesture.dy < -5; // Only for upward swipes
+    },
+    
+    onPanResponderMove: (_, gesture) => {
+      if (gesture.dy < 0) {
+        const progress = Math.min(Math.abs(gesture.dy) / SCREEN_HEIGHT, 1);
+        verticalValue.setValue(gesture.dy);
+        verticalOpacity.setValue(1 - progress * 0.5);
+        verticalScale.setValue(1 - progress * 0.15);
+      }
+    },
+    
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dy < -80) {
+        // Swipe up threshold met
+        Animated.parallel([
+          Animated.spring(verticalValue, {
+            toValue: -SCREEN_HEIGHT,
+            velocity: gesture.vy,
+            tension: 50,
+            friction: 10,
+            useNativeDriver: true,
+          }),
+          Animated.timing(verticalOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(verticalScale, {
+            toValue: 0.85,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          router.push({
+            pathname: '/portfolio/myassets/assets-second',
+            params: { investmentId: currentInvestment?.id },
+          } as any);
+          
+          setTimeout(() => {
+            verticalValue.setValue(0);
+            verticalOpacity.setValue(1);
+            verticalScale.setValue(1);
+          }, 100);
+        });
+      } else {
+        // Reset
+        Animated.parallel([
+          Animated.spring(verticalValue, {
+            toValue: 0,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.spring(verticalOpacity, {
+            toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+          Animated.spring(verticalScale, {
+            toValue: 1,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
         ]).start();
@@ -284,40 +461,84 @@ export default function AssetsFirstScreen() {
     if (direction === 'prev' && currentIndex > 0) {
       console.log('Button: Going to previous');
       Animated.parallel([
-        Animated.timing(animatedValue, {
-          toValue: SCREEN_WIDTH,
-          duration: 250,
+        Animated.spring(currentCardX, {
+          toValue: SCREEN_WIDTH * 1.3,
+          tension: 50,
+          friction: 9,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleValue, {
-          toValue: 0.8,
-          duration: 250,
+        Animated.timing(currentCardOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(prevCardX, {
+          toValue: 0,
+          tension: 50,
+          friction: 9,
+          useNativeDriver: true,
+        }),
+        Animated.timing(prevCardOpacity, {
+          toValue: 1,
+          duration: 300,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        animatedValue.setValue(0);
-        scaleValue.setValue(1);
-        rotateValue.setValue(0);
-        setCurrentIndex(prev => prev - 1);
+        // Reset animation values first
+        currentCardX.setValue(0);
+        currentCardScale.setValue(1);
+        currentCardRotate.setValue(0);
+        currentCardOpacity.setValue(1);
+        prevCardX.setValue(-SCREEN_WIDTH);
+        prevCardOpacity.setValue(0);
+        nextCardX.setValue(SCREEN_WIDTH);
+        nextCardOpacity.setValue(0);
+        
+        // Then update index in next frame
+        requestAnimationFrame(() => {
+          setCurrentIndex(prev => prev - 1);
+        });
       });
     } else if (direction === 'next' && currentIndex < investments.length - 1) {
       console.log('Button: Going to next');
       Animated.parallel([
-        Animated.timing(animatedValue, {
-          toValue: -SCREEN_WIDTH,
-          duration: 250,
+        Animated.spring(currentCardX, {
+          toValue: -SCREEN_WIDTH * 1.3,
+          tension: 50,
+          friction: 9,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleValue, {
-          toValue: 0.8,
-          duration: 250,
+        Animated.timing(currentCardOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(nextCardX, {
+          toValue: 0,
+          tension: 50,
+          friction: 9,
+          useNativeDriver: true,
+        }),
+        Animated.timing(nextCardOpacity, {
+          toValue: 1,
+          duration: 300,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        animatedValue.setValue(0);
-        scaleValue.setValue(1);
-        rotateValue.setValue(0);
-        setCurrentIndex(prev => prev + 1);
+        // Reset animation values first
+        currentCardX.setValue(0);
+        currentCardScale.setValue(1);
+        currentCardRotate.setValue(0);
+        currentCardOpacity.setValue(1);
+        prevCardX.setValue(-SCREEN_WIDTH);
+        prevCardOpacity.setValue(0);
+        nextCardX.setValue(SCREEN_WIDTH);
+        nextCardOpacity.setValue(0);
+        
+        // Then update index in next frame
+        requestAnimationFrame(() => {
+          setCurrentIndex(prev => prev + 1);
+        });
       });
     }
   };
@@ -343,9 +564,9 @@ export default function AssetsFirstScreen() {
     );
   }
 
-  const rotateYInterpolate = rotateValue.interpolate({
-    inputRange: [-20, 0, 20],
-    outputRange: ['-20deg', '0deg', '20deg'],
+  const currentRotateYInterpolate = currentCardRotate.interpolate({
+    inputRange: [-28, 0, 28],
+    outputRange: ['-28deg', '0deg', '28deg'],
   });
 
   console.log('Current index:', currentIndex);
@@ -374,28 +595,81 @@ export default function AssetsFirstScreen() {
           </View>
         </View>
 
-        {/* Main Card */}
-        <View className="flex-1 items-center justify-center py-4">
-          <Animated.View
-            style={{
-              transform: [
-                { translateX: animatedValue },
-                { translateY: verticalValue },
-                { scale: scaleValue },
-                { perspective: 1000 },
-                { rotateY: rotateYInterpolate },
-              ],
-              opacity: opacityValue,
-            }}
-            className="w-full items-center"
-            {...panResponder.panHandlers}
-          >
-            <PropertyCardComponent 
-              investment={currentInvestment} 
-              colors={colors}
-              isDarkColorScheme={isDarkColorScheme}
-            />
-          </Animated.View>
+        {/* Main Card Area with Stacked Cards */}
+        <View className="flex-1 items-center justify-center py-4" {...cardPanResponder.panHandlers}>
+          <View style={{ width: '100%', height: '80%', position: 'relative' }}>
+            
+            {/* Previous Card (Behind) */}
+            {prevInvestment && (
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  transform: [
+                    { translateX: prevCardX },
+                    { translateY: verticalValue },
+                    { scale: verticalScale },
+                  ],
+                  opacity: prevCardOpacity,
+                }}
+                pointerEvents="none"
+              >
+                <PropertyCardComponent 
+                  investment={prevInvestment} 
+                  colors={colors}
+                  isDarkColorScheme={isDarkColorScheme}
+                />
+              </Animated.View>
+            )}
+            
+            {/* Current Card (Center) */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                transform: [
+                  { translateX: currentCardX },
+                  { translateY: verticalValue },
+                  { scale: currentCardScale },
+                  { perspective: 1000 },
+                  { rotateY: currentRotateYInterpolate },
+                ],
+                opacity: Animated.multiply(currentCardOpacity, verticalOpacity),
+              }}
+            >
+              <PropertyCardComponent 
+                investment={currentInvestment} 
+                colors={colors}
+                isDarkColorScheme={isDarkColorScheme}
+              />
+            </Animated.View>
+            
+            {/* Next Card (Behind) */}
+            {nextInvestment && (
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  transform: [
+                    { translateX: nextCardX },
+                    { translateY: verticalValue },
+                    { scale: verticalScale },
+                  ],
+                  opacity: nextCardOpacity,
+                }}
+                pointerEvents="none"
+              >
+                <PropertyCardComponent 
+                  investment={nextInvestment} 
+                  colors={colors}
+                  isDarkColorScheme={isDarkColorScheme}
+                />
+              </Animated.View>
+            )}
+          </View>
         </View>
 
         {/* Navigation Arrows */}
@@ -451,9 +725,10 @@ export default function AssetsFirstScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Footer */}
+        {/* Footer with Swipe-Up Gesture */}
         <View className="w-full px-4 pb-6 items-center z-30">
-          <View className="flex-col items-center gap-1 mb-4">
+          {/* Swipe Up Area */}
+          <View {...footerPanResponder.panHandlers} className="flex-col items-center gap-1 mb-4 py-2">
             <Ionicons name="chevron-up" size={24} color={colors.textMuted} />
             <Text style={{ color: colors.textMuted }} className="text-xs font-medium">
               Swipe up for details
@@ -476,10 +751,10 @@ export default function AssetsFirstScreen() {
             <TouchableOpacity 
               onPress={handleViewDetails}
               style={{ 
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
+                backgroundColor: colors.card,
+              
               }}
-              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg border"
+              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg "
               activeOpacity={0.8}
             >
               <Ionicons name="document-text-outline" size={28} color={colors.textPrimary} />
@@ -491,10 +766,9 @@ export default function AssetsFirstScreen() {
             <TouchableOpacity 
               onPress={handleShare}
               style={{ 
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
+                backgroundColor: colors.card,
               }}
-              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg border"
+              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg"
               activeOpacity={0.8}
             >
               <Ionicons name="share-outline" size={28} color={colors.textPrimary} />
@@ -507,7 +781,7 @@ export default function AssetsFirstScreen() {
           <View className="flex-row items-center gap-2">
             <Ionicons name="chevron-back" size={16} color={colors.textMuted} />
             <Text style={{ color: colors.textMuted }} className="text-xs">
-              Swipe to navigate • Index: {currentIndex}
+              Swipe to navigate
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </View>
@@ -517,7 +791,7 @@ export default function AssetsFirstScreen() {
   );
 }
 
-// Property Card Component (unchanged from before)
+// Property Card Component
 interface PropertyCardComponentProps {
   investment: any;
   colors: any;
@@ -585,26 +859,6 @@ function PropertyCardComponent({
             style={{ position: 'absolute' }}
             resizeMode="cover"
           />
-
-          {/* <LinearGradient
-            colors={[
-              'transparent',
-              'rgba(0, 0, 0, 0.3)',
-              'rgba(0, 0, 0, 0.7)',
-            ]}
-            className="absolute inset-0 rounded-full"
-          />
-
-          <LinearGradient
-            colors={[
-              'rgba(255, 255, 255, 0.3)',
-              'transparent',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 0.3 }}
-            className="absolute inset-0 rounded-full"
-            style={{ opacity: 0.5 }}
-          /> */}
 
           <View className="absolute inset-0 items-center justify-center px-6">
             <View className="w-full">

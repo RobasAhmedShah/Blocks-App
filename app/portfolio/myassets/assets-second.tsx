@@ -36,7 +36,9 @@ export default function AssetsSecondScreen() {
   
   const [selectedRange, setSelectedRange] = useState('6M');
   const scrollY = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current; // Start from bottom
+  const backgroundOpacity = useRef(new Animated.Value(0)).current;
+  const scaleValue = useRef(new Animated.Value(0.9)).current;
   const [isAtTop, setIsAtTop] = useState(true);
 
   // Find the investment by ID, or use the first one
@@ -46,7 +48,30 @@ export default function AssetsSecondScreen() {
 
   const property = investment?.property;
 
-  // Pan responder for swipe down to close
+  // Entrance animation - slide up from bottom with scale
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        tension: 65,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleValue, {
+        toValue: 1,
+        tension: 65,
+        friction: 12,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backgroundOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Pan responder for swipe down to close - Reels style
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -56,25 +81,67 @@ export default function AssetsSecondScreen() {
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
+          const progress = Math.min(gestureState.dy / SCREEN_HEIGHT, 1);
+          
+          // Smooth slide down with preview effect
           translateY.setValue(gestureState.dy);
+          
+          // Fade out background as we swipe down
+          backgroundOpacity.setValue(1 - progress * 0.7);
+          
+          // Scale down slightly to show preview of screen behind
+          const scale = 1 - progress * 0.1;
+          scaleValue.setValue(Math.max(scale, 0.9));
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 100) {
-          // Swipe down threshold met - navigate back
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
+        const threshold = 150; // Threshold for dismissal
+        
+        if (gestureState.dy > threshold || gestureState.vy > 0.5) {
+          // Swipe down threshold met - navigate back with smooth animation
+          Animated.parallel([
+            Animated.spring(translateY, {
+              toValue: SCREEN_HEIGHT,
+              velocity: gestureState.vy,
+              tension: 50,
+              friction: 10,
+              useNativeDriver: true,
+            }),
+            Animated.timing(backgroundOpacity, {
+              toValue: 0,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleValue, {
+              toValue: 0.85,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
             router.back();
           });
         } else {
-          // Return to position
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
+          // Return to position with spring animation
+          Animated.parallel([
+            Animated.spring(translateY, {
+              toValue: 0,
+              velocity: gestureState.vy,
+              tension: 65,
+              friction: 12,
+              useNativeDriver: true,
+            }),
+            Animated.spring(scaleValue, {
+              toValue: 1,
+              tension: 65,
+              friction: 12,
+              useNativeDriver: true,
+            }),
+            Animated.timing(backgroundOpacity, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start();
         }
       },
     })
@@ -139,11 +206,24 @@ export default function AssetsSecondScreen() {
   const timeRanges = ['3M', '6M', '1Y', 'All'];
 
   const handleBack = () => {
-    Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: SCREEN_HEIGHT,
+        tension: 50,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleValue, {
+        toValue: 0.85,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       router.back();
     });
   };
@@ -188,7 +268,6 @@ export default function AssetsSecondScreen() {
     }
   };
 
-  // ✅ Fixed: Handle scroll event properly
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     scrollY.setValue(offsetY);
@@ -220,6 +299,20 @@ export default function AssetsSecondScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background }} className="flex-1">
+      {/* Dimmed Background Overlay */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          opacity: backgroundOpacity,
+        }}
+        pointerEvents="none"
+      />
+      
       {/* Background Image with Gradient Overlay */}
       <ImageBackground
         source={{ uri: property.images[0] || property.image }}
@@ -235,11 +328,14 @@ export default function AssetsSecondScreen() {
       </ImageBackground>
 
       <SafeAreaView className="flex-1">
-        {/* Animated Container */}
+        {/* Animated Container - slides in from bottom with scale */}
         <Animated.View 
           style={{ 
             flex: 1,
-            transform: [{ translateY }],
+            transform: [
+              { translateY },
+              { scale: scaleValue },
+            ],
           }}
           {...panResponder.panHandlers}
         >
@@ -282,7 +378,7 @@ export default function AssetsSecondScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Scrollable Content - ✅ FIXED */}
+          {/* Scrollable Content */}
           <ScrollView
             className="flex-1"
             showsVerticalScrollIndicator={false}
@@ -333,10 +429,10 @@ export default function AssetsSecondScreen() {
               {/* Investment Summary */}
               <View 
                 style={{ 
-                  backgroundColor: colors.muted,
-                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                 
                 }}
-                className="rounded-lg p-4 border"
+                className="rounded-lg p-4"
               >
                 <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
                   Investment Summary
@@ -379,7 +475,7 @@ export default function AssetsSecondScreen() {
 
                 {/* Time Range Selector */}
                 <View 
-                  style={{ backgroundColor: colors.muted }}
+                  style={{ backgroundColor: colors.card}}
                   className="flex-row h-10 rounded-full p-1 mb-4"
                 >
                   {timeRanges.map((range) => (
@@ -408,7 +504,7 @@ export default function AssetsSecondScreen() {
                 {/* Chart Placeholder */}
                 <View 
                   style={{ 
-                    backgroundColor: colors.muted,
+                    backgroundColor: colors.card,
                     borderColor: colors.border,
                   }}
                   className="w-full h-48 rounded-lg border items-center justify-center"
@@ -466,7 +562,7 @@ export default function AssetsSecondScreen() {
                   <TouchableOpacity 
                     onPress={handleViewProperty}
                     style={{ 
-                      backgroundColor: colors.muted,
+                      backgroundColor: colors.card,
                       borderColor: colors.border,
                     }}
                     className="flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3.5"
@@ -480,7 +576,7 @@ export default function AssetsSecondScreen() {
                   <TouchableOpacity 
                     onPress={handleShare}
                     style={{ 
-                      backgroundColor: colors.muted,
+                      backgroundColor: colors.card,
                       borderColor: colors.border,
                     }}
                     className="flex-row items-center justify-center gap-2 rounded-lg border px-4 py-3.5"
@@ -517,11 +613,11 @@ function StatCard({ stat, colors, isDarkColorScheme }: StatCardProps) {
   return (
     <View 
       style={{ 
-        backgroundColor: colors.muted,
-        borderColor: colors.border,
+        backgroundColor: colors.card,
+      
         width: '48%',
       }}
-      className="flex-col gap-2 rounded-lg p-4 border"
+      className="flex-col gap-2 rounded-lg p-4 "
     >
       <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
         {stat.label}

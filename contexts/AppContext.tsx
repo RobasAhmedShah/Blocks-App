@@ -14,7 +14,7 @@ import { propertiesApi } from '@/services/api/properties.api';
 import { profileApi, ProfileResponse } from '@/services/api/profile.api';
 import { walletApi } from '@/services/api/wallet.api';
 import { transactionsApi } from '@/services/api/transactions.api';
-import { investmentsApi } from '@/services/api/investments.api';
+import { investmentsApi, InvestmentResponse } from '@/services/api/investments.api';
 
 interface AppState {
   // Wallet State
@@ -289,35 +289,99 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const investments = await investmentsApi.getMyInvestments();
       
-      // Transform API investments to app format
-      const transformedInvestments: Investment[] = investments.map((inv) => {
-        // Find property from state or create minimal property object
-        const propertyData = state.properties.find(p => p.id === inv.property.id) || {
-          id: inv.property.id,
-          displayCode: inv.property.displayCode,
-          title: inv.property.title,
-          images: inv.property.images || [],
-          tokenPrice: inv.property.tokenPrice,
-          status: inv.property.status as any,
-          city: inv.property.city,
-          country: inv.property.country,
+      // Group investments by property ID
+      const investmentsByProperty = new Map<string, InvestmentResponse[]>();
+      
+      investments.forEach((inv) => {
+        const propertyId = inv.property.id;
+        if (!investmentsByProperty.has(propertyId)) {
+          investmentsByProperty.set(propertyId, []);
+        }
+        investmentsByProperty.get(propertyId)!.push(inv);
+      });
+      
+      // Merge investments for the same property
+      const mergedInvestments: Investment[] = Array.from(investmentsByProperty.entries()).map(([propertyId, propertyInvestments]) => {
+        // Sort by purchase date (earliest first) to keep the first investment's metadata
+        const sortedInvestments = [...propertyInvestments].sort((a, b) => {
+          const dateA = new Date(a.purchaseDate || a.createdAt).getTime();
+          const dateB = new Date(b.purchaseDate || b.createdAt).getTime();
+          return dateA - dateB;
+        });
+        
+        const firstInvestment = sortedInvestments[0];
+        
+        // Sum up all values
+        const totalTokens = sortedInvestments.reduce((sum, inv) => sum + inv.tokens, 0);
+        const totalInvestedAmount = sortedInvestments.reduce((sum, inv) => sum + inv.investedAmount, 0);
+        const totalCurrentValue = sortedInvestments.reduce((sum, inv) => sum + inv.currentValue, 0);
+        const totalMonthlyRentalIncome = sortedInvestments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
+        
+        // Recalculate ROI based on merged totals
+        const mergedROI = totalInvestedAmount > 0 
+          ? ((totalCurrentValue - totalInvestedAmount) / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Recalculate rental yield based on merged totals
+        const mergedRentalYield = totalInvestedAmount > 0 
+          ? (totalMonthlyRentalIncome * 12 / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Find property from state - it should exist since properties are loaded first
+        const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
+        
+        if (!propertyData) {
+          console.warn(`Property ${firstInvestment.property.id} not found in state. Using minimal property data.`);
+          // If property not found, we'll need to fetch it or use a minimal version
+          // For now, we'll skip this investment or use a fallback
+          // This shouldn't happen in normal flow since properties are loaded first
+        }
+        
+        // Use property from state if available, otherwise create minimal fallback
+        const property: Property = propertyData || {
+          id: firstInvestment.property.id,
+          displayCode: firstInvestment.property.displayCode,
+          title: firstInvestment.property.title,
+          location: `${firstInvestment.property.city}, ${firstInvestment.property.country}`,
+          city: firstInvestment.property.city,
+          country: firstInvestment.property.country,
+          images: firstInvestment.property.images || [],
+          tokenPrice: firstInvestment.property.tokenPrice,
+          status: firstInvestment.property.status as any,
+          valuation: 0,
+          minInvestment: firstInvestment.property.tokenPrice,
+          totalTokens: 0,
+          soldTokens: 0,
+          estimatedROI: 0,
+          estimatedYield: 0,
+          completionDate: '',
+          description: '',
+          amenities: [],
+          builder: {
+            name: '',
+            rating: 0,
+            projectsCompleted: 0,
+          },
+          features: {},
+          documents: [],
+          updates: [],
         } as Property;
 
         return {
-          id: inv.id,
-          property: propertyData,
-          tokens: inv.tokens,
-          investedAmount: inv.investedAmount,
-          currentValue: inv.currentValue,
-          roi: inv.roi,
-          rentalYield: inv.rentalYield,
-          monthlyRentalIncome: inv.monthlyRentalIncome,
+          id: firstInvestment.id, // Use the first investment's ID
+          property: property,
+          tokens: totalTokens,
+          investedAmount: totalInvestedAmount,
+          currentValue: totalCurrentValue,
+          roi: mergedROI,
+          rentalYield: mergedRentalYield,
+          monthlyRentalIncome: totalMonthlyRentalIncome,
         };
       });
 
       setState(prev => ({
         ...prev,
-        investments: transformedInvestments,
+        investments: mergedInvestments,
       }));
     } catch (error) {
       console.error('Error loading investments:', error);

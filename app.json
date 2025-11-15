@@ -31,7 +31,8 @@
           "color": "#ffffff",
           "sounds": []
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -52,7 +53,15 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.intelik.Blocks",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "blocks",
+              "com.googleusercontent.apps.452166186757-qelam6ha1qtarj3vjm0aiv9lu667r76g"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -60,14 +69,32 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.intelik.Blocks"
+      "package": "com.intelik.Blocks",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "blocks"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-    "apiUrl": "https://blocks-backend.vercel.app" 
+      "apiUrl": "https://blocks-backend.vercel.app",
+      "googleAndroidClientId": "452166186757-unrelq5fmdrkd06dqeb0huks2b3fjeve.apps.googleusercontent.com",
+      "googleIosClientId": "452166186757-qelam6ha1qtarj3vjm0aiv9lu667r76g.apps.googleusercontent.com",
+      "magicPublishableKey": "pk_live_9E93488C0CC96A3B"
     },
     "owner": "robas",
     "runtimeVersion": {

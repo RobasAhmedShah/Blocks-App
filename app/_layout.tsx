@@ -5,11 +5,13 @@ import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { ThemeProvider } from '@/lib/useColorScheme';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { MagicRelayer } from '@/lib/magic';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -17,6 +19,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -41,18 +45,21 @@ export default function RootLayout() {
 
   // Wrap everything in the required providers
   return (
-    <AuthProvider>
-      <AppProvider>
-        <GuidanceProvider>
-          <ThemeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootNavigation />
-              <StatusBar style="auto" />
-            </GestureHandlerRootView>
-          </ThemeProvider>
-        </GuidanceProvider>
-      </AppProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppProvider>
+          <GuidanceProvider>
+            <ThemeProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <MagicRelayer />
+                <RootNavigation />
+                <StatusBar style="auto" />
+              </GestureHandlerRootView>
+            </ThemeProvider>
+          </GuidanceProvider>
+        </AppProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

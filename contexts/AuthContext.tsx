@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useSegments } from 'expo-router';
 import { authApi } from '@/services/api/auth.api';
+import { signInWithGoogle as googleSignIn } from '@/services/googleAuth';
 
 // --- Define Storage Keys ---
 const TOKEN_KEY = 'auth_token';
@@ -22,6 +23,7 @@ interface AuthState {
 
 interface AuthContextProps extends Omit<AuthState, 'token'> {
   signIn: (token: string, refreshToken: string, enableBiometrics?: boolean) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<boolean>;
@@ -320,10 +322,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
+
+  const signInWithGoogle = async () => {
+    try {
+      // Get Google ID token
+      const { idToken } = await googleSignIn();
+
+      // Send to backend for verification and user creation
+      const response = await authApi.googleLogin(idToken);
+
+      // Store tokens using existing signIn method
+      await signIn(response.token, response.refreshToken, false);
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      throw error;
+    }
+  };
   
   // Provide the auth state and actions
   const value = {
     signIn,
+    signInWithGoogle,
     signOut,
     enableBiometrics,
     disableBiometrics,

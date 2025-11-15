@@ -26,7 +26,7 @@ import Animated, {
 export default function SignUpScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -35,6 +35,7 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{
     fullName?: string;
     email?: string;
@@ -155,6 +156,24 @@ export default function SignUpScreen() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setApiError(null);
+    try {
+      await signInWithGoogle();
+      // The AuthContext will handle the navigation to /(tabs)/home
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      setApiError(
+        error instanceof Error 
+          ? error.message 
+          : 'Failed to sign in with Google. Please try again.'
+      );
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -632,7 +651,7 @@ export default function SignUpScreen() {
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                marginBottom: 32,
+                marginBottom: 24,
               }}
             >
               <View
@@ -659,6 +678,53 @@ export default function SignUpScreen() {
                 }}
               />
             </View>
+
+            {/* Google Sign In Button */}
+            <TouchableOpacity
+              onPress={handleGoogleSignIn}
+              disabled={isGoogleLoading}
+              style={{
+                backgroundColor: isDarkColorScheme
+                  ? "rgba(255, 255, 255, 0.1)"
+                  : colors.input,
+                height: 56,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: isGoogleLoading ? 0.7 : 1,
+                marginBottom: 24,
+              }}
+              activeOpacity={0.8}
+            >
+              {isGoogleLoading ? (
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: "600",
+                  }}
+                >
+                  Signing up...
+                </Text>
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={24} color={colors.textPrimary} />
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Continue with Google
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             {/* Sign In Link */}
             <View

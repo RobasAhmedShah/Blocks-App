@@ -111,6 +111,13 @@ export const authApi = {
     return response.json();
   },
 
+  googleLogin: async (idToken: string): Promise<AuthResponse> => {
+    return publicRequest<AuthResponse>('/api/mobile/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+  },
+
   getMe: async (token: string): Promise<User> => {
     const response = await fetch(`${API_BASE_URL}/api/mobile/auth/me`, {
       method: 'GET',

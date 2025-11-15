@@ -196,13 +196,13 @@ export default function PropertyDetailScreen() {
             >
               <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <TouchableOpacity style={{
+            {/* <TouchableOpacity style={{
               backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.7)',
               padding: 8,
               borderRadius: 9999,
             }}>
               <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           {/* Dark gradient overlay for better text visibility */}

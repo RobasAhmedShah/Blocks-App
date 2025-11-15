@@ -167,10 +167,10 @@ export default function GuidedInvestmentScreen() {
               height: 48,
               backgroundColor: colors.card,
               borderRadius: 12,
-              padding: 4,
+              // padding: 4,
             }}>
-              <TouchableOpacity
-                onPress={() => setInvestmentMode("amount")}
+              <View
+               
                 style={{
                   flex: 1,
                   alignItems: 'center',
@@ -181,7 +181,7 @@ export default function GuidedInvestmentScreen() {
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 18,
                     fontWeight: '500',
                     color: investmentMode === "amount"
                       ? colors.textPrimary
@@ -190,7 +190,7 @@ export default function GuidedInvestmentScreen() {
                 >
                   Invest Amount
                 </Text>
-              </TouchableOpacity>
+              </View>
 
               {/* <TouchableOpacity
                 onPress={() => setInvestmentMode("earning")}

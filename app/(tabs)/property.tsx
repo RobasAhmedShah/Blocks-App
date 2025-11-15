@@ -11,7 +11,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
@@ -25,16 +25,18 @@ export default function HomeScreen() {
   const { 
     state, 
     isBookmarked, 
+    toggleBookmark,
     getBookmarkedProperties, 
     isLoadingProperties, 
     propertiesError,
     refreshProperties 
   } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string>('Trending');
+  const [activeFilter, setActiveFilter] = useState<string>('All');
   const [refreshing, setRefreshing] = useState(false);
 
-  const filters = [...propertyFilters, 'Bookmarks'] as const;
+  // Add "All" filter at the beginning
+  const filters = ['All', ...propertyFilters, 'Bookmarks'] as const;
 
   // Handle refresh
   const onRefresh = async () => {
@@ -48,10 +50,19 @@ export default function HomeScreen() {
     }
   };
 
+  // Handle bookmark toggle
+  const handleBookmarkToggle = (propertyId: string, e: any) => {
+    e.stopPropagation();
+    toggleBookmark(propertyId);
+  };
+
   // Get properties based on filter
   let propertiesToShow = state.properties;
   
-  if (activeFilter === 'Bookmarks') {
+  if (activeFilter === 'All') {
+    // Show all properties
+    propertiesToShow = state.properties;
+  } else if (activeFilter === 'Bookmarks') {
     propertiesToShow = getBookmarkedProperties();
   } else if (activeFilter === 'Trending') {
     // Show all properties for trending (or filter by sold percentage > 30%)
@@ -94,26 +105,20 @@ export default function HomeScreen() {
         className="px-4 pb-3"
       >
         <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center">
-            <View style={{ backgroundColor: colors.primary }} className="w-10 h-10 rounded-full items-center justify-center">
-              <Text className="text-white font-bold text-lg">B</Text>
-            </View>
-            <View className="ml-3">
-              <Text style={{ color: colors.textSecondary }} className="text-xs">
-                Hello,
-              </Text>
-              <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-                {state.userInfo.fullName}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity className="p-2">
-            <MaterialIcons
-              name="notifications-none"
-              size={24}
-              color={colors.textPrimary}
-            />
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center"
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
+
+          <View className="flex-1 items-center">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              Properties
+            </Text>
+          </View>
+
+          <View className="w-10" />
         </View>
 
         {/* Search Bar */}
@@ -137,44 +142,41 @@ export default function HomeScreen() {
         </View>
       </View>
 
-
-{/* Filter Pills */}
-<View className=" mx-auto">
-  <ScrollView
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{ 
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      gap: 8 
-    }}
-  >
-    {filters.map((filter) => (
-      <TouchableOpacity
-        key={filter}
-        onPress={() => setActiveFilter(filter)}
-        style={{
-          backgroundColor: activeFilter === filter ? colors.primary : colors.card,
-          borderWidth: activeFilter === filter ? 0 : 1,
-          borderColor: colors.border,
-        }}
-        className="px-5 py-2 rounded-full"
-      >
-        <Text
-          style={{
-            color: activeFilter === filter ? '#FFFFFF' : colors.textPrimary,
-            fontWeight: activeFilter === filter ? '600' : '400',
+      {/* Filter Pills */}
+      <View className="mx-auto">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ 
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            gap: 8 
           }}
-          className="text-sm"
         >
-          {filter}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </ScrollView>
-</View>
-
-
+          {filters.map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              onPress={() => setActiveFilter(filter)}
+              style={{
+                backgroundColor: activeFilter === filter ? colors.primary : colors.card,
+                borderWidth: activeFilter === filter ? 0 : 1,
+                borderColor: colors.border,
+              }}
+              className="px-5 py-2 rounded-full"
+            >
+              <Text
+                style={{
+                  color: activeFilter === filter ? '#FFFFFF' : colors.textPrimary,
+                  fontWeight: activeFilter === filter ? '600' : '400',
+                }}
+                className="text-sm"
+              >
+                {filter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Property Cards */}
       <ScrollView
@@ -219,10 +221,23 @@ export default function HomeScreen() {
         {/* Empty State */}
         {!isLoadingProperties && !propertiesError && filteredProperties.length === 0 && (
           <View className="flex-1 items-center justify-center py-20 px-4">
-            <MaterialIcons name="search-off" size={48} color={colors.textMuted} />
+            <MaterialIcons 
+              name={activeFilter === 'Bookmarks' ? 'bookmark-border' : 'search-off'} 
+              size={48} 
+              color={colors.textMuted} 
+            />
             <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
-              {searchQuery ? 'No properties found matching your search' : 'No properties available'}
+              {searchQuery 
+                ? 'No properties found matching your search' 
+                : activeFilter === 'Bookmarks' 
+                  ? 'No bookmarked properties yet' 
+                  : 'No properties available'}
             </Text>
+            {activeFilter === 'Bookmarks' && (
+              <Text style={{ color: colors.textMuted }} className="mt-2 text-sm text-center px-8">
+                Tap the bookmark icon on properties to save them here
+              </Text>
+            )}
           </View>
         )}
 
@@ -256,13 +271,17 @@ export default function HomeScreen() {
                   {property.status.replace('-', ' ')}
                 </Text>
               </View>
-              {/* Bookmark */}
+              
+              {/* Bookmark Button with functionality */}
               <TouchableOpacity 
-                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/40 backdrop-blur items-center justify-center"
-                onPress={(e) => {
-                  e.stopPropagation();
-                  // Bookmark functionality handled in detail screen
+                className="absolute top-4 right-4 w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isBookmarked(property.id) 
+                    ? 'rgba(13, 165, 165, 0.9)' 
+                    : 'rgba(0, 0, 0, 0.4)',
                 }}
+                onPress={(e) => handleBookmarkToggle(property.id, e)}
+                activeOpacity={0.8}
               >
                 <MaterialIcons 
                   name={isBookmarked(property.id) ? "bookmark" : "bookmark-border"} 
@@ -341,4 +360,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-

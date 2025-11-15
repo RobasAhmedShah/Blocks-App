@@ -1,10 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
   FlatList,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
+  Modal,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -14,6 +18,9 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { ROITrendChart } from "@/components/portfolio/ROITrendChart";
 import { MonthlyIncomeChart } from "@/components/portfolio/MonthlyIncomeChart";
 import { InvestmentDistributionChart } from "@/components/portfolio/InvestmentDistributionChart";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CHART_WIDTH = SCREEN_WIDTH - 32; // Full width minus padding
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -26,6 +33,50 @@ export default function PortfolioScreen() {
     loading,
     loadInvestments,
   } = usePortfolio();
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedChartType, setSelectedChartType] = useState<'roi' | 'income' | 'distribution' | null>(null);
+  const modalTranslateY = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
+
+  // Modal functions
+  const openModal = (chartType: 'roi' | 'income' | 'distribution') => {
+    setSelectedChartType(chartType);
+    setModalVisible(true);
+    Animated.parallel([
+      Animated.spring(modalTranslateY, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.spring(modalTranslateY, {
+        toValue: Dimensions.get('window').height,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalVisible(false);
+      setSelectedChartType(null);
+    });
+  };
 
   // Refresh investments when screen comes into focus
   useFocusEffect(
@@ -117,11 +168,12 @@ export default function PortfolioScreen() {
                     </View>
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity>
+                <TouchableOpacity
+                onPress={() => router.push('/profile')}
+                >
                   <Ionicons name="person-circle-outline" size={32} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
-
               
         <View className="flex-row justify-between items-center mb-2">
           <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
@@ -153,88 +205,14 @@ export default function PortfolioScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          snapToInterval={376}
+          snapToInterval={CHART_WIDTH }
           decelerationRate="fast"
           contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
         >
           {/* ROI Trend Chart */}
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderWidth: isDarkColorScheme ? 0 : 1,
-              borderColor: colors.border,
-              shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
-              shadowOffset: { width: 0, height: isDarkColorScheme ? 4 : 8 },
-              shadowOpacity: isDarkColorScheme ? 0.3 : 0.08,
-              shadowRadius: isDarkColorScheme ? 4 : 12,
-              elevation: isDarkColorScheme ? 8 : 4,
-            }}
-            className="rounded-xl p-4 w-[320px]"
-          >
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold mb-1">
-              ROI Trend
-            </Text>
-            <Text style={{ color: colors.textSecondary }} className="text-xs mb-3">Last 12 months</Text>
-            <View 
-              style={{ 
-                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
-                borderRadius: 8,
-                height: 96,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ROITrendChart
-                data={chartData.roiTrendData}
-                width={280}
-                height={96}
-                color={colors.primary}
-                backgroundColor={isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB'}
-                textColor={colors.textMuted}
-              />
-            </View>
-          </View>
-
-          {/* Monthly Income Chart */}
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderWidth: isDarkColorScheme ? 0 : 1,
-              borderColor: colors.border,
-              shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
-              shadowOffset: { width: 0, height: isDarkColorScheme ? 4 : 8 },
-              shadowOpacity: isDarkColorScheme ? 0.3 : 0.08,
-              shadowRadius: isDarkColorScheme ? 4 : 12,
-              elevation: isDarkColorScheme ? 8 : 4,
-            }}
-            className="rounded-xl p-4 w-[320px]"
-          >
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold mb-1">
-              Monthly Income
-            </Text>
-            <Text style={{ color: colors.textSecondary }} className="text-xs mb-3">Year-to-date</Text>
-            <View 
-              style={{ 
-                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
-                borderRadius: 8,
-                height: 96,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <MonthlyIncomeChart
-                data={chartData.monthlyIncomeData}
-                width={280}
-                height={96}
-                color={colors.primary}
-                backgroundColor={isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB'}
-                textColor={colors.textMuted}
-              />
-            </View>
-          </View>
-
-          {/* Investment Distribution Chart */}
-          <View
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => openModal('roi')}
             style={{
               backgroundColor: colors.card,
               borderWidth: isDarkColorScheme ? 0 : 1,
@@ -245,8 +223,95 @@ export default function PortfolioScreen() {
               shadowRadius: isDarkColorScheme ? 4 : 12,
               elevation: isDarkColorScheme ? 8 : 4,
               borderRadius: 12,
-              padding: 12,
-              width: 360,
+              padding: 16,
+              width: CHART_WIDTH,
+            }}
+            
+          >
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold mb-1">
+              ROI Trend
+            </Text>
+            <Text style={{ color: colors.textSecondary }} className="text-xs mb-3">Last 12 months</Text>
+            <View 
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
+                borderRadius: 8,
+                height: 100,
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              <ROITrendChart
+                data={chartData.roiTrendData}
+                width={CHART_WIDTH - 32}
+                height={100}
+                color={colors.primary}
+                backgroundColor={isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB'}
+                textColor={colors.textMuted}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Monthly Income Chart */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => openModal('income')}
+            style={{
+              backgroundColor: colors.card,
+              borderWidth: isDarkColorScheme ? 0 : 1,
+              borderColor: colors.border,
+              shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
+              shadowOffset: { width: 0, height: isDarkColorScheme ? 4 : 8 },
+              shadowOpacity: isDarkColorScheme ? 0.3 : 0.08,
+              shadowRadius: isDarkColorScheme ? 4 : 12,
+              elevation: isDarkColorScheme ? 8 : 4,
+              borderRadius: 12,
+              padding: 16,
+              width: CHART_WIDTH,
+            }}
+          >
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold mb-1">
+              Monthly Income
+            </Text>
+            <Text style={{ color: colors.textSecondary }} className="text-xs mb-3">Year-to-date</Text>
+            <View 
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
+                borderRadius: 8,
+                height: 100,
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              <MonthlyIncomeChart
+                data={chartData.monthlyIncomeData}
+                width={CHART_WIDTH - 32}
+                height={100}
+                color={colors.primary}
+                backgroundColor={isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB'}
+                textColor={colors.textMuted}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Investment Distribution Chart */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => openModal('distribution')}
+            style={{
+              backgroundColor: colors.card,
+              borderWidth: isDarkColorScheme ? 0 : 1,
+              borderColor: colors.border,
+              shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
+              shadowOffset: { width: 0, height: isDarkColorScheme ? 4 : 8 },
+              shadowOpacity: isDarkColorScheme ? 0.3 : 0.08,
+              shadowRadius: isDarkColorScheme ? 4 : 12,
+              elevation: isDarkColorScheme ? 8 : 4,
+              borderRadius: 12,
+              padding: 16,
+              width: CHART_WIDTH,
             }}
           >
             <View style={{ marginBottom: 8 }}>
@@ -259,18 +324,18 @@ export default function PortfolioScreen() {
               style={{ 
                 backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
                 borderRadius: 8,
-                height: 110,
+                height: 120,
                 overflow: 'hidden',
               }}
             >
               <InvestmentDistributionChart
                 data={chartData.distributionData}
-                width={336}
-                height={110}
+                width={CHART_WIDTH - 32}
+                height={120}
                 textColor={colors.textMuted}
               />
             </View>
-          </View>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -396,6 +461,367 @@ export default function PortfolioScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Chart Details Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeModal}
+      >
+        <Animated.View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            opacity: modalOpacity,
+          }}
+        >
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={closeModal}
+          />
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '85%',
+              transform: [{ translateY: modalTranslateY }],
+            }}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: '85%' }}
+            >
+              {/* Drag Handle */}
+              <View className="items-center py-3">
+                <View
+                  style={{
+                    width: 40,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: colors.border,
+                  }}
+                />
+              </View>
+
+              {/* Header */}
+              <View className="px-6 pb-4 flex-row items-center justify-between">
+                <View>
+                  <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
+                    {selectedChartType === 'roi' && 'ROI Trend Details'}
+                    {selectedChartType === 'income' && 'Monthly Income Details'}
+                    {selectedChartType === 'distribution' && 'Investment Distribution Details'}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
+                    {selectedChartType === 'roi' && 'Last 12 months performance'}
+                    {selectedChartType === 'income' && 'Year-to-date income breakdown'}
+                    {selectedChartType === 'distribution' && 'Portfolio allocation by property'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="close" size={20} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <View className="px-6 pb-8">
+                {selectedChartType === 'roi' && (
+                  <View>
+                    <View className="mb-4">
+                      <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
+                        Monthly ROI Performance
+                      </Text>
+                      {chartData.roiTrendData.map((value, index) => {
+                        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                        return (
+                          <View
+                            key={index}
+                            style={{
+                              backgroundColor: colors.card,
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              borderRadius: 12,
+                              padding: 16,
+                              marginBottom: 12,
+                            }}
+                          >
+                            <View className="flex-row items-center justify-between">
+                              <View>
+                                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                                  {months[index]}
+                                </Text>
+                                <Text style={{ color: colors.textSecondary }} className="text-xs mt-1">
+                                  Month {index + 1} of 12
+                                </Text>
+                              </View>
+                              <View className="items-end">
+                                <View
+                                  style={{
+                                    backgroundColor: value >= (totalROI || 20) ? `rgba(68, 239, 82, 0.2)` : 'rgba(239, 68, 68, 0.2)',
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: value >= (totalROI || 20) ? colors.primary : '#EF4444',
+                                      fontSize: 16,
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    {value.toFixed(2)}%
+                                  </Text>
+                                </View>
+                                <Text style={{ color: colors.textMuted }} className="text-xs mt-1">
+                                  ROI
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-semibold mb-2">
+                        Summary
+                      </Text>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Average ROI:</Text>
+                        <Text style={{ color: colors.textPrimary }} className="font-semibold">
+                          {(chartData.roiTrendData.reduce((a, b) => a + b, 0) / chartData.roiTrendData.length).toFixed(2)}%
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Highest ROI:</Text>
+                        <Text style={{ color: colors.primary }} className="font-semibold">
+                          {Math.max(...chartData.roiTrendData).toFixed(2)}%
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text style={{ color: colors.textSecondary }}>Lowest ROI:</Text>
+                        <Text style={{ color: '#EF4444' }} className="font-semibold">
+                          {Math.min(...chartData.roiTrendData).toFixed(2)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {selectedChartType === 'income' && (
+                  <View>
+                    <View className="mb-4">
+                      <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
+                        Monthly Income Breakdown
+                      </Text>
+                      {chartData.monthlyIncomeData.map((value, index) => {
+                        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August'];
+                        return (
+                          <View
+                            key={index}
+                            style={{
+                              backgroundColor: colors.card,
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              borderRadius: 12,
+                              padding: 16,
+                              marginBottom: 12,
+                            }}
+                          >
+                            <View className="flex-row items-center justify-between">
+                              <View>
+                                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                                  {months[index]}
+                                </Text>
+                                <Text style={{ color: colors.textSecondary }} className="text-xs mt-1">
+                                  Month {index + 1} of 8
+                                </Text>
+                              </View>
+                              <View className="items-end">
+                                <Text style={{ color: colors.primary }} className="text-lg font-bold">
+                                  ${value.toFixed(2)}
+                                </Text>
+                                <Text style={{ color: colors.textMuted }} className="text-xs mt-1">
+                                  Rental Income
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-semibold mb-2">
+                        Summary
+                      </Text>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Total Income:</Text>
+                        <Text style={{ color: colors.textPrimary }} className="font-semibold">
+                          ${chartData.monthlyIncomeData.reduce((a, b) => a + b, 0).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Average Monthly:</Text>
+                        <Text style={{ color: colors.primary }} className="font-semibold">
+                          ${(chartData.monthlyIncomeData.reduce((a, b) => a + b, 0) / chartData.monthlyIncomeData.length).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text style={{ color: colors.textSecondary }}>Highest Month:</Text>
+                        <Text style={{ color: colors.primary }} className="font-semibold">
+                          ${Math.max(...chartData.monthlyIncomeData).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {selectedChartType === 'distribution' && (
+                  <View>
+                    <View className="mb-4">
+                      <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
+                        Property Investment Breakdown
+                      </Text>
+                      {chartData.distributionData.map((item, index) => {
+                        const total = chartData.distributionData.reduce((sum, d) => sum + d.value, 0);
+                        const percentage = (item.value / total) * 100;
+                        return (
+                          <View
+                            key={index}
+                            style={{
+                              backgroundColor: colors.card,
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              borderRadius: 12,
+                              padding: 16,
+                              marginBottom: 12,
+                            }}
+                          >
+                            <View className="flex-row items-center justify-between mb-3">
+                              <View className="flex-row items-center gap-3">
+                                <View
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    borderRadius: 8,
+                                    backgroundColor: item.color,
+                                  }}
+                                />
+                                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold" numberOfLines={1}>
+                                  {item.label}
+                                </Text>
+                              </View>
+                              <Text style={{ color: colors.primary }} className="text-lg font-bold">
+                                {percentage.toFixed(1)}%
+                              </Text>
+                            </View>
+                            <View className="flex-row justify-between items-center">
+                              <Text style={{ color: colors.textSecondary }} className="text-sm">
+                                Investment Value
+                              </Text>
+                              <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                                ${item.value.toLocaleString('en-US', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </Text>
+                            </View>
+                            {/* Progress Bar */}
+                            <View
+                              style={{
+                                height: 6,
+                                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                                borderRadius: 3,
+                                marginTop: 12,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <View
+                                style={{
+                                  height: '100%',
+                                  width: `${percentage}%`,
+                                  backgroundColor: item.color,
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-semibold mb-2">
+                        Portfolio Summary
+                      </Text>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Total Properties:</Text>
+                        <Text style={{ color: colors.textPrimary }} className="font-semibold">
+                          {chartData.distributionData.length}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between mb-2">
+                        <Text style={{ color: colors.textSecondary }}>Total Investment:</Text>
+                        <Text style={{ color: colors.primary }} className="font-semibold">
+                          ${chartData.distributionData.reduce((sum, d) => sum + d.value, 0).toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text style={{ color: colors.textSecondary }}>Largest Position:</Text>
+                        <Text style={{ color: colors.textPrimary }} className="font-semibold" numberOfLines={1}>
+                          {chartData.distributionData.reduce((max, d) => d.value > max.value ? d : max, chartData.distributionData[0])?.label}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
     </View>
   );
 }

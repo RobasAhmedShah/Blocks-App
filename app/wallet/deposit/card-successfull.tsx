@@ -240,11 +240,7 @@ export default function DepositConfirmationLight() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push('../wallet/deposit/card')}>
-            <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginTop: 4 }}>
-              Make Another Deposit
-            </Text>
-          </TouchableOpacity>
+        
         </View>
       </View>
     </SafeAreaView>

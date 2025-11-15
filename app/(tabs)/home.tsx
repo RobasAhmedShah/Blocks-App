@@ -126,6 +126,7 @@ export default function BlocksHomeScreen() {
           .sort((a, b) => b.estimatedROI - a.estimatedROI)
           .slice(0, 3)
           .map((property) => ({
+            id: property.id,
             name: property.title,
             value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
             roi: `${property.estimatedROI}%`,
@@ -177,6 +178,7 @@ export default function BlocksHomeScreen() {
         .sort((a, b) => b.estimatedROI - a.estimatedROI)
         .slice(0, 3)
         .map((property) => ({
+          id: property.id,
           name: property.title,
           value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
           roi: `${property.estimatedROI}%`,

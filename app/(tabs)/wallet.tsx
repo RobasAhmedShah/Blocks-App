@@ -97,7 +97,7 @@ export default function WalletScreen() {
             Total USDC
           </Text>
           <TouchableOpacity className="p-2">
-            <MaterialIcons name="more-horiz" size={24} color={colors.textPrimary} />
+            {/* <MaterialIcons name="more-horiz" size={24} color={colors.textPrimary} /> */}
           </TouchableOpacity>
         </View>
 
@@ -235,7 +235,7 @@ export default function WalletScreen() {
             </View>
           ) : (
             filteredTransactions.map((transaction) => (
-            <TouchableOpacity
+            <View
               key={transaction.id}
               style={{ backgroundColor: colors.card }}
               className="flex-row items-center p-4 rounded-2xl mb-3"
@@ -282,7 +282,7 @@ export default function WalletScreen() {
                   {transaction.currency || 'USDC'}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
             ))
           )}
         </View>

@@ -244,7 +244,7 @@ export default function DepositConfirmationLight() {
         </View>
       </View>
     </SafeAreaView>
- 
+
   );
 }
 

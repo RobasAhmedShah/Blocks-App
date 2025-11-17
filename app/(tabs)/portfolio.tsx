@@ -151,7 +151,7 @@ export default function PortfolioScreen() {
                   <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
                     Total Portfolio Value
                   </Text>
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     onPress={() => router.push('/portfolio/guidance/guidance-one')}
                     style={{ 
                       backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
@@ -166,13 +166,13 @@ export default function PortfolioScreen() {
                         Guide
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
-                <TouchableOpacity
+                {/* <TouchableOpacity
                 onPress={() => router.push('/profile')}
                 >
                   <Ionicons name="person-circle-outline" size={32} color={colors.textMuted} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
               
         <View className="flex-row justify-between items-center mb-2">

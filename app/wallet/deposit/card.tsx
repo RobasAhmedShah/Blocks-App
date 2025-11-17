@@ -163,7 +163,7 @@ export default function CardDepositScreen() {
   const handleAddNewCard = () => {
     setShowMethodSelector(false);
     router.push({
-      pathname: '../profilesettings/addcard',
+      pathname: '../../profilesettings/addcard',
       params: {
         returnTo: 'wallet/deposit/card',
         returnAmount: amount,

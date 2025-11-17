@@ -124,7 +124,7 @@ export default function HomeScreen() {
         {/* Search Bar */}
         <View
           style={{ backgroundColor: colors.card }}
-          className="flex-row items-center rounded-2xl px-4 py-3 shadow-sm"
+          className="flex-row items-center rounded-2xl px-4 py-2 shadow-sm"
         >
           <MaterialIcons
             name="search"

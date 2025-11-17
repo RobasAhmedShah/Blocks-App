@@ -281,14 +281,14 @@ export default function MyInvestmentDetailsScreen() {
               </Text>
             </View>
 
-            <View className="flex-row justify-between items-center mb-3">
+            {/* <View className="flex-row justify-between items-center mb-3">
               <Text style={{ color: colors.textSecondary }} className="text-sm">
                 Next Payout
               </Text>
               <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
-                {investment?.property.nextPayout || "N/A"}
+                {investment?.property.nextPayoutDate || "N/A"}
               </Text>
-            </View>
+            </View> */}
 
             <View className="flex-row justify-between items-center">
               <Text style={{ color: colors.textSecondary }} className="text-sm">
@@ -313,14 +313,14 @@ export default function MyInvestmentDetailsScreen() {
               Property Performance
             </Text>
 
-            <View className="flex-row justify-between items-center mb-3">
+            {/* <View className="flex-row justify-between items-center mb-3">
               <Text style={{ color: colors.textSecondary }} className="text-sm">
                 Occupancy Rate
               </Text>
               <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
                 {investment?.property.occupancy || "N/A"}
               </Text>
-            </View>
+            </View> */}
 
             <View className="flex-row justify-between items-center mb-3">
               <Text style={{ color: colors.textSecondary }} className="text-sm">

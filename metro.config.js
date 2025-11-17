@@ -1,4 +1,8 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
+
+// Polyfill for URL.canParse (Node.js compatibility)
+require('./metro.config.polyfill');
+
 const { getDefaultConfig } = require('expo/metro-config');
 
 const { withNativeWind } = require('nativewind/metro');

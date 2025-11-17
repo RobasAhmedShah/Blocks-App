@@ -77,6 +77,9 @@
           "data": [
             {
               "scheme": "blocks"
+            },
+            {
+              "scheme": "com.googleusercontent.apps.452166186757-unrelq5fmdrkd06dqeb0huks2b3fjeve"
             }
           ],
           "category": [
@@ -94,6 +97,7 @@
       "apiUrl": "https://blocks-backend.vercel.app",
       "googleAndroidClientId": "452166186757-unrelq5fmdrkd06dqeb0huks2b3fjeve.apps.googleusercontent.com",
       "googleIosClientId": "452166186757-qelam6ha1qtarj3vjm0aiv9lu667r76g.apps.googleusercontent.com",
+      "googleWebClientId": "452166186757-ob0aov7d6l87l850ssd1fk8lqaoagg7a.apps.googleusercontent.com",
       "magicPublishableKey": "pk_live_9E93488C0CC96A3B"
     },
     "owner": "robas",

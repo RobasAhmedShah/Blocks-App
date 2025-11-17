@@ -5,6 +5,7 @@ import {
   Text,
   Dimensions,
   StatusBar,
+  TouchableOpacity,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -297,9 +298,12 @@ export default function BlocksHomeScreen() {
             borderWidth: 1,
             borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
           }}>
+            <TouchableOpacity
+             onPress={() => router.push('./wallet')}>
             <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
               ${balance.toFixed(2)}
             </Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 

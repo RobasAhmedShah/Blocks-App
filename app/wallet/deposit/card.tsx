@@ -407,7 +407,7 @@ export default function CardDepositScreen() {
                   width: 48,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: `${colors.primary}20`,
+                  
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
@@ -435,7 +435,7 @@ export default function CardDepositScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 6,
-                  backgroundColor: `${colors.primary}20`,
+                 
                 }}
               >
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Change</Text>
@@ -575,7 +575,6 @@ export default function CardDepositScreen() {
                       width: 48,
                       height: 48,
                       borderRadius: 24,
-                      backgroundColor: `${colors.primary}20`,
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: 12,

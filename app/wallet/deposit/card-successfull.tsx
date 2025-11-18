@@ -64,6 +64,11 @@ export default function DepositConfirmationLight() {
     Alert.alert('Copied!', 'Transaction ID copied to clipboard');
   };
 
+  // Truncate transaction ID if too long (max 10 characters + ...)
+  const displayTransactionId = transactionId.length > 10 
+    ? `${transactionId.substring(0, 10)}...` 
+    : transactionId;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
@@ -175,7 +180,7 @@ export default function DepositConfirmationLight() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
             <Text style={{ color: colors.textMuted, fontSize: 14 }}>Transaction ID</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{transactionId}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{displayTransactionId}</Text>
               <TouchableOpacity onPress={handleCopyTransactionId}>
                 <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
               </TouchableOpacity>

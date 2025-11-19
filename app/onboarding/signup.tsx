@@ -292,13 +292,74 @@ export default function SignUpScreen() {
       });
       
       await signIn(response.token, response.refreshToken);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign up error:', error);
-      setApiError(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to create account. Please try again.'
-      );
+      
+      // Handle specific error cases
+      let errorMessage = 'Failed to create account. Please try again.';
+      
+      // Extract status code from various possible locations
+      const statusCode = error?.response?.status || error?.status || error?.statusCode;
+      
+      // Extract error message from various possible locations
+      const responseMessage = error?.response?.data?.message || 
+                             error?.response?.data?.error || 
+                             error?.data?.message || 
+                             error?.message || 
+                             '';
+      
+      // Check if error message contains HTTP status code pattern
+      const errorString = String(responseMessage || error || '');
+      const containsHTTP409 = errorString.includes('HTTP 409') || 
+                             errorString.includes('409') || 
+                             statusCode === 409;
+      const containsHTTP400 = errorString.includes('HTTP 400') || 
+                             errorString.includes('400') || 
+                             statusCode === 400;
+      const containsHTTP422 = errorString.includes('HTTP 422') || 
+                             errorString.includes('422') || 
+                             statusCode === 422;
+      
+      if (containsHTTP409 || statusCode === 409) {
+        // HTTP 409 Conflict - Email already exists
+        errorMessage = 'This email is already registered. Please sign in or use a different email.';
+      } else if (containsHTTP400 || statusCode === 400) {
+        // HTTP 400 Bad Request - Check for specific messages
+        const msg = responseMessage.toLowerCase();
+        
+        if (msg.includes('email') && 
+            (msg.includes('exist') || 
+             msg.includes('already') ||
+             msg.includes('taken') ||
+             msg.includes('registered'))) {
+          errorMessage = 'This email is already registered. Please sign in or use a different email.';
+        } else if (msg.includes('invalid email')) {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (msg.includes('password')) {
+          errorMessage = 'Password does not meet requirements. Please try a stronger password.';
+        } else if (responseMessage && !msg.includes('http')) {
+          // Use the response message if it doesn't contain HTTP status codes
+          errorMessage = responseMessage;
+        } else {
+          errorMessage = 'Invalid information provided. Please check your details and try again.';
+        }
+      } else if (containsHTTP422 || statusCode === 422) {
+        // HTTP 422 Unprocessable Entity - Validation errors
+        errorMessage = 'Please check your information and try again.';
+      } else if (responseMessage) {
+        // Use error message if available and doesn't contain HTTP codes
+        const msg = responseMessage.toLowerCase();
+        if (msg.includes('email') && (msg.includes('exist') || msg.includes('already') || msg.includes('taken'))) {
+          errorMessage = 'This email is already registered. Please sign in or use a different email.';
+        } else if (msg.includes('network') || msg.includes('connection')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (!msg.includes('http') && !msg.includes('40') && !msg.includes('50')) {
+          // Only use the message if it doesn't look like an HTTP error code
+          errorMessage = responseMessage;
+        }
+      }
+      
+      setApiError(errorMessage);
     } finally {
       setIsLoading(false);
     }

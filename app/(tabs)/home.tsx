@@ -270,10 +270,10 @@ export default function BlocksHomeScreen() {
               '#021917',
             ]
           : [
-              '#ECFDF5',           // Light green (top)
-              '#D1FAE5',           // Pale green
-              '#A7F3D0',           // Soft green
-              '#FFFFFF',           // White (bottom)
+            '#F5F5F5', // Smoky light gray
+            '#EDEDED', // Soft ash
+            '#E0E0E0', // Gentle gray
+            '#FFFFFF'  // Pure white
             ]
         }
         locations={[0, 0.4, 0.7, 1]}  // 40% green, then transition to black
@@ -315,7 +315,7 @@ export default function BlocksHomeScreen() {
           ]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="apps" size={28} color={colors.primary} />
+            <Ionicons name="apps" size={28} color={colors.textPrimary} />
             <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>Blocks</Text>
           </View>
           <View style={{

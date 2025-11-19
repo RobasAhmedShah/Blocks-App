@@ -85,7 +85,7 @@ export default function PropertyDetailScreen() {
           { 
             text: 'Deposit', 
             onPress: () => router.push({
-              pathname: "/wallet/deposit/debit-card",
+              pathname: "/wallet",
               params: { requiredAmount: minRequired.toString() },
             } as any)
           }

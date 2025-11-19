@@ -74,7 +74,7 @@ export default function CardDepositScreen() {
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [amountError, setAmountError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const [touched, setTouched] = useState(!!suggestedAmount); // Auto-touch if amount is pre-filled
   
   // Payment method selection
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);

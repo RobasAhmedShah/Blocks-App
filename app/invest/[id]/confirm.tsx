@@ -48,7 +48,7 @@ export default function InvestmentConfirmScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => router.push({
-            pathname: '/portfolio/ownproperty/propertydetails',
+            pathname: '/portfolio',
             params: { id: id },
           } as any)}
           style={{ width: 48, alignItems: 'flex-end' }}

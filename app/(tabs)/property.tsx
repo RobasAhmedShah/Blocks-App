@@ -96,6 +96,7 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
       
+      
       {/* Header */}
       <View
         style={{ 
@@ -254,13 +255,18 @@ export default function HomeScreen() {
             <View className="relative">
               <Image
                 source={{ 
-                  uri: property.images && property.images.length > 0 
+                  uri: (property.images && property.images.length > 0 && property.images[0]) 
                     ? property.images[0] 
-                    : 'https://via.placeholder.com/400x300?text=No+Image'
+                    : property.image 
+                    ? property.image
+                    : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800'
                 }}
                 className="w-full h-56"
                 resizeMode="cover"
                 defaultSource={require('@/assets/blank.png')}
+                onError={(error) => {
+                  console.log('Image load error for property:', property.title, error.nativeEvent);
+                }}
               />
               {/* Status Badge */}
               <View 

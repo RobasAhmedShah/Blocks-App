@@ -70,13 +70,29 @@ export default function PropertyDetailScreen() {
   }
 
   const handleInvest = () => {
-    const minRequired = property.minInvestment;
+    if (!property || !id) {
+      Alert.alert('Error', 'Property information not available');
+      return;
+    }
+    
+    const minRequired = property.minInvestment || 0;
     if (balance.usdc < minRequired) {
-      router.push({
-        pathname: "/wallet/deposit/debit-card",
-        params: { requiredAmount: minRequired.toString() },
-      } as any);
+      Alert.alert(
+        'Insufficient Balance', 
+        `You need at least $${minRequired.toFixed(2)} USDC to invest in this property. Would you like to deposit funds?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Deposit', 
+            onPress: () => router.push({
+              pathname: "/wallet/deposit/debit-card",
+              params: { requiredAmount: minRequired.toString() },
+            } as any)
+          }
+        ]
+      );
     } else {
+      console.log('Opening invest modal for property:', property.title);
       setShowInvestModal(true);
     }
   };
@@ -157,10 +173,15 @@ export default function PropertyDetailScreen() {
                 {property.images.map((img, idx) => (
                   <Image
                     key={idx}
-                    source={{ uri: img }}
+                    source={{ 
+                      uri: img || property.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800'
+                    }}
                     style={{ width, height: '100%' }}
                     resizeMode="cover"
                     defaultSource={require('@/assets/blank.png')}
+                    onError={(error) => {
+                      console.log('Image load error:', error.nativeEvent);
+                    }}
                   />
                 ))}
               </ScrollView>
@@ -179,8 +200,18 @@ export default function PropertyDetailScreen() {
                 </View>
               )}
             </>
+          ) : property.image ? (
+            <Image
+              source={{ uri: property.image }}
+              style={{ width, height: '100%' }}
+              resizeMode="cover"
+              defaultSource={require('@/assets/blank.png')}
+              onError={(error) => {
+                console.log('Fallback image load error:', error.nativeEvent);
+              }}
+            />
           ) : (
-            <View className="w-full h-full items-center justify-center bg-gray-200">
+            <View className="w-full h-full items-center justify-center" style={{ backgroundColor: colors.muted }}>
               <Ionicons name="image-outline" size={64} color={colors.textMuted} />
               <Text style={{ color: colors.textMuted }} className="mt-4 text-base">
                 No images available
@@ -611,10 +642,13 @@ export default function PropertyDetailScreen() {
       </View>
 
       {/* Investment Modal */}
-      {showInvestModal && (
+      {showInvestModal && id && property && (
         <InvestScreen 
           propertyId={id} 
-          onClose={() => setShowInvestModal(false)} 
+          onClose={() => {
+            console.log('Closing invest modal');
+            setShowInvestModal(false);
+          }} 
         />
       )}
 

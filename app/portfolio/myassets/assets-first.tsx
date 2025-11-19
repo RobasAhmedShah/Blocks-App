@@ -361,7 +361,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ item, colors, isDarkColorSc
                   </Text>
 
                   {/* Ownership Percentage Badge */}
-                  <View 
+                  {/* <View 
                     className="px-4 py-2 rounded-full mt-2"
                     style={{ 
                       backgroundColor: isDarkColorScheme 
@@ -380,7 +380,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ item, colors, isDarkColorSc
                     >
                       {ownershipPercentage}% Ownership
                     </Text>
-                  </View>
+                  </View> */}
                 </View>
               </View>
 

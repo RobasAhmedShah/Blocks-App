@@ -11,6 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -81,13 +82,41 @@ export default function WalletScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1 }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+      
+      {/* Linear Gradient Background - Same as BlocksHomeScreen */}
+      <LinearGradient
+        colors={isDarkColorScheme 
+          ? [
+            '#00C896',           // Teal green (top)
+              '#064E3B',           // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
+            ]
+          : [
+              '#ECFDF5',           // Light green (top)
+              '#D1FAE5',           // Pale green
+              '#A7F3D0',           // Soft green
+              '#FFFFFF',           // White (bottom)
+            ]
+        }
+        locations={[0, 0.4, 0.7, 1]}  // 40% green, then transition to black
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      />
 
       {/* Header */}
       <View
         style={{ 
-          backgroundColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.8)' : 'rgba(248, 247, 245, 0.8)',
+          backgroundColor: 'transparent',  // Transparent to show gradient
           paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
         }}
         className="px-4 pb-6"
@@ -140,7 +169,11 @@ export default function WalletScreen() {
           <View className="flex-row gap-3">
             <TouchableOpacity
               onPress={() => router.push('../wallet')}
-              style={{ backgroundColor: colors.card }}
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.24)' : 'rgba(255, 255, 255, 0.8)',
+                borderWidth: 1,
+                borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              }}
               className="flex-1 p-4 rounded-2xl items-center"
             >
               <View 
@@ -156,7 +189,11 @@ export default function WalletScreen() {
 
             <TouchableOpacity
               onPress={() => router.push('/wallet/withdraw' as any)}
-              style={{ backgroundColor: colors.card }}
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                borderWidth: 1,
+                borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              }}
               className="flex-1 p-4 rounded-2xl items-center"
             >
               <View 
@@ -172,7 +209,11 @@ export default function WalletScreen() {
 
             <TouchableOpacity
               onPress={() => router.push('/wallet/transfer' as any)}
-              style={{ backgroundColor: colors.card }}
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                borderWidth: 1,
+                borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              }}
               className="flex-1 p-4 rounded-2xl items-center"
             >
               <View 
@@ -202,9 +243,11 @@ export default function WalletScreen() {
                 key={filter.value}
                 onPress={() => setActiveTab(filter.value)}
                 style={{
-                  backgroundColor: activeTab === filter.value ? colors.primary : colors.card,
+                  backgroundColor: activeTab === filter.value 
+                    ? colors.primary 
+                    : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
                   borderWidth: activeTab === filter.value ? 0 : 1,
-                  borderColor: colors.border,
+                  borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
                 }}
                 className="px-4 py-2 rounded-full"
               >
@@ -237,12 +280,18 @@ export default function WalletScreen() {
             filteredTransactions.map((transaction) => (
             <View
               key={transaction.id}
-              style={{ backgroundColor: colors.card }}
+              style={{ 
+                backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                borderWidth: 1,
+                borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+              }}
               className="flex-row items-center p-4 rounded-2xl mb-3"
             >
               <View
                 className="w-12 h-12 rounded-full items-center justify-center"
-                
+                style={{
+                  backgroundColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)',
+                }}
               >
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
@@ -290,4 +339,3 @@ export default function WalletScreen() {
     </View>
   );
 }
-

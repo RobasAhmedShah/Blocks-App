@@ -260,6 +260,34 @@ export default function BlocksHomeScreen() {
         backgroundColor={colors.background}
       />
       
+      {/* Linear Gradient Background - 40% green top, black bottom */}
+      <LinearGradient
+        colors={isDarkColorScheme 
+          ? [
+              '#00C896',           // Teal green (top)
+              '#064E3B',           // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
+            ]
+          : [
+              '#ECFDF5',           // Light green (top)
+              '#D1FAE5',           // Pale green
+              '#A7F3D0',           // Soft green
+              '#FFFFFF',           // White (bottom)
+            ]
+        }
+        locations={[0, 0.4, 0.7, 1]}  // 40% green, then transition to black
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      />
+      
       {/* Grid pattern background - visible in both modes */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
         <SubtlePattern isDark={isDarkColorScheme} />
@@ -321,10 +349,10 @@ export default function BlocksHomeScreen() {
           ]}
         >
           {/* Background gradient overlay - very subtle */}
-          <LinearGradient
+          {/* <LinearGradient
             colors={
               isDarkColorScheme
-                ? ['rgba(22, 163, 74, 0.08)', 'rgba(22, 163, 74, 0.04)', 'transparent']
+                ? ['rgba(38, 39, 38, 0.08)', 'rgba(22, 163, 74, 0.04)', 'transparent']
                 : ['rgba(236, 253, 245, 0.3)', 'rgba(209, 250, 229, 0.15)', 'transparent']
             }
             start={{ x: 0, y: 0 }}
@@ -337,14 +365,14 @@ export default function BlocksHomeScreen() {
               bottom: 0,
               borderRadius: 32,
             }}
-          />
+          /> */}
 
           {/* Oversized Typography */}
           <View style={{ alignItems: 'center', zIndex: 10 }}>
-            {/* Small eyebrow text */}
+      
             <Text 
               style={{
-                color: colors.primary,
+                color: colors.textPrimary,
                 fontSize: 14,
                 fontWeight: 'bold',
                 letterSpacing: 3,
@@ -355,7 +383,7 @@ export default function BlocksHomeScreen() {
               Real Estate. Reimagined.
             </Text>
 
-            {/* Main headline with gradient effect */}
+          
             <View style={{ marginBottom: 8 }}>
               <Text 
                 style={{
@@ -386,7 +414,7 @@ export default function BlocksHomeScreen() {
               </Text>
             </View>
 
-            {/* Subtitle with gradient underline */}
+        
             <View style={{ marginTop: 24, alignItems: 'center' }}>
               <Text 
                 style={{
@@ -413,7 +441,7 @@ export default function BlocksHomeScreen() {
               />
             </View>
 
-            {/* Description */}
+     
             <Text 
               style={{
                 color: colors.textSecondary,

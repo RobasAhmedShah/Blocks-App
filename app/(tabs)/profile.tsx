@@ -153,11 +153,8 @@ export default function BlocksProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View 
-        style={{ 
-          borderBottomWidth: 1, 
-          borderBottomColor: colors.border 
-        }}
-        className="flex-row items-center p-4"
+       
+        className="flex-row mt-[60px] items-center p-4"
       >
         <TouchableOpacity 
           className="w-12 items-start"

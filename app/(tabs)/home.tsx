@@ -22,6 +22,7 @@ import FeaturedSection, { Stat as FeaturedStat} from "@/components/home/Featured
 import AffordableSection from "@/components/home/AffordableSection";
 import InvestmentSection from "@/components/home/InvestmentSection";
 import CTAButton from "@/components/home/CTAButton";
+import GuidanceCard from "@/components/home/GuidanceCard";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useApp } from "@/contexts/AppContext";
 import { Property } from "@/types/property";
@@ -418,7 +419,7 @@ export default function BlocksHomeScreen() {
             <View style={{ marginTop: 24, alignItems: 'center' }}>
               <Text 
                 style={{
-                  color: colors.textSecondary,
+                  color: colors.textPrimary,
                   fontSize: 24,
                   fontWeight: 'bold',
                   textAlign: 'center',
@@ -444,7 +445,7 @@ export default function BlocksHomeScreen() {
      
             <Text 
               style={{
-                color: colors.textSecondary,
+                color: colors.textPrimary,
                 fontSize: 16,
                 textAlign: 'center',
                 lineHeight: 24,
@@ -463,7 +464,7 @@ export default function BlocksHomeScreen() {
                 <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>50+</Text>
                 <Text style={{ 
                   fontSize: 12, 
-                  color: colors.textMuted, 
+                  color: colors.textPrimary, 
                   textTransform: 'uppercase', 
                   letterSpacing: 1, 
                   marginTop: 4 
@@ -476,7 +477,7 @@ export default function BlocksHomeScreen() {
                 <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>$2M+</Text>
                 <Text style={{ 
                   fontSize: 12, 
-                  color: colors.textMuted, 
+                  color: colors.textPrimary, 
                   textTransform: 'uppercase', 
                   letterSpacing: 1, 
                   marginTop: 4 
@@ -489,7 +490,7 @@ export default function BlocksHomeScreen() {
                 <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>12%</Text>
                 <Text style={{ 
                   fontSize: 12, 
-                  color: colors.textMuted, 
+                  color: colors.textPrimary, 
                   textTransform: 'uppercase', 
                   letterSpacing: 1, 
                   marginTop: 4 
@@ -503,7 +504,11 @@ export default function BlocksHomeScreen() {
 
         {/* Content sections with smooth entrance */}
         <Animated.View style={[contentParallaxStyle]}>
+          {/* Guidance Card - Help users get started */}
+          <GuidanceCard />
           {featured.length > 0 && <FeaturedSection featured={featured} />}
+          
+          
           {affordable.length > 0 && <AffordableSection affordable={affordable} />}
           {midRange.length > 0 && <InvestmentSection title="Mid-Range Investments" data={midRange} />}
           <CTAButton />

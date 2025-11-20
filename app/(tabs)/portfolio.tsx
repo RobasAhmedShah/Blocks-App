@@ -10,6 +10,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { usePortfolio } from "@/services/usePortfolio";
 import { PropertyCardStack } from "@/components/PropertyCard";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { useNotificationContext } from "@/contexts/NotificationContext";
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function PortfolioScreen() {
     loading,
     loadInvestments,
   } = usePortfolio();
+  const { portfolioUnreadCount } = useNotificationContext();
 
   // Refresh investments when screen comes into focus
   useFocusEffect(
@@ -70,6 +72,40 @@ export default function PortfolioScreen() {
               Total Portfolio Value
             </Text>
           </View>
+          <TouchableOpacity 
+            onPress={() => {
+              router.push({
+                pathname: '/notifications',
+                params: { context: 'portfolio' },
+              } as any);
+            }}
+            className="p-2"
+            style={{ position: 'relative' }}
+          >
+            <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+            {portfolioUnreadCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  backgroundColor: colors.destructive,
+                  borderRadius: 10,
+                  minWidth: 20,
+                  height: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 6,
+                  borderWidth: 2,
+                  borderColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.95)' : colors.background,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>
+                  {portfolioUnreadCount > 99 ? '99+' : portfolioUnreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
               
         <View className="flex-row justify-between items-center mb-2">
@@ -274,127 +310,7 @@ export default function PortfolioScreen() {
         </View>
       </View>
 
-      {/* Recent Activity */}
-      <View className="px-4 mt-6">
-        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
-          Recent Activity
-        </Text>
-        <View className="gap-3">
-          {/* Activity Item 1 - Rental Payment */}
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: 12,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              <Ionicons name="cash" size={20} color={colors.primary} />
-            </View>
-            <View className="flex-1">
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                Rental Payment Received
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                {bestProperty?.property.title || 'Property'}
-              </Text>
-            </View>
-            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
-              +${(monthlyRentalIncome / investments.length).toFixed(2)}
-            </Text>
-          </View>
-
-          {/* Activity Item 2 - Value Increase */}
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: 12,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              <Ionicons name="arrow-up" size={20} color="#3B82F6" />
-            </View>
-            <View className="flex-1">
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                Property Value Increased
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                {investments[1]?.property.title || 'Property'}
-              </Text>
-            </View>
-            <Text style={{ color: '#3B82F6', fontSize: 14, fontWeight: 'bold' }}>
-              +2.5%
-            </Text>
-          </View>
-
-          {/* Activity Item 3 - Dividend */}
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: 12,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: colors.border,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              <Ionicons name="gift" size={20} color="#F59E0B" />
-            </View>
-            <View className="flex-1">
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                Dividend Payment
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                Quarterly distribution
-              </Text>
-            </View>
-            <Text style={{ color: '#F59E0B', fontSize: 14, fontWeight: 'bold' }}>
-              +${(monthlyRentalIncome * 0.15).toFixed(2)}
-            </Text>
-          </View>
-        </View>
-      </View>
+  
 
       {/* Properties Header */}
       <View className="px-4 mb-2 mt-6">

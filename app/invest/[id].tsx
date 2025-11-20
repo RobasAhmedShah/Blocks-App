@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, PanResponder, Animated, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, PanResponder, Animated, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useProperty } from '@/services/useProperty';
@@ -24,7 +24,7 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
   const { balance } = useWallet();
   const { invest } = useApp();
   const [tokenCount, setTokenCount] = useState<number>(routeParams.tokenCount ? parseFloat(routeParams.tokenCount) : 0);
-  const [tokenInput, setTokenInput] = useState<string>(routeParams.tokenCount ? parseFloat(routeParams.tokenCount).toString() : '');
+  const [tokenInput, setTokenInput] = useState<string>(routeParams.tokenCount ? parseFloat(routeParams.tokenCount).toFixed(2) : '');
   const [priceInput, setPriceInput] = useState<string>('');
   const [isInvesting, setIsInvesting] = useState(false);
 
@@ -54,14 +54,6 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
     })
   ).current;
 
-  // Update price input when token count changes - MUST be before any returns
-  useEffect(() => {
-    if (property && tokenInput !== '') {
-      const calculatedPrice = (tokenCount || 0) * property.tokenPrice;
-      setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
-    }
-  }, [tokenCount, property, tokenInput]);
-
   const handleClose = () => {
     if (onClose) {
       onClose();
@@ -78,18 +70,60 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
     );
   }
 
+  const availableTokens = property.totalTokens - property.soldTokens;
+  const maxInvestmentAmount = availableTokens * property.tokenPrice;
+  
   const totalAmount = (tokenCount || 0) * property.tokenPrice;
   const transactionFee = totalAmount * 0.02; // 2% fee
   const totalInvestment = totalAmount + transactionFee;
   
   // Calculate progress based on available tokens
-  const availableTokens = property.totalTokens - property.soldTokens;
   const sliderValue = Math.min((tokenCount / Math.max(availableTokens, 1)) * 100, 100);
 
   // Check if user has sufficient balance (with epsilon tolerance)
   const hasSufficientBalance = balance.usdc >= (totalInvestment - BALANCE_EPSILON);
 
+  // Synchronized update function for tokens
+  const updateFromTokens = (tokens: number) => {
+    // Validate max tokens
+    const validTokens = Math.min(Math.max(0, tokens), availableTokens);
+    
+    setTokenCount(validTokens);
+    setTokenInput(validTokens > 0 ? validTokens.toFixed(2) : '');
+    
+    // Update price with 2 decimals
+    const calculatedPrice = validTokens * property.tokenPrice;
+    setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
+  };
+
+  // Synchronized update function for price
+  const updateFromPrice = (price: number) => {
+    // Validate max price
+    const validPrice = Math.min(Math.max(0, price), maxInvestmentAmount);
+    
+    setPriceInput(validPrice > 0 ? validPrice.toFixed(2) : '');
+    
+    // Update tokens with 2 decimals
+    const calculatedTokens = validPrice / property.tokenPrice;
+    setTokenCount(calculatedTokens);
+    setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
+  };
+
   const handleConfirm = async () => {
+    // Validation
+    if (tokenCount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid investment amount');
+      return;
+    }
+
+    if (tokenCount > availableTokens) {
+      Alert.alert(
+        'Exceeds Available Tokens', 
+        `Only ${availableTokens.toFixed(2)} tokens are available. Please reduce your investment amount.`
+      );
+      return;
+    }
+
     if (!hasSufficientBalance) {
       const shortfall = totalInvestment - balance.usdc;
       handleClose();
@@ -101,7 +135,7 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
     }
 
     // Ensure tokenCount is valid before investing
-    const finalTokenCount = tokenCount && tokenCount > 0 ? tokenCount : 0.01;
+    const finalTokenCount = tokenCount;
     const finalTotalAmount = finalTokenCount * property.tokenPrice;
     const finalTransactionFee = finalTotalAmount * 0.02;
     const finalTotalInvestment = finalTotalAmount + finalTransactionFee;
@@ -215,10 +249,8 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TouchableOpacity 
                   onPress={() => {
-                    const currentValue = tokenCount || 0;
-                    const newValue = Math.max(0, currentValue - 1);
-                    setTokenCount(newValue);
-                    setTokenInput(newValue > 0 ? newValue.toFixed(2) : '');
+                    const newValue = Math.max(0, tokenCount - 1);
+                    updateFromTokens(newValue);
                   }}
                   style={{ 
                     width: 32, 
@@ -254,21 +286,40 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                     // Prevent multiple decimal points
                     const parts = cleaned.split('.');
                     if (parts.length > 2) {
-                      return; // Invalid input, don't update
+                      return;
                     }
                     
+                    // Limit to 2 decimal places
+                    if (parts.length === 2 && parts[1].length > 2) {
+                      return; // Don't allow more than 2 decimal places
+                    }
+                    
+                    // Set raw input
                     setTokenInput(cleaned);
                     
                     // Parse and validate the number
                     const num = parseFloat(cleaned);
                     if (!isNaN(num) && num >= 0) {
-                      setTokenCount(num);
+                      // Check max limit
+                      const validNum = Math.min(num, availableTokens);
+                      
+                      if (num > availableTokens) {
+                        // Show warning but still allow typing
+                        setTokenInput(cleaned);
+                      }
+                      
+                      setTokenCount(validNum);
+                      
+                      // Sync price with 2 decimals
+                      const calculatedPrice = validNum * property.tokenPrice;
+                      setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
                     } else if (cleaned === '.') {
                       setTokenCount(0);
+                      setPriceInput('');
                     }
                   }}
                   onBlur={() => {
-                    // On blur, format the number if valid
+                    // On blur, format and validate
                     if (tokenInput === '' || tokenInput === '.') {
                       setTokenInput('');
                       setTokenCount(0);
@@ -278,9 +329,24 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                     
                     const num = parseFloat(tokenInput);
                     if (!isNaN(num) && num > 0) {
-                      const formatted = num.toFixed(2);
+                      // Enforce max limit on blur
+                      const validNum = Math.min(num, availableTokens);
+                      
+                      if (num > availableTokens) {
+                        Alert.alert(
+                          'Maximum Tokens Exceeded',
+                          `Only ${availableTokens.toFixed(2)} tokens are available. Your input has been adjusted.`,
+                          [{ text: 'OK' }]
+                        );
+                      }
+                      
+                      const formatted = validNum.toFixed(2);
                       setTokenCount(parseFloat(formatted));
                       setTokenInput(formatted);
+                      
+                      // Sync price with 2 decimals
+                      const calculatedPrice = validNum * property.tokenPrice;
+                      setPriceInput(calculatedPrice.toFixed(2));
                     } else {
                       setTokenInput('');
                       setTokenCount(0);
@@ -303,10 +369,8 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                 />
                 <TouchableOpacity
                   onPress={() => {
-                    const currentValue = tokenCount || 0;
-                    const newValue = currentValue + 1;
-                    setTokenCount(newValue);
-                    setTokenInput(newValue.toFixed(2));
+                    const newValue = tokenCount + 1;
+                    updateFromTokens(newValue);
                   }}
                   style={{ 
                     width: 32, 
@@ -338,83 +402,167 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                 <Text style={{ color: colors.textPrimary, fontSize: 16, flex: 1 }}>Investment Amount</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '500' }}>$</Text>
-                <TextInput
-                  value={priceInput}
-                  onChangeText={(text: string) => {
-                    // Allow empty string
-                    if (text === '') {
-                      setPriceInput('');
-                      setTokenCount(0);
-                      setTokenInput('');
-                      return;
-                    }
-                    
-                    // Allow single dot or valid decimal numbers
-                    if (text === '.') {
-                      setPriceInput(text);
-                      return;
-                    }
-                    
-                    // Remove any non-numeric characters except decimal point
-                    const cleaned = text.replace(/[^0-9.]/g, '');
-                    
-                    // Prevent multiple decimal points
-                    const parts = cleaned.split('.');
-                    if (parts.length > 2) {
-                      return;
-                    }
-                    
-                    setPriceInput(cleaned);
-                    
-                    // Calculate tokens from price
-                    const priceNum = parseFloat(cleaned);
-                    if (!isNaN(priceNum) && priceNum >= 0 && property.tokenPrice > 0) {
-                      const calculatedTokens = priceNum / property.tokenPrice;
-                      setTokenCount(calculatedTokens);
-                      setTokenInput(calculatedTokens.toFixed(2));
-                    } else if (cleaned === '.') {
-                      setTokenCount(0);
-                    }
+                <TouchableOpacity 
+                  onPress={() => {
+                    const newAmount = Math.max(0, totalAmount - property.tokenPrice);
+                    updateFromPrice(newAmount);
                   }}
-                  onBlur={() => {
-                    // On blur, format the number if valid
-                    if (priceInput === '' || priceInput === '.') {
-                      setPriceInput('');
-                      setTokenCount(0);
-                      setTokenInput('');
-                      return;
-                    }
-                    
-                    const priceNum = parseFloat(priceInput);
-                    if (!isNaN(priceNum) && priceNum > 0 && property.tokenPrice > 0) {
-                      const formatted = priceNum.toFixed(2);
-                      setPriceInput(formatted);
-                      const calculatedTokens = priceNum / property.tokenPrice;
-                      setTokenCount(calculatedTokens);
-                      setTokenInput(calculatedTokens.toFixed(2));
-                    } else {
-                      setPriceInput('');
-                      setTokenCount(0);
-                      setTokenInput('');
-                    }
+                  style={{ 
+                    width: 32, 
+                    height: 32, 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    borderRadius: 9999, 
+                    backgroundColor: colors.secondary 
                   }}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textMuted}
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: '500',
-                    width: 100,
-                    textAlign: 'right',
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
-                    paddingVertical: 4,
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '500' }}>$</Text>
+                  <TextInput
+                    value={priceInput}
+                    onChangeText={(text: string) => {
+                      // Allow empty string
+                      if (text === '') {
+                        setPriceInput('');
+                        setTokenCount(0);
+                        setTokenInput('');
+                        return;
+                      }
+                      
+                      // Allow single dot or valid decimal numbers
+                      if (text === '.') {
+                        setPriceInput(text);
+                        return;
+                      }
+                      
+                      // Remove any non-numeric characters except decimal point
+                      const cleaned = text.replace(/[^0-9.]/g, '');
+                      
+                      // Prevent multiple decimal points
+                      const parts = cleaned.split('.');
+                      if (parts.length > 2) {
+                        return;
+                      }
+                      
+                      // Limit to 2 decimal places
+                      if (parts.length === 2 && parts[1].length > 2) {
+                        return; // Don't allow more than 2 decimal places
+                      }
+                      
+                      // Set raw input
+                      setPriceInput(cleaned);
+                      
+                      // Calculate tokens from price
+                      const priceNum = parseFloat(cleaned);
+                      if (!isNaN(priceNum) && priceNum >= 0 && property.tokenPrice > 0) {
+                        // Check max limit
+                        const validPrice = Math.min(priceNum, maxInvestmentAmount);
+                        
+                        if (priceNum > maxInvestmentAmount) {
+                          // Show warning but still allow typing
+                          setPriceInput(cleaned);
+                        }
+                        
+                        const calculatedTokens = validPrice / property.tokenPrice;
+                        setTokenCount(calculatedTokens);
+                        
+                        // Sync tokens with 2 decimals
+                        setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
+                      } else if (cleaned === '.') {
+                        setTokenCount(0);
+                        setTokenInput('');
+                      }
+                    }}
+                    onBlur={() => {
+                      // On blur, format and validate
+                      if (priceInput === '' || priceInput === '.') {
+                        setPriceInput('');
+                        setTokenCount(0);
+                        setTokenInput('');
+                        return;
+                      }
+                      
+                      const priceNum = parseFloat(priceInput);
+                      if (!isNaN(priceNum) && priceNum > 0 && property.tokenPrice > 0) {
+                        // Enforce max limit on blur
+                        const validPrice = Math.min(priceNum, maxInvestmentAmount);
+                        
+                        if (priceNum > maxInvestmentAmount) {
+                          Alert.alert(
+                            'Maximum Investment Exceeded',
+                            `Maximum investment amount is $${maxInvestmentAmount.toFixed(2)} (${availableTokens.toFixed(2)} tokens). Your input has been adjusted.`,
+                            [{ text: 'OK' }]
+                          );
+                        }
+                        
+                        const formatted = validPrice.toFixed(2);
+                        setPriceInput(formatted);
+                        
+                        const calculatedTokens = validPrice / property.tokenPrice;
+                        setTokenCount(calculatedTokens);
+                        setTokenInput(calculatedTokens.toFixed(2));
+                      } else {
+                        setPriceInput('');
+                        setTokenCount(0);
+                        setTokenInput('');
+                      }
+                    }}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={colors.textMuted}
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: '500',
+                      width: 80,
+                      textAlign: 'center',
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.border,
+                      paddingVertical: 4,
+                    }}
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    const newAmount = totalAmount + property.tokenPrice;
+                    updateFromPrice(newAmount);
                   }}
-                />
+                  style={{ 
+                    width: 32, 
+                    height: 32, 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    borderRadius: 9999, 
+                    backgroundColor: colors.secondary 
+                  }}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>+</Text>
+                </TouchableOpacity>
               </View>
             </View>
+
+            {/* Warning if exceeds available */}
+            {tokenCount > availableTokens && (
+              <View 
+                style={{ 
+                  backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)',
+                  borderWidth: 1,
+                  borderColor: colors.destructive,
+                  borderRadius: 8,
+                  padding: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="warning" size={20} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, fontSize: 12, flex: 1 }}>
+                  Exceeds available tokens! Maximum: {availableTokens.toFixed(2)} tokens (${maxInvestmentAmount.toFixed(2)})
+                </Text>
+              </View>
+            )}
 
             {/* Slider */}
             <View style={{ paddingTop: 8 }}>
@@ -429,15 +577,15 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                     style={{ 
                       height: '100%', 
                       borderRadius: 9999, 
-                      backgroundColor: colors.primary,
-                      width: `${sliderValue}%` 
+                      backgroundColor: tokenCount > availableTokens ? colors.destructive : colors.primary,
+                      width: `${Math.min(sliderValue, 100)}%` 
                     }}
                   />
                 </View>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {tokenCount.toFixed(2)} of {availableTokens.toLocaleString()} available
+                  {tokenCount.toFixed(2)} of {availableTokens.toFixed(2)} available
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
                   {sliderValue.toFixed(1)}%
@@ -480,27 +628,29 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                 paddingVertical: 16,
                 paddingHorizontal: 16,
                 borderRadius: 12,
-                backgroundColor: hasSufficientBalance ? colors.primary : colors.muted,
-                opacity: (hasSufficientBalance && !isInvesting) ? 1 : 0.5,
+                backgroundColor: (hasSufficientBalance && tokenCount <= availableTokens && tokenCount > 0) ? colors.primary : colors.muted,
+                opacity: (hasSufficientBalance && !isInvesting && tokenCount <= availableTokens && tokenCount > 0) ? 1 : 0.5,
               }}
-              disabled={!hasSufficientBalance || isInvesting || tokenCount <= 0}
+              disabled={!hasSufficientBalance || isInvesting || tokenCount <= 0 || tokenCount > availableTokens}
             >
               <Text style={{ 
-                color: hasSufficientBalance ? colors.primaryForeground : colors.textMuted, 
+                color: (hasSufficientBalance && tokenCount <= availableTokens && tokenCount > 0) ? colors.primaryForeground : colors.textMuted, 
                 fontSize: 16, 
                 fontWeight: 'bold', 
                 textAlign: 'center' 
-              }}              >
+              }}>
                 {isInvesting
                   ? 'Processing...'
                   : tokenCount <= 0
                   ? 'Enter Amount'
-                  : hasSufficientBalance
-                  ? 'Confirm Investment'
-                  : 'Insufficient Balance'}
+                  : tokenCount > availableTokens
+                  ? 'Exceeds Available Tokens'
+                  : !hasSufficientBalance
+                  ? 'Insufficient Balance'
+                  : 'Confirm Investment'}
               </Text>
             </TouchableOpacity>
-            {!hasSufficientBalance && tokenCount > 0 && (
+            {!hasSufficientBalance && tokenCount > 0 && tokenCount <= availableTokens && (
               <TouchableOpacity
                 onPress={() => {
                   const shortfall = totalInvestment - balance.usdc;
@@ -529,4 +679,3 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
     </Modal>
   );
 }
-

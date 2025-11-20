@@ -9,12 +9,23 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useApp } from "@/contexts/AppContext";
 import { useColorScheme } from "@/lib/useColorScheme";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function GuidedInvestmentScreen() {
   const router = useRouter();
@@ -32,6 +43,17 @@ export default function GuidedInvestmentScreen() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
     investmentPlan.selectedProperty?.id || null
   );
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPropertyForModal, setSelectedPropertyForModal] = useState<{
+    property: any;
+    expectedMonthlyReturn: string;
+    breakEven: string;
+    tokensCount: number;
+  } | null>(null);
+  
+  // Animation values for modal
+  const modalTranslateY = useSharedValue(SCREEN_HEIGHT);
+  const modalOpacity = useSharedValue(0);
 
   // Get top 3 properties by ROI that match the investment amount
   const recommendedProperties = useMemo(() => {
@@ -125,6 +147,36 @@ export default function GuidedInvestmentScreen() {
     console.log("Property selected:", propertyId);
   };
 
+  const handleInfoPress = (propertyData: {
+    property: any;
+    expectedMonthlyReturn: string;
+    breakEven: string;
+    tokensCount: number;
+  }) => {
+    setSelectedPropertyForModal(propertyData);
+    setModalVisible(true);
+    modalTranslateY.value = withTiming(0, { duration: 300 });
+    modalOpacity.value = withTiming(1, { duration: 300 });
+  };
+
+  const handleCloseModal = () => {
+    modalTranslateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 });
+    modalOpacity.value = withTiming(0, { duration: 300 });
+    setTimeout(() => {
+      setModalVisible(false);
+      setSelectedPropertyForModal(null);
+    }, 300);
+  };
+
+  // Animated styles for modal
+  const modalAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: modalTranslateY.value }],
+  }));
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: modalOpacity.value,
+  }));
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
@@ -192,22 +244,6 @@ export default function GuidedInvestmentScreen() {
                 </Text>
               </View>
 
-              {/* <TouchableOpacity
-                onPress={() => setInvestmentMode("earning")}
-                className={`flex-1 items-center justify-center rounded-lg ${
-                  investmentMode === "earning" ? "bg-[#10221c] shadow-sm" : ""
-                }`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
-                    investmentMode === "earning"
-                      ? "text-[#e0e0e0]"
-                      : "text-[#9db9b0]"
-                  }`}
-                >
-                  Target Earning
-                </Text>
-              </TouchableOpacity> */}
             </View>
           </View>
 
@@ -382,7 +418,29 @@ export default function GuidedInvestmentScreen() {
                               </Text>
                             </View>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  handleInfoPress({ property, expectedMonthlyReturn, breakEven, tokensCount });
+                                }}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 16,
+                                  backgroundColor: isDarkColorScheme
+                                    ? 'rgba(16, 185, 129, 0.2)'
+                                    : 'rgba(16, 185, 129, 0.15)',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Ionicons
+                                  name="information-circle-outline"
+                                  size={20}
+                                  color={colors.primary}
+                                />
+                              </TouchableOpacity>
                               {isSelected && (
                                 <Ionicons
                                   name="checkmark-circle"
@@ -465,6 +523,634 @@ export default function GuidedInvestmentScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Property Info Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={handleCloseModal}
+      >
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={handleCloseModal}
+        >
+          <Animated.View
+            style={[
+              {
+                flex: 1,
+                backgroundColor: isDarkColorScheme
+                  ? 'rgba(0, 0, 0, 0.7)'
+                  : 'rgba(0, 0, 0, 0.5)',
+              },
+              backdropAnimatedStyle,
+            ]}
+          />
+        </Pressable>
+
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: SCREEN_HEIGHT * 0.85,
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 20,
+            },
+            modalAnimatedStyle,
+          ]}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1 }}>
+              {/* Modal Header */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingTop: 16,
+                  paddingBottom: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Investment Details
+                </Text>
+                <TouchableOpacity
+                  onPress={handleCloseModal}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: colors.muted,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="close" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Modal Content - Scrollable */}
+              {selectedPropertyForModal && (
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ padding: 20, paddingBottom: 20 }}
+                  showsVerticalScrollIndicator={true}
+                  nestedScrollEnabled={true}
+                  bounces={false}
+                >
+                  {/* Property Image */}
+                  <Image
+                    source={{
+                      uri:
+                        selectedPropertyForModal.property.images &&
+                        selectedPropertyForModal.property.images.length > 0
+                          ? selectedPropertyForModal.property.images[0]
+                          : 'https://via.placeholder.com/400x200?text=No+Image',
+                    }}
+                    style={{
+                      width: '100%',
+                      height: 200,
+                      borderRadius: 16,
+                      marginBottom: 20,
+                    }}
+                    resizeMode="cover"
+                  />
+
+                  {/* Property Title */}
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: 'bold',
+                      marginBottom: 8,
+                    }}
+                  >
+                    {selectedPropertyForModal.property.title}
+                  </Text>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontSize: 14,
+                      marginBottom: 24,
+                    }}
+                  >
+                    {selectedPropertyForModal.property.location ||
+                      selectedPropertyForModal.property.city ||
+                      'Location not available'}
+                  </Text>
+
+                  {/* Investment Summary Card */}
+                  <View
+                    style={{
+                      backgroundColor: isDarkColorScheme
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(16, 185, 129, 0.1)',
+                      borderRadius: 16,
+                      padding: 20,
+                      marginBottom: 24,
+                      borderWidth: 2,
+                      borderColor: isDarkColorScheme
+                        ? 'rgba(16, 185, 129, 0.3)'
+                        : 'rgba(16, 185, 129, 0.2)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        marginBottom: 16,
+                      }}
+                    >
+                      Your Investment Outcomes
+                    </Text>
+
+                    <View style={{ gap: 16 }}>
+                      {/* Investment Amount */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons
+                            name="wallet-outline"
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                            Investment Amount
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          ${parseFloat(investAmount.replace(/,/g, '')).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      {/* Tokens */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons
+                            name="cube-outline"
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                            Tokens You'll Own
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {selectedPropertyForModal.tokensCount.toFixed(2)}
+                        </Text>
+                      </View>
+
+                      {/* Monthly Return */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={20}
+                            color={colors.primary}
+                          />
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                            Expected Monthly Income
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          ${selectedPropertyForModal.expectedMonthlyReturn}
+                        </Text>
+                      </View>
+
+                      {/* Annual Return */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons
+                            name="trending-up-outline"
+                            size={20}
+                            color={colors.primary}
+                          />
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                            Expected Annual Income
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          $
+                          {(
+                            parseFloat(selectedPropertyForModal.expectedMonthlyReturn) * 12
+                          ).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Property Details Card */}
+                  <View
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: 16,
+                      padding: 20,
+                      marginBottom: 24,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        marginBottom: 16,
+                      }}
+                    >
+                      Property Details
+                    </Text>
+
+                    <View style={{ gap: 12 }}>
+                      {/* ROI */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Estimated ROI
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {selectedPropertyForModal.property.estimatedROI.toFixed(1)}%
+                        </Text>
+                      </View>
+
+                      {/* Yield */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Annual Yield
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {selectedPropertyForModal.property.estimatedYield.toFixed(1)}%
+                        </Text>
+                      </View>
+
+                      {/* Token Price */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Token Price
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          ${selectedPropertyForModal.property.tokenPrice.toFixed(2)}
+                        </Text>
+                      </View>
+
+                      {/* Valuation */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Property Valuation
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          $
+                          {typeof selectedPropertyForModal.property.valuation === 'number'
+                            ? selectedPropertyForModal.property.valuation.toLocaleString()
+                            : selectedPropertyForModal.property.valuation}
+                        </Text>
+                      </View>
+
+                      {/* Funding Progress */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Funding Progress
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {Math.round(
+                            (selectedPropertyForModal.property.soldTokens /
+                              selectedPropertyForModal.property.totalTokens) *
+                              100
+                          )}
+                          %
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Projected Returns Card */}
+                  <View
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: 16,
+                      padding: 20,
+                      marginBottom: 24,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        marginBottom: 16,
+                      }}
+                    >
+                      Projected Returns (5 Years)
+                    </Text>
+
+                    <View style={{ gap: 12 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Total Monthly Income (5 years)
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          $
+                          {(
+                            parseFloat(selectedPropertyForModal.expectedMonthlyReturn) * 60
+                          ).toFixed(2)}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Total Annual Income (5 years)
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          $
+                          {(
+                            parseFloat(selectedPropertyForModal.expectedMonthlyReturn) * 12 * 5
+                          ).toFixed(2)}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          height: 1,
+                          backgroundColor: colors.border,
+                          marginVertical: 8,
+                        }}
+                      />
+
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: '600',
+                          }}
+                        >
+                          Net Return (after initial investment)
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          $
+                          {(
+                            parseFloat(selectedPropertyForModal.expectedMonthlyReturn) * 12 * 5 -
+                            parseFloat(investAmount.replace(/,/g, ''))
+                          ).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Info Note */}
+                  <View
+                    style={{
+                      backgroundColor: isDarkColorScheme
+                        ? 'rgba(59, 130, 246, 0.15)'
+                        : 'rgba(59, 130, 246, 0.1)',
+                      borderRadius: 12,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: isDarkColorScheme
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : 'rgba(59, 130, 246, 0.2)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Ionicons
+                        name="information-circle"
+                        size={20}
+                        color="#3B82F6"
+                        style={{ marginTop: 2 }}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            color: '#3B82F6',
+                            fontSize: 13,
+                            fontWeight: '600',
+                            marginBottom: 4,
+                          }}
+                        >
+                          Important Note
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textSecondary,
+                            fontSize: 12,
+                            lineHeight: 18,
+                          }}
+                        >
+                          Returns are estimates based on current property performance and market
+                          conditions. Actual returns may vary. Past performance does not guarantee
+                          future results.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </ScrollView>
+              )}
+
+              {/* Modal Footer - Fixed at bottom */}
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  paddingVertical: 16,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  backgroundColor: colors.background,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    if (selectedPropertyForModal) {
+                      handleCloseModal();
+                      handlePropertySelect(selectedPropertyForModal.property.id);
+                    }
+                  }}
+                  style={{
+                    height: 52,
+                    backgroundColor: colors.primary,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={{
+                      color: colors.primaryForeground,
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Select This Property
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </Pressable>
+        </Animated.View>
+      </Modal>
     </SafeAreaView>
   );
 }

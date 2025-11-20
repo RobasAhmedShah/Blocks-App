@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider } from '@/lib/useColorScheme';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -44,12 +45,14 @@ export default function RootLayout() {
     <AuthProvider>
       <AppProvider>
         <GuidanceProvider>
-          <ThemeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootNavigation />
-              <StatusBar style="auto" />
-            </GestureHandlerRootView>
-          </ThemeProvider>
+          <NotificationProvider>
+            <ThemeProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootNavigation />
+                <StatusBar style="auto" />
+              </GestureHandlerRootView>
+            </ThemeProvider>
+          </NotificationProvider>
         </GuidanceProvider>
       </AppProvider>
     </AuthProvider>
@@ -163,6 +166,7 @@ function RootNavigation() {
       <Stack.Screen name="property/[id]" />
       <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />
       <Stack.Screen name="invest/[id]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

@@ -12,11 +12,13 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 
 export default function WalletScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { balance, transactions, loading, loadWallet, loadTransactions } = useWallet();
+  const { walletUnreadCount } = useNotificationContext();
   const [activeTab, setActiveTab] = useState('all');
 
   // Refresh wallet balance and transactions when screen comes into focus
@@ -122,11 +124,42 @@ export default function WalletScreen() {
         className="px-4 pb-6"
       >
         <View className="flex-row items-center justify-between mb-6">
-          <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
+          <Text style={{ color: colors.textPrimary }} className="text-sm font-medium">
             Total USDC
           </Text>
-          <TouchableOpacity className="p-2">
-            {/* <MaterialIcons name="more-horiz" size={24} color={colors.textPrimary} /> */}
+          <TouchableOpacity 
+            onPress={() => {
+              router.push({
+                pathname: '/notifications',
+                params: { context: 'wallet' },
+              } as any);
+            }}
+            className="p-2"
+            style={{ position: 'relative' }}
+          >
+            <MaterialIcons name="notifications-none" size={24} color={colors.textPrimary} />
+            {walletUnreadCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  backgroundColor: colors.destructive,
+                  borderRadius: 10,
+                  minWidth: 20,
+                  height: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 6,
+                  borderWidth: 2,
+                  borderColor: 'transparent',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>
+                  {walletUnreadCount > 99 ? '99+' : walletUnreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -134,7 +167,7 @@ export default function WalletScreen() {
           <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
             ${balance.usdc.toFixed(2)}
           </Text>
-          <Text style={{ color: colors.textSecondary }} className="text-sm mt-1">
+          <Text style={{ color: colors.textPrimary }} className="text-sm mt-1">
             USDC
           </Text>
         </View>
@@ -142,7 +175,7 @@ export default function WalletScreen() {
         {/* Stats */}
         <View className="flex-row gap-4">
           <View className="flex-1">
-            <Text style={{ color: colors.textSecondary }} className="text-xs mb-1">
+            <Text style={{ color: colors.textPrimary }} className="text-xs mb-1">
               Total Invested
             </Text>
             <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
@@ -150,7 +183,7 @@ export default function WalletScreen() {
             </Text>
           </View>
           <View className="flex-1">
-            <Text style={{ color: colors.textSecondary }} className="text-xs mb-1">
+            <Text style={{ color: colors.textPrimary }} className="text-xs mb-1">
               Total Earnings
             </Text>
             <Text style={{ color: colors.primary }} className="text-lg font-bold">

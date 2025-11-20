@@ -11,7 +11,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/blocks-icon-128px.png"
     },
     "plugins": [
       "expo-router",
@@ -27,7 +27,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/blocks-icon-128px.png",
           "color": "#ffffff",
           "sounds": []
         }
@@ -38,10 +38,10 @@
       "tsconfigPaths": true
     },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/blocks-icon-128px.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/blocks-icon-128px.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -57,8 +57,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/blocks-icon-128px.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.intelik.Blocks"
     },

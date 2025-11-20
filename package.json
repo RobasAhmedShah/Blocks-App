@@ -4,6 +4,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "android": "expo run:android",
+    "android:fix": "powershell -ExecutionPolicy Bypass -File ./run-android.ps1",
+    "android:release": "powershell -ExecutionPolicy Bypass -File ./build-release-apk.ps1",
     "ios": "expo run:ios",
     "start": "expo start",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",

@@ -16,6 +16,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth.api";
+import { useNotifications } from "@/services/useNotifications";
+import * as Notifications from "expo-notifications";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -128,7 +130,8 @@ const validateConfirmPassword = (password: string, confirmPassword: string): { i
 export default function SignUpScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn } = useAuth();
+  const { signIn, enableBiometrics, isBiometricSupported } = useAuth();
+  const { requestPermissions: requestNotificationPermissions, checkPermissions: checkNotificationPermissions } = useNotifications();
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -292,7 +295,10 @@ export default function SignUpScreen() {
       });
       
       await signIn(response.token, response.refreshToken);
-    } catch (error: any) {
+      
+      // After successful signup, request permissions
+      await requestPermissionsOnSignup();
+    } catch (error) {
       console.error('Sign up error:', error);
       
       // Handle specific error cases
@@ -362,6 +368,87 @@ export default function SignUpScreen() {
       setApiError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const requestPermissionsOnSignup = async () => {
+    // Small delay to ensure sign-in is complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Request Biometric Permission
+    if (isBiometricSupported) {
+      Alert.alert(
+        "Enable Biometric Login",
+        "Would you like to enable Face ID or Touch ID for faster and more secure login?",
+        [
+          {
+            text: "Not Now",
+            style: "cancel",
+            onPress: () => {
+              // Continue to notification permission
+              requestNotificationPermission();
+            },
+          },
+          {
+            text: "Enable",
+            onPress: async () => {
+              try {
+                const success = await enableBiometrics();
+                if (success) {
+                  Alert.alert(
+                    "Success",
+                    "Biometric login has been enabled!",
+                    [{ text: "OK", onPress: () => requestNotificationPermission() }]
+                  );
+                } else {
+                  // User cancelled or failed, continue anyway
+                  requestNotificationPermission();
+                }
+              } catch (error) {
+                console.error('Error enabling biometrics:', error);
+                // Continue to notification permission even if biometric fails
+                requestNotificationPermission();
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Skip biometric if not supported, go straight to notifications
+      requestNotificationPermission();
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    try {
+      const currentPermissions = await checkNotificationPermissions();
+      
+      // Only ask if not already granted
+      if (!currentPermissions.granted && currentPermissions.ios?.status !== Notifications.IosAuthorizationStatus.AUTHORIZED) {
+        Alert.alert(
+          "Enable Notifications",
+          "Stay updated with investment opportunities, property updates, and important account alerts. Enable notifications?",
+          [
+            {
+              text: "Not Now",
+              style: "cancel",
+            },
+            {
+              text: "Enable",
+              onPress: async () => {
+                try {
+                  await requestNotificationPermissions();
+                  // Permission request completed, user can continue
+                } catch (error) {
+                  console.error('Error requesting notification permissions:', error);
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error checking notification permissions:', error);
     }
   };
 

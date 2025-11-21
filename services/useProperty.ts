@@ -31,10 +31,10 @@ export function useProperty(id: string) {
         // If not in context, fetch from API
         const apiProperty = await propertiesApi.getProperty(id);
         
-        // Helper function to ensure documents have URLs
-        const ensureDocumentsWithUrls = (documents: Property['documents']) => {
-          if (!documents || documents.length === 0) {
-            // Default documents if none exist
+        // Helper function to ensure documents have URLs with fallback
+        const ensureDocumentsWithUrls = (documents: Property['documents'] | null | undefined): Property['documents'] => {
+          // If documents is null, undefined, or empty array, return fallback documents
+          if (!documents || !Array.isArray(documents) || documents.length === 0) {
             return [
               { 
                 name: 'Property Deed', 
@@ -56,9 +56,11 @@ export function useProperty(id: string) {
               },
             ];
           }
-          // Ensure all existing documents have URLs
+          // Ensure all existing documents have URLs (fallback to placeholder if missing)
           return documents.map(doc => ({
-            ...doc,
+            name: doc.name || 'Document',
+            type: doc.type || 'PDF',
+            verified: doc.verified !== undefined ? doc.verified : true,
             url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
           }));
         };

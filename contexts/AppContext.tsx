@@ -144,13 +144,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       
+      // Helper function to ensure documents have URLs
+      const ensureDocumentsWithUrls = (documents: Property['documents']) => {
+        if (!documents || documents.length === 0) {
+          // Default documents if none exist
+          return [
+            { 
+              name: 'Property Deed', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Appraisal Report', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Legal Opinion', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+          ];
+        }
+        // Ensure all existing documents have URLs
+        return documents.map(doc => ({
+          ...doc,
+          url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        }));
+      };
+
       // Transform API properties to match app structure
       const transformedProperties: Property[] = allProperties.map(prop => ({
         ...prop,
         // Ensure completionDate is a string (can be null from API)
         completionDate: prop.completionDate || '',
-        // Ensure documents and updates arrays exist (API doesn't return these yet)
-        documents: prop.documents || [],
+        // Ensure documents have URLs (add default documents if none exist)
+        documents: ensureDocumentsWithUrls(prop.documents),
         updates: prop.updates || [],
         // Ensure rentalIncome exists for generating-income properties
         rentalIncome: prop.rentalIncome || (prop.status === 'generating-income' ? undefined : undefined),

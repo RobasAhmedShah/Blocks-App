@@ -594,11 +594,21 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
             </View>
           </View>
 
+          {/* Insufficient Balance Warning - Show when user has insufficient balance */}
+       
           {/* Financial Summary */}
           <View style={{ paddingHorizontal: 20, paddingVertical: 16, gap: 12 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Available Balance</Text>
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '500' }}>
+              <Text
+                style={{
+                  color: !hasSufficientBalance && tokenCount > 0
+                    ? colors.destructive
+                    : colors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: '500',
+                }}
+              >
                 ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
             </View>
@@ -613,7 +623,15 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
               <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
                 Total Investment
               </Text>
-              <Text style={{ color: colors.primary, fontSize: 20, fontWeight: 'bold' }}>
+              <Text
+                style={{
+                  color: !hasSufficientBalance && tokenCount > 0
+                    ? colors.destructive
+                    : colors.primary,
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                }}
+              >
                 ${totalInvestment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
             </View>

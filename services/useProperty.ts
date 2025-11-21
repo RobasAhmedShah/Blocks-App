@@ -31,11 +31,43 @@ export function useProperty(id: string) {
         // If not in context, fetch from API
         const apiProperty = await propertiesApi.getProperty(id);
         
+        // Helper function to ensure documents have URLs
+        const ensureDocumentsWithUrls = (documents: Property['documents']) => {
+          if (!documents || documents.length === 0) {
+            // Default documents if none exist
+            return [
+              { 
+                name: 'Property Deed', 
+                type: 'PDF', 
+                verified: true,
+                url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+              },
+              { 
+                name: 'Appraisal Report', 
+                type: 'PDF', 
+                verified: true,
+                url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+              },
+              { 
+                name: 'Legal Opinion', 
+                type: 'PDF', 
+                verified: true,
+                url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+              },
+            ];
+          }
+          // Ensure all existing documents have URLs
+          return documents.map(doc => ({
+            ...doc,
+            url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+          }));
+        };
+
         // Transform to match app structure
         const transformedProperty: Property = {
           ...apiProperty,
           completionDate: apiProperty.completionDate || '',
-          documents: apiProperty.documents || [],
+          documents: ensureDocumentsWithUrls(apiProperty.documents),
           updates: apiProperty.updates || [],
           rentalIncome: apiProperty.rentalIncome || (apiProperty.status === 'generating-income' ? undefined : undefined),
         };

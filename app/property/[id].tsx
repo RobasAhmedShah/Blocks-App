@@ -20,6 +20,9 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useApp } from "@/contexts/AppContext";
 import * as Linking from "expo-linking";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 
@@ -35,6 +38,7 @@ export default function PropertyDetailScreen() {
   const [imageIndex, setImageIndex] = useState(0);
   const [showInvestModal, setShowInvestModal] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   
@@ -75,26 +79,9 @@ export default function PropertyDetailScreen() {
       return;
     }
     
-    const minRequired = property.minInvestment || 0;
-    if (balance.usdc < minRequired) {
-      Alert.alert(
-        'Insufficient Balance', 
-        `You need at least $${minRequired.toFixed(2)} USDC to invest in this property. Would you like to deposit funds?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Deposit', 
-            onPress: () => router.push({
-              pathname: "/wallet",
-              params: { requiredAmount: minRequired.toString() },
-            } as any)
-          }
-        ]
-      );
-    } else {
-      console.log('Opening invest modal for property:', property.title);
-      setShowInvestModal(true);
-    }
+    // Always open the invest modal - it will show insufficient balance message inline
+    console.log('Opening invest modal for property:', property.title);
+    setShowInvestModal(true);
   };
 
   const handleBookmark = async () => {
@@ -150,6 +137,47 @@ export default function PropertyDetailScreen() {
       if (error instanceof Error && !error.message.includes('cancelled') && !error.message.includes('dismissed')) {
         Alert.alert('Error', 'Failed to share property. Please try again.');
       }
+    }
+  };
+
+  const handleDownloadPDF = async (docUrl: string, docName: string) => {
+    try {
+      setDownloadingDoc(docName);
+      
+      // First, try to open with device's default PDF viewer using deep linking
+      const canOpen = await Linking.canOpenURL(docUrl);
+      
+      if (canOpen) {
+        try {
+          // Try to open with OS default PDF viewer
+          await Linking.openURL(docUrl);
+          return; // Successfully opened, exit function
+        } catch (openError) {
+          console.log('Failed to open with default viewer, trying Google Drive...');
+          // Continue to fallback
+        }
+      }
+      
+      // Fallback: Use Google Drive viewer
+      const encodedUrl = encodeURIComponent(docUrl);
+      const googleDriveViewerUrl = `https://drive.google.com/viewer?url=${encodedUrl}`;
+      
+      // Open in WebBrowser which will use Google Drive's viewer
+      await WebBrowser.openBrowserAsync(googleDriveViewerUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        enableBarCollapsing: false,
+        showTitle: true,
+        toolbarColor: colors.primary,
+      });
+    } catch (error: any) {
+      console.error('Error opening PDF:', error);
+      Alert.alert(
+        'Error',
+        'Unable to open the PDF. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setDownloadingDoc(null);
     }
   };
 
@@ -486,56 +514,172 @@ export default function PropertyDetailScreen() {
               <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
                 Documents & Verification
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ flexDirection: 'row', gap: 16 }}
-              >
-                {property.documents.map((doc) => (
-                  <View
-                    key={doc.name}
-                    style={{
-                      width: 240,
-                      backgroundColor: colors.card,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      marginHorizontal: 8,
-                      padding: 20,
-                      shadowColor: colors.primary,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                      alignItems: 'center',
-                      marginBottom: 64,
-                    }}
-                  >
-                    <Ionicons
-                      name="document-text-outline"
-                      size={42}
-                      color={colors.primary}
-                    />
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary, marginTop: 8 }}>
-                      {doc.name}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                      {doc.verified ? 'Verified & On-Chain' : 'Pending Verification'}
-                    </Text>
-                    <TouchableOpacity style={{ 
-                      marginTop: 12, 
-                       
-                      paddingHorizontal: 16, 
-                      paddingVertical: 6, 
-                      borderRadius: 9999 
-                    }}>
-                      <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>
-                        View {doc.type}
+              {property.documents && property.documents.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={width * 0.8 + 16}
+                  decelerationRate="fast"
+                  contentContainerStyle={{ 
+                    paddingHorizontal: (width - width * 0.8) / 2,
+                    paddingRight: (width - width * 0.8) / 2 + 16,
+                  }}
+                  style={{ marginHorizontal: -16 }}
+                >
+                  {property.documents.map((doc, index) => (
+                    <View
+                      key={doc.name}
+                      style={{
+                        width: width * 0.8,
+                        backgroundColor: colors.card,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: doc.verified 
+                          ? (isDarkColorScheme ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)')
+                          : colors.border,
+                        marginRight: 16,
+                        padding: 24,
+                        shadowColor: colors.primary,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 8,
+                        elevation: 4,
+                        alignItems: 'center',
+                        marginBottom: 64,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 40,
+                          backgroundColor: isDarkColorScheme
+                            ? 'rgba(16, 185, 129, 0.2)'
+                            : 'rgba(16, 185, 129, 0.1)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: 16,
+                        }}
+                      >
+                        <Ionicons
+                          name="document-text"
+                          size={42}
+                          color={colors.primary}
+                        />
+                      </View>
+                      <Text 
+                        style={{ 
+                          fontWeight: '700', 
+                          color: colors.textPrimary, 
+                          fontSize: 18,
+                          marginBottom: 8,
+                          textAlign: 'center',
+                        }}
+                        numberOfLines={2}
+                      >
+                        {doc.name}
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginBottom: 16,
+                        }}
+                      >
+                        {doc.verified ? (
+                          <>
+                            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                            <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
+                              Verified & On-Chain
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+                            <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                              Pending Verification
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 20 }}>
+                        {doc.type} Document
+                      </Text>
+                      {doc.url ? (
+                        <TouchableOpacity
+                          onPress={() => handleDownloadPDF(doc.url!, doc.name)}
+                          disabled={downloadingDoc === doc.name}
+                          style={{
+                            backgroundColor: downloadingDoc === doc.name ? colors.muted : colors.primary,
+                            paddingHorizontal: 24,
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            width: '100%',
+                            alignItems: 'center',
+                            shadowColor: colors.primary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: downloadingDoc === doc.name ? 0 : 0.3,
+                            shadowRadius: 4,
+                            elevation: downloadingDoc === doc.name ? 0 : 3,
+                            opacity: downloadingDoc === doc.name ? 0.6 : 1,
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            {downloadingDoc === doc.name ? (
+                              <>
+                                <ActivityIndicator size="small" color={colors.primaryForeground} />
+                                <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                  Downloading...
+                                </Text>
+                              </>
+                            ) : (
+                              <>
+                                <Ionicons name="download-outline" size={18} color={colors.primaryForeground} />
+                                <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                  Download PDF
+                                </Text>
+                              </>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ) : (
+                        <View
+                          style={{
+                            backgroundColor: colors.muted,
+                            paddingHorizontal: 24,
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            width: '100%',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ color: colors.textMuted, fontWeight: '600', fontSize: 14 }}>
+                            Document Not Available
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: 16,
+                    padding: 32,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Ionicons name="document-outline" size={48} color={colors.textMuted} />
+                  <Text style={{ color: colors.textSecondary, fontSize: 16, marginTop: 16, textAlign: 'center' }}>
+                    No documents available for this property
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 

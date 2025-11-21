@@ -18,6 +18,8 @@ import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useApp } from "@/contexts/AppContext";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { savedPlansService } from "@/services/savedPlans";
+import { Alert } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,8 +35,11 @@ export default function GuidedInvestmentScreen() {
   const { state, isLoadingProperties } = useApp();
   const { colors, isDarkColorScheme } = useColorScheme();
   const [investmentMode, setInvestmentMode] = useState<"amount" | "earning">("amount");
+  const isGoalBased = investmentPlan.isGoalBased || false;
   const [investAmount, setInvestAmount] = useState(
-    investmentPlan.investmentAmount?.toLocaleString() || "1,000"
+    isGoalBased 
+      ? "" // Don't show fixed amount in goal-based mode
+      : (investmentPlan.investmentAmount?.toLocaleString() || "1,000")
   );
   const [earnAmount, setEarnAmount] = useState(
     investmentPlan.monthlyIncomeGoal?.toString() || ""
@@ -49,37 +54,76 @@ export default function GuidedInvestmentScreen() {
     expectedMonthlyReturn: string;
     breakEven: string;
     tokensCount: number;
+    investmentNeeded?: number;
   } | null>(null);
   
   // Animation values for modal
   const modalTranslateY = useSharedValue(SCREEN_HEIGHT);
   const modalOpacity = useSharedValue(0);
 
-  // Get top 3 properties by ROI that match the investment amount
+  // Get top properties that match the investment amount or monthly goal
   const recommendedProperties = useMemo(() => {
-    const amount = parseFloat(investAmount.replace(/,/g, ''));
+    const isGoalBased = investmentPlan.isGoalBased || false;
+    const monthlyGoal = investmentPlan.monthlyIncomeGoal || 0;
+    const fixedAmount = parseFloat(investAmount.replace(/,/g, ''));
 
-    // If amount is less than or equal to 0, return empty array
-    if (amount <= 0) {
-      return [];
+    if (isGoalBased && monthlyGoal > 0) {
+      // GOAL-BASED MODE: Calculate investment per property to achieve monthly goal
+      return state.properties
+        .map(p => {
+          // Calculate investment needed for this property to achieve monthly goal
+          // Formula: investment = (monthlyGoal * 12) / (estimatedYield / 100)
+          const investmentNeeded = (monthlyGoal * 12 * 100) / p.estimatedYield;
+          const tokens = investmentNeeded / p.tokenPrice;
+          
+          return {
+            property: p,
+            investmentNeeded, // Per-property investment amount
+            tokens,
+            expectedMonthlyReturn: monthlyGoal.toFixed(2), // Always the goal amount
+            breakEven: (100 / p.estimatedROI).toFixed(1),
+          };
+        })
+        .filter(rp => {
+          // Filter: must be able to buy at least 0.1 tokens
+          return rp.tokens >= 0.1 && 
+                 rp.property.totalTokens > 0 && 
+                 rp.property.soldTokens < rp.property.totalTokens;
+        })
+        .sort((a, b) => {
+          // Sort by lowest investment needed (most efficient properties first)
+          return a.investmentNeeded - b.investmentNeeded;
+        })
+        .slice(0, 10)
+        .map(rp => ({
+          property: rp.property,
+          expectedMonthlyReturn: rp.expectedMonthlyReturn,
+          breakEven: rp.breakEven,
+          tokensCount: rp.tokens,
+          investmentNeeded: rp.investmentNeeded, // Store this for display
+        }));
+    } else {
+      // AMOUNT-BASED MODE: Existing logic
+      if (fixedAmount <= 0) {
+        return [];
+      }
+      
+      return state.properties
+        .filter(p => {
+          const tokens = fixedAmount / p.tokenPrice;
+          return tokens >= 0.1 && p.totalTokens > 0 && p.soldTokens < p.totalTokens;
+        })
+        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .slice(0, 10)
+        .map(p => ({
+          property: p,
+          expectedMonthlyReturn: ((fixedAmount * p.estimatedYield) / 100 / 12).toFixed(2),
+          breakEven: (100 / p.estimatedROI).toFixed(1),
+          tokensCount: fixedAmount / p.tokenPrice,
+          investmentNeeded: fixedAmount, // Same for all properties
+        }));
     }
-    
-    // Use properties from AppContext (API data)
-    return state.properties
-      .filter(p => {
-        // Only show properties where the investment amount is enough to buy at least 0.1 tokens
-        const tokens = amount / p.tokenPrice;
-        return tokens >= 0.1 && p.totalTokens > 0 && p.soldTokens < p.totalTokens; // Only show available properties
-      })
-      .sort((a, b) => b.estimatedROI - a.estimatedROI)
-      .slice(0, 10) // Limit to top 10 recommendations
-      .map(p => ({
-        property: p,
-        expectedMonthlyReturn: ((amount * p.estimatedYield) / 100 / 12).toFixed(2),
-        breakEven: (100 / p.estimatedROI).toFixed(1),
-        tokensCount: amount / p.tokenPrice, // Calculate tokens here
-      }));
-  }, [investAmount, state.properties]);
+  }, [investAmount, investmentPlan.isGoalBased, investmentPlan.monthlyIncomeGoal, state.properties]);
 
   // Clear selection if the selected property is no longer in recommended list
   useEffect(() => {
@@ -94,7 +138,7 @@ export default function GuidedInvestmentScreen() {
   }, [recommendedProperties, selectedPropertyId]);
 
   const handleInvestNow = () => {
-    const amount = parseFloat(investAmount.replace(/,/g, '')) || 1000;
+    const isGoalBased = investmentPlan.isGoalBased || false;
     
     // First check if user has explicitly selected a property
     let selectedProp = selectedPropertyId 
@@ -113,33 +157,85 @@ export default function GuidedInvestmentScreen() {
       return;
     }
 
-    const monthlyReturn = (amount * selectedProp.estimatedYield) / 100 / 12;
+    // Get the investment amount for this specific property
+    const selectedPropertyData = recommendedProperties.find(rp => rp.property.id === selectedProp.id);
+    const amountToInvest = isGoalBased 
+      ? (selectedPropertyData?.investmentNeeded || 0)
+      : parseFloat(investAmount.replace(/,/g, '')) || 1000;
+
+    const monthlyReturn = isGoalBased
+      ? (investmentPlan.monthlyIncomeGoal || 0)
+      : (amountToInvest * selectedProp.estimatedYield) / 100 / 12;
 
     updateInvestmentPlan({
-      investmentAmount: amount,
+      investmentAmount: amountToInvest,
       selectedProperty: selectedProp,
       expectedMonthlyReturn: monthlyReturn,
       estimatedROI: selectedProp.estimatedROI,
     });
 
-    console.log("Invest Now clicked - Amount:", amount, "Property:", selectedProp.title);
+    console.log("Invest Now clicked - Amount:", amountToInvest, "Property:", selectedProp.title, "Monthly Return:", monthlyReturn);
     router.push({
       pathname: "/invest/[id]",
-      params: { id: selectedProp.id , tokenCount: (amount / selectedProp.tokenPrice).toFixed(2) },
+      params: { id: selectedProp.id , tokenCount: (amountToInvest / selectedProp.tokenPrice).toFixed(2) },
     })
   };
 
-  const handleSavePlan = () => {
-    const amount = parseFloat(investAmount.replace(/,/g, '')) || 1000;
-    updateInvestmentPlan({
-      investmentAmount: amount,
-      recurringDeposit: {
-        amount: Math.round(amount / 4), // Quarterly deposits
-        frequency: 'monthly',
-      },
-    });
-    console.log("Plan saved for later");
-    router.push('./guidance-four');
+  const handleSavePlan = async () => {
+    try {
+      const isGoalBased = investmentPlan.isGoalBased || false;
+      let amount: number;
+      let selectedProp = selectedPropertyId 
+        ? state.properties.find(p => p.id === selectedPropertyId)
+        : null;
+      
+      // If no property selected, use first recommended property
+      if (!selectedProp && recommendedProperties.length > 0) {
+        selectedProp = recommendedProperties[0].property;
+      }
+      
+      if (isGoalBased && recommendedProperties.length > 0) {
+        // In goal-based mode, use the selected property's investment amount or first one
+        const selectedPropertyData = selectedProp 
+          ? recommendedProperties.find(rp => rp.property.id === selectedProp.id)
+          : recommendedProperties[0];
+        amount = selectedPropertyData?.investmentNeeded || 0;
+      } else {
+        amount = parseFloat(investAmount.replace(/,/g, '')) || 1000;
+      }
+
+      if (!selectedProp) {
+        Alert.alert('Error', 'Please select a property before saving the plan.');
+        return;
+      }
+
+      // Save the plan
+      await savedPlansService.savePlan({
+        investmentAmount: amount,
+        monthlyIncomeGoal: investmentPlan.monthlyIncomeGoal,
+        selectedProperty: selectedProp ? {
+          id: selectedProp.id,
+          title: selectedProp.title,
+          location: selectedProp.location || selectedProp.city,
+          image: selectedProp.images?.[0] || selectedProp.image,
+        } : undefined,
+        expectedMonthlyReturn: isGoalBased
+          ? (investmentPlan.monthlyIncomeGoal || 0)
+          : (amount * selectedProp.estimatedYield) / 100 / 12,
+        estimatedROI: selectedProp.estimatedROI,
+        isGoalBased: isGoalBased,
+      });
+
+      Alert.alert('Success', 'Investment plan saved successfully!', [
+        {
+          text: 'OK',
+          onPress: () => router.push('./guidance-four'),
+        },
+      ]);
+    } catch (error) {
+      console.error('Error saving plan:', error);
+      Alert.alert('Error', 'Failed to save the plan. Please try again.');
+    }
   };
 
   const handlePropertySelect = (propertyId: string) => {
@@ -152,6 +248,7 @@ export default function GuidedInvestmentScreen() {
     expectedMonthlyReturn: string;
     breakEven: string;
     tokensCount: number;
+    investmentNeeded?: number;
   }) => {
     setSelectedPropertyForModal(propertyData);
     setModalVisible(true);
@@ -211,123 +308,98 @@ export default function GuidedInvestmentScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 128 }}>
-          {/* Toggle Section */}
-          <View style={{ paddingVertical: 8, marginBottom: 16 }}>
-            <View style={{
-              flexDirection: 'row',
-              height: 48,
-              backgroundColor: colors.card,
-              borderRadius: 12,
-              // padding: 4,
-            }}>
-              <View
-               
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 8,
-                  backgroundColor: investmentMode === "amount" ? colors.background : "transparent",
-                }}
-              >
-                <Text
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 28 }}>
+          {/* Toggle Section - Only show if not in goal-based mode */}
+          {!isGoalBased && (
+            <View style={{ paddingVertical: 8, marginBottom: 6 }}>
+              <View style={{
+                flexDirection: 'row',
+                height: 48,
+                backgroundColor: colors.card,
+                borderRadius: 12,
+              }}>
+                <View
                   style={{
-                    fontSize: 18,
-                    fontWeight: '500',
-                    color: investmentMode === "amount"
-                      ? colors.textPrimary
-                      : colors.textMuted,
+                    flex: 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 8,
+                    backgroundColor: investmentMode === "amount" ? colors.background : "transparent",
                   }}
                 >
-                  Invest Amount
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '500',
+                      color: investmentMode === "amount"
+                        ? colors.textPrimary
+                        : colors.textMuted,
+                    }}
+                  >
+                    Invest Amount
+                  </Text>
+                </View>
               </View>
-
             </View>
-          </View>
+          )}
 
-          {/* Input Fields */}
-          <View style={{ flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-            {/* Invest Amount Input */}
-            <View style={{ opacity: investmentMode === "earning" ? 0.5 : 1 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
-                I want to invest...
-              </Text>
-              <View style={{ position: 'relative' }}>
-                <Text style={{
-                  position: 'absolute',
-                  left: 16,
-                  top: 20,
-                  color: colors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  zIndex: 10,
-                }}>
-                  $
+          {/* Input Fields - Only show if not in goal-based mode */}
+          {!isGoalBased ? (
+            <View style={{ flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+              {/* Invest Amount Input */}
+              <View style={{ opacity: investmentMode === "earning" ? 0.5 : 1 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
+                  I want to invest...
                 </Text>
-                <TextInput
-                  style={{
-                    width: '100%',
-                    height: 64,
-                    backgroundColor: colors.card,
-                    borderRadius: 8,
-                    paddingLeft: 32,
-                    paddingRight: 16,
+                <View style={{ position: 'relative' }}>
+                  <Text style={{
+                    position: 'absolute',
+                    left: 16,
+                    top: 20,
                     color: colors.textPrimary,
                     fontSize: 18,
                     fontWeight: '600',
-                  }}
-                  maxLength={7}
-                  value={investAmount}
-                  onChangeText={setInvestAmount}
-                  keyboardType="numeric"
-                  placeholder="1,000"
-                  placeholderTextColor={colors.textMuted}
-                  editable={investmentMode === "amount"}
-                />
+                    zIndex: 10,
+                  }}>
+                    $
+                  </Text>
+                  <TextInput
+                    style={{
+                      width: '100%',
+                      height: 64,
+                      backgroundColor: colors.card,
+                      borderRadius: 8,
+                      paddingLeft: 32,
+                      paddingRight: 16,
+                      color: colors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: '600',
+                    }}
+                    maxLength={7}
+                    value={investAmount}
+                    onChangeText={setInvestAmount}
+                    keyboardType="numeric"
+                    placeholder="1,000"
+                    placeholderTextColor={colors.textMuted}
+                    editable={investmentMode === "amount"}
+                  />
+                </View>
               </View>
             </View>
-
-            {/* Earn Amount Input */}
-            <View style={{ opacity: investmentMode === "amount" ? 0.5 : 1 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
-                To earn per month...
+          ) : (
+            /* Goal-based mode: Show monthly goal info */
+            <View style={{ marginBottom: 16, padding: 16, backgroundColor: colors.card, borderRadius: 12 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginBottom: 8 }}>
+                Your Monthly Income Goal
               </Text>
-              <View style={{ position: 'relative' }}>
-                <Text style={{
-                  position: 'absolute',
-                  left: 16,
-                  top: 20,
-                  color: colors.textMuted,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  zIndex: 10,
-                }}>
-                  $
-                </Text>
-                <TextInput
-                  style={{
-                    width: '100%',
-                    height: 64,
-                    backgroundColor: colors.card,
-                    borderRadius: 8,
-                    paddingLeft: 32,
-                    paddingRight: 16,
-                    color: colors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: '600',
-                  }}
-                  value={earnAmount}
-                  onChangeText={setEarnAmount}
-                  keyboardType="numeric"
-                  placeholder="50"
-                  placeholderTextColor={colors.textMuted}
-                  editable={investmentMode === "earning"}
-                />
-              </View>
+              <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold' }}>
+                ${investmentPlan.monthlyIncomeGoal?.toFixed(2) || '0.00'} / month
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8 }}>
+                Each property below shows the minimum investment needed to achieve this goal
+              </Text>
             </View>
-          </View>
+          )}
 
           {/* Recommended Properties Section */}
           <View style={{ marginTop: 16 }}>
@@ -335,7 +407,9 @@ export default function GuidedInvestmentScreen() {
               Recommended For You
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
-              Tap a property to select it. Properties are ranked by highest ROI that match your investment amount.
+              {isGoalBased 
+                ? `Tap a property to select it. Properties are ranked by lowest investment needed to achieve your $${investmentPlan.monthlyIncomeGoal?.toFixed(2) || '0.00'}/month goal.`
+                : 'Tap a property to select it. Properties are ranked by highest ROI that match your investment amount.'}
             </Text>
 
             {/* Property Cards */}
@@ -349,13 +423,13 @@ export default function GuidedInvestmentScreen() {
                 </View>
               ) : (
                 <ScrollView 
-                  style={{ flex: 1, height: 300 }}
+                  style={{ flex: 1, height: 430 }}
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={{ gap: 16 }}
-                >
+                  contentContainerStyle={{ gap: 16 }} >
                   {recommendedProperties.length > 0 ? (
-                    recommendedProperties.map(({ property, expectedMonthlyReturn, breakEven, tokensCount }) => {
+                    recommendedProperties.map(({ property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded }) => {
                       const isSelected = selectedPropertyId === property.id;
+                      const isGoalBased = investmentPlan.isGoalBased || false;
                       return (
                         <TouchableOpacity
                           key={property.id}
@@ -392,7 +466,7 @@ export default function GuidedInvestmentScreen() {
                             </Text>
                           </View>
 
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                             <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                               <Text style={{ color: colors.textMuted, fontSize: 12 }}>ROI</Text>
                               <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
@@ -409,12 +483,23 @@ export default function GuidedInvestmentScreen() {
                               </Text>
                             </View>
 
+                            {isGoalBased && (
+                              <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                                  Investment
+                                </Text>
+                                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
+                                  ${investmentNeeded.toFixed(0)}
+                                </Text>
+                              </View>
+                            )}
+
                             <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                               <Text style={{ color: colors.textMuted, fontSize: 12 }}>
                                 Tokens
                               </Text>
                               <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: 'bold' }}>
-                                {tokensCount.toLocaleString()}
+                                {tokensCount.toFixed(3)}
                               </Text>
                             </View>
 
@@ -422,7 +507,7 @@ export default function GuidedInvestmentScreen() {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  handleInfoPress({ property, expectedMonthlyReturn, breakEven, tokensCount });
+                                  handleInfoPress({ property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded });
                                 }}
                                 style={{
                                   width: 32,
@@ -710,7 +795,9 @@ export default function GuidedInvestmentScreen() {
                             fontWeight: 'bold',
                           }}
                         >
-                          ${parseFloat(investAmount.replace(/,/g, '')).toLocaleString()}
+                          ${selectedPropertyForModal.investmentNeeded 
+                            ? selectedPropertyForModal.investmentNeeded.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                            : parseFloat(investAmount.replace(/,/g, '')).toLocaleString()}
                         </Text>
                       </View>
 
@@ -1054,7 +1141,7 @@ export default function GuidedInvestmentScreen() {
                           $
                           {(
                             parseFloat(selectedPropertyForModal.expectedMonthlyReturn) * 12 * 5 -
-                            parseFloat(investAmount.replace(/,/g, ''))
+                            (selectedPropertyForModal.investmentNeeded || parseFloat(investAmount.replace(/,/g, '')))
                           ).toFixed(2)}
                         </Text>
                       </View>

@@ -11,6 +11,8 @@ import { usePortfolio } from "@/services/usePortfolio";
 import { PropertyCardStack } from "@/components/PropertyCard";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useNotificationContext } from "@/contexts/NotificationContext";
+import ArcLoader from "@/components/EmeraldLoader";
+import { SavedPlansSection } from "@/components/portfolio/SavedPlansSection";
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -37,9 +39,10 @@ export default function PortfolioScreen() {
   // Loading state
   if (loading || !investments) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }} className="items-center justify-center">
-        <Text style={{ color: colors.textSecondary }}>Loading portfolio...</Text>
-      </View>
+      <View className="flex-1 items-center justify-center"
+      style={{ backgroundColor: colors.background }}>
+      <ArcLoader size={46} color={colors.primary} />
+    </View>
     );
   }
 
@@ -323,6 +326,9 @@ export default function PortfolioScreen() {
       <View className="px-4 mb-6">
         <PropertyCardStack data={investments} />
       </View>
+
+      {/* Saved Plans Section */}
+      <SavedPlansSection />
     </>
   );
 

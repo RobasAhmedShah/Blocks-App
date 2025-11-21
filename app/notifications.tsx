@@ -201,7 +201,7 @@ export default function NotificationsScreen() {
           : isDarkColorScheme ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.3)',
         flexDirection: 'row',
         gap: 10,
-        // elevation: notification.read ? 0 : 1,
+      
       }}
     >
       {/* Icon Container */}
@@ -209,19 +209,19 @@ export default function NotificationsScreen() {
         style={{
           width: 40,
           height: 40,
-          borderRadius: 10,
-          backgroundColor: isDarkColorScheme
-            ? `${getNotificationColor(notification.type)}18`
-            : `${getNotificationColor(notification.type)}15`,
+          borderRadius: 25,
+          // backgroundColor: `${colors.card}`,
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
+          borderWidth: 1,
+          borderColor: colors.border,
         }}
       >
         <Ionicons
           name={getNotificationIcon(notification.type) as any}
           size={18}
-          color={getNotificationColor(notification.type)}
+          color={colors.primary}
         />
       </View>
 
@@ -528,7 +528,7 @@ export default function NotificationsScreen() {
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: isDarkColorScheme ? '#1a1a1a' : '#FFFFFF',
+              backgroundColor: colors.card,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               paddingTop: 16,
@@ -560,10 +560,10 @@ export default function NotificationsScreen() {
                       style={{
                         width: 48,
                         height: 48,
-                        borderRadius: 12,
-                        backgroundColor: isDarkColorScheme
-                          ? `${getNotificationColor(selectedNotification.type)}18`
-                          : `${getNotificationColor(selectedNotification.type)}15`,
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 25,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: 12,
@@ -572,7 +572,7 @@ export default function NotificationsScreen() {
                       <Ionicons
                         name={getNotificationIcon(selectedNotification.type) as any}
                         size={24}
-                        color={getNotificationColor(selectedNotification.type)}
+                        color={colors.primary}
                       />
                     </View>
                     <View style={{ flex: 1 }}>

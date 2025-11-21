@@ -180,7 +180,11 @@ export default function BinancePayDepositScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
+      >
         {/* Binance Logo */}
         <View style={{ alignItems: 'center', marginBottom: 24 }}>
           <View style={{

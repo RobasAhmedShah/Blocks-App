@@ -219,8 +219,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Sign in to your account',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {
@@ -276,8 +282,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const enableBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Enable Biometric Login',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {
@@ -301,8 +313,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const disableBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Disable Biometric Login',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {

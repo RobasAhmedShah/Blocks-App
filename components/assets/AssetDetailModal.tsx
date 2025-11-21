@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   SafeAreaView,
   ScrollView,
   Animated,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { ASSETS_CONSTANTS } from './constants';
 import { getModalStats } from './utils';
 
@@ -197,6 +201,7 @@ export function AssetDetailModal({
   modalPanResponder,
 }: AssetDetailModalProps) {
   const router = useRouter();
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   
   if (!visible || !investment) return null;
 
@@ -211,6 +216,58 @@ export function AssetDetailModal({
     time: update.date,
   })) || [];
   const timeRanges = ASSETS_CONSTANTS.TIME_RANGES;
+  
+  // Get certificates from investment (array of certificate URLs)
+  const certificates = investment.certificates || [];
+  
+  if (certificates.length > 0) {
+    console.log(`[AssetDetailModal] Found ${certificates.length} certificate(s) for investment ${investment.id}`);
+  } else {
+    console.log(`[AssetDetailModal] No certificates found for investment ${investment.id}`);
+  }
+  
+  // Handle PDF download/viewing
+  const handleDownloadPDF = async (certificateUrl: string, index: number) => {
+    try {
+      const docName = `Certificate ${index + 1}`;
+      setDownloadingDoc(certificateUrl);
+      
+      // First, try to open with device's default PDF viewer using deep linking
+      const canOpen = await Linking.canOpenURL(certificateUrl);
+      
+      if (canOpen) {
+        try {
+          // Try to open with OS default PDF viewer
+          await Linking.openURL(certificateUrl);
+          return; // Successfully opened, exit function
+        } catch (openError) {
+          console.log('Failed to open with default viewer, trying Google Drive...');
+          // Continue to fallback
+        }
+      }
+      
+      // Fallback: Use Google Drive viewer
+      const encodedUrl = encodeURIComponent(certificateUrl);
+      const googleDriveViewerUrl = `https://drive.google.com/viewer?url=${encodedUrl}`;
+      
+      // Open in WebBrowser which will use Google Drive's viewer
+      await WebBrowser.openBrowserAsync(googleDriveViewerUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        enableBarCollapsing: false,
+        showTitle: true,
+        toolbarColor: colors.primary,
+      });
+    } catch (error: any) {
+      console.error('Error opening PDF:', error);
+      Alert.alert(
+        'Error',
+        'Unable to open the PDF. Please check your internet connection and try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setDownloadingDoc(null);
+    }
+  };
 
   return (
     <>
@@ -490,7 +547,7 @@ export function AssetDetailModal({
                     Latest Updates
                   </Text>
                   <View className="gap-3">
-                    {newsData.map((news) => (
+                    {newsData.map((news: { id: string; icon: string; iconBg: string; title: string; description: string; time: string }) => (
                       <ModalUpdateCard 
                         key={news.id} 
                         news={news} 
@@ -500,6 +557,129 @@ export function AssetDetailModal({
                   </View>
                 </View>
               )}
+
+              {/* Ownership Documents Section */}
+              <View className="mb-6">
+                <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-3">
+                  Ownership Documents
+                </Text>
+                <View 
+                  style={{ 
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                  }}
+                  className="rounded-2xl p-4"
+                >
+                  {certificates.length > 0 ? (
+                    <View className="gap-3">
+                      {certificates.map((certificateUrl: string, index: number) => (
+                        <View
+                          key={index}
+                          style={{
+                            backgroundColor: isDarkColorScheme 
+                              ? 'rgba(22, 163, 74, 0.1)' 
+                              : 'rgba(22, 163, 74, 0.05)',
+                            borderColor: colors.border,
+                            borderWidth: 1,
+                          }}
+                          className="rounded-xl p-4"
+                        >
+                          <View className="flex-row items-center justify-between mb-3">
+                            <View className="flex-row items-center gap-3 flex-1">
+                              <View
+                                style={{
+                                  backgroundColor: isDarkColorScheme
+                                    ? 'rgba(22, 163, 74, 0.2)'
+                                    : 'rgba(22, 163, 74, 0.15)',
+                                }}
+                                className="w-12 h-12 items-center justify-center rounded-xl"
+                              >
+                                <Ionicons name="document-text" size={24} color={colors.primary} />
+                              </View>
+                              <View className="flex-1">
+                                <Text style={{ color: colors.textPrimary }} className="font-bold text-base">
+                                  Ownership Certificate {index + 1}
+                                </Text>
+                                <Text style={{ color: colors.textSecondary }} className="text-sm mt-0.5">
+                                  Investment #{index + 1}
+                                </Text>
+                              </View>
+                            </View>
+                            <View
+                              style={{
+                                backgroundColor: isDarkColorScheme
+                                  ? 'rgba(22, 163, 74, 0.2)'
+                                  : 'rgba(22, 163, 74, 0.1)',
+                              }}
+                              className="px-3 py-1.5 rounded-full"
+                            >
+                              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleDownloadPDF(certificateUrl, index)}
+                            disabled={downloadingDoc === certificateUrl}
+                            style={{
+                              backgroundColor: downloadingDoc === certificateUrl 
+                                ? colors.muted 
+                                : colors.primary,
+                              paddingVertical: 12,
+                              borderRadius: 12,
+                              width: '100%',
+                              alignItems: 'center',
+                              shadowColor: colors.primary,
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: downloadingDoc === certificateUrl ? 0 : 0.3,
+                              shadowRadius: 4,
+                              elevation: downloadingDoc === certificateUrl ? 0 : 3,
+                              opacity: downloadingDoc === certificateUrl ? 0.6 : 1,
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <View className="flex-row items-center gap-2">
+                              {downloadingDoc === certificateUrl ? (
+                                <>
+                                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                                  <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                    Opening...
+                                  </Text>
+                                </>
+                              ) : (
+                                <>
+                                  <Ionicons name="download-outline" size={18} color={colors.primaryForeground} />
+                                  <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                    View PDF
+                                  </Text>
+                                </>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <View className="py-8 items-center justify-center">
+                      <View
+                        style={{
+                          backgroundColor: isDarkColorScheme
+                            ? 'rgba(107, 114, 128, 0.2)'
+                            : 'rgba(107, 114, 128, 0.1)',
+                        }}
+                        className="w-16 h-16 items-center justify-center rounded-full mb-3"
+                      >
+                        <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
+                      </View>
+                      <Text style={{ color: colors.textPrimary }} className="font-semibold text-base mb-1">
+                        No Documents Available
+                      </Text>
+                      <Text style={{ color: colors.textSecondary }} className="text-sm text-center">
+                        Ownership certificates will appear here once your investments are confirmed.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
 
               {/* Action Buttons */}
               <View className="gap-3 pt-2">

@@ -260,7 +260,11 @@ export default function CardDepositScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
+      >
         {/* Amount Input */}
         <View style={{ marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>

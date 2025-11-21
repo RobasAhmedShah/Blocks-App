@@ -9,11 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { KeyboardDismissButton } from "@/components/common/KeyboardDismissButton";
 
 export default function SetGoalScreen() {
   const router = useRouter();
@@ -79,6 +81,7 @@ export default function SetGoalScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+      <KeyboardDismissButton inputAccessoryViewID="guidanceOneInputAccessory" />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -117,7 +120,7 @@ export default function SetGoalScreen() {
         <ScrollView 
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
         >
           <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }}>
             {/* Mode Toggle */}
@@ -272,6 +275,7 @@ export default function SetGoalScreen() {
                     <Text style={{ color: colors.textPrimary, fontSize: 48, fontWeight: 'bold' }}>$</Text>
                     
                     <TextInput
+                      inputAccessoryViewID={Platform.OS === 'ios' ? 'guidanceOneInputAccessory' : undefined}
                       style={{
                         width: 192,
                         textAlign: 'center',
@@ -287,6 +291,9 @@ export default function SetGoalScreen() {
                       placeholder="0"
                       placeholderTextColor={colors.textMuted}
                       maxLength={7}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={true}
                     />
                   </View>
 

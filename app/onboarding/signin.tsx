@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -267,7 +268,7 @@ export default function SignInScreen() {
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60 }}>
@@ -373,6 +374,12 @@ export default function SignInScreen() {
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => {
+                        // Focus password input or dismiss keyboard
+                        Keyboard.dismiss();
+                      }}
+                      blurOnSubmit={false}
                     />
                     {!errors.email && touched.email && email && (
                       <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -447,6 +454,14 @@ export default function SignInScreen() {
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        Keyboard.dismiss();
+                        if (email && password && !errors.email && !errors.password) {
+                          handleSignIn();
+                        }
+                      }}
+                      blurOnSubmit={true}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}

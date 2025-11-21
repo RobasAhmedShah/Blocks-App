@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -494,7 +495,7 @@ export default function SignUpScreen() {
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60 }}>
@@ -599,6 +600,9 @@ export default function SignUpScreen() {
                       }}
                       autoCapitalize="words"
                       autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={false}
                     />
                     {!errors.fullName && touched.fullName && fullName && (
                       <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -673,6 +677,9 @@ export default function SignUpScreen() {
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={false}
                     />
                     {!errors.email && touched.email && email && (
                       <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -747,6 +754,9 @@ export default function SignUpScreen() {
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={false}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
@@ -868,6 +878,9 @@ export default function SignUpScreen() {
                       secureTextEntry={!showConfirmPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={true}
                     />
                     <TouchableOpacity
                       onPress={() => setShowConfirmPassword(!showConfirmPassword)}

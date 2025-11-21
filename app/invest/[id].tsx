@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, PanResponder, Animated, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, PanResponder, Animated, TextInput, Alert, Keyboard, Platform, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useProperty } from '@/services/useProperty';
 import { useWallet } from '@/services/useWallet';
 import { useApp } from '@/contexts/AppContext';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { KeyboardDismissButton } from '@/components/common/KeyboardDismissButton';
 
 // Epsilon tolerance for floating-point comparison (1 cent)
 const BALANCE_EPSILON = 0.01;
@@ -188,16 +189,26 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
         activeOpacity={1}
         onPress={handleClose}
       >
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-          <Animated.View 
-            style={{ 
-              backgroundColor: colors.card, 
-              borderTopLeftRadius: 20, 
-              borderTopRightRadius: 20,
-              transform: [{ translateY: pan }],
-            }}
-            {...panResponder.panHandlers}
-          >
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <Animated.View 
+              style={{ 
+                backgroundColor: colors.card, 
+                borderTopLeftRadius: 20, 
+                borderTopRightRadius: 20,
+                transform: [{ translateY: pan }],
+              }}
+              {...panResponder.panHandlers}
+            >
+            {/* iOS Keyboard Dismiss Button */}
+            <KeyboardDismissButton inputAccessoryViewID="tokenInputAccessory" />
+            <KeyboardDismissButton inputAccessoryViewID="priceInputAccessory" />
+            
             {/* Handle - Drag to close */}
             <View style={{ 
               height: 32, 
@@ -264,6 +275,7 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
                 </TouchableOpacity>
                 <TextInput
+                  inputAccessoryViewID={Platform.OS === 'ios' ? 'tokenInputAccessory' : undefined}
                   value={tokenInput}
                   onChangeText={(text: string) => {
                     // Allow empty string
@@ -356,6 +368,8 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                   keyboardType="decimal-pad"
                   placeholder="0.00"
                   placeholderTextColor={colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
                   style={{
                     color: colors.textPrimary,
                     fontSize: 16,
@@ -421,6 +435,7 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '500' }}>$</Text>
                   <TextInput
+                    inputAccessoryViewID={Platform.OS === 'ios' ? 'priceInputAccessory' : undefined}
                     value={priceInput}
                     onChangeText={(text: string) => {
                       // Allow empty string
@@ -512,6 +527,8 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
                     keyboardType="decimal-pad"
                     placeholder="0.00"
                     placeholderTextColor={colors.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
                     style={{
                       color: colors.textPrimary,
                       fontSize: 16,
@@ -692,6 +709,7 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
             )}
           </View>
           </Animated.View>
+          </TouchableWithoutFeedback>
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>

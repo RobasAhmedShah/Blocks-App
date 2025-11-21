@@ -55,25 +55,25 @@ export default function AssetsFirstScreen() {
     setIsModalVisible(true);
     setIsModalAtTop(true);
     
-    Animated.parallel([
+        Animated.parallel([
       Animated.spring(modalTranslateY, {
-        toValue: 0,
-        tension: 70,
-        friction: 11,
-        useNativeDriver: true,
-      }),
+            toValue: 0,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
       Animated.spring(modalScale, {
-        toValue: 1,
-        tension: 70,
-        friction: 11,
-        useNativeDriver: true,
-      }),
+            toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
       Animated.timing(modalBackgroundOpacity, {
-        toValue: 1,
+            toValue: 1,
         duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start();
+            useNativeDriver: true,
+          }),
+        ]).start();
   };
 
   // Header opacity based on scroll
@@ -93,31 +93,31 @@ export default function AssetsFirstScreen() {
   }, [isModalVisible]);
 
   const closeModal = () => {
-    Animated.parallel([
+        Animated.parallel([
       Animated.spring(modalTranslateY, {
         toValue: SCREEN_HEIGHT,
         tension: 55,
         friction: 10,
-        useNativeDriver: true,
-      }),
+            useNativeDriver: true,
+          }),
       Animated.timing(modalBackgroundOpacity, {
-        toValue: 0,
+            toValue: 0,
         duration: 280,
-        useNativeDriver: true,
-      }),
+            useNativeDriver: true,
+          }),
       Animated.timing(modalScale, {
         toValue: 0.88,
         duration: 280,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
       setIsModalVisible(false);
       setSelectedInvestment(null);
       modalTranslateY.setValue(SCREEN_HEIGHT);
       modalScale.setValue(0.95);
       modalBackgroundOpacity.setValue(0);
       modalHeaderOpacity.setValue(0);
-    });
+        });
   };
 
   // Handle back button press
@@ -164,29 +164,29 @@ export default function AssetsFirstScreen() {
           const threshold = 120;
           if (gestureState.dy > threshold || gestureState.vy > 0.65) {
             closeModal();
-          } else {
-            Animated.parallel([
+      } else {
+        Animated.parallel([
               Animated.spring(modalTranslateY, {
-                toValue: 0,
+            toValue: 0,
                 velocity: gestureState.vy,
-                tension: 70,
-                friction: 11,
-                useNativeDriver: true,
-              }),
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
               Animated.spring(modalScale, {
-                toValue: 1,
-                tension: 70,
-                friction: 11,
-                useNativeDriver: true,
-              }),
+            toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
               Animated.timing(modalBackgroundOpacity, {
                 toValue: 1,
                 duration: 200,
-                useNativeDriver: true,
-              }),
-            ]).start();
-          }
-        },
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    },
         onPanResponderTerminationRequest: () => false,
       }),
     [isModalAtTop, closeModal]
@@ -258,7 +258,7 @@ export default function AssetsFirstScreen() {
     return (
       <View className="flex-row justify-center items-center py-4 gap-2">
         {investments.map((_, index) => (
-          <View 
+      <View 
             key={index}
             className="h-2 rounded"
             style={{
@@ -283,7 +283,7 @@ export default function AssetsFirstScreen() {
         >
           Loading your investments...
         </Text>
-      </View>
+          </View>
     );
   }
 
@@ -306,18 +306,18 @@ export default function AssetsFirstScreen() {
         >
           Start investing to see your assets here
         </Text>
-        <TouchableOpacity 
-          onPress={() => router.back()}
+          <TouchableOpacity 
+            onPress={() => router.back()}
           className="px-8 py-4 rounded-xl"
-          style={{ backgroundColor: colors.primary }}
-        >
+              style={{ backgroundColor: colors.primary }}
+          >
           <Text 
             className="text-base font-semibold"
             style={{ color: colors.primaryForeground }}
           >
             Explore Properties
-          </Text>
-        </TouchableOpacity>
+              </Text>
+          </TouchableOpacity>
       </View>
     );
   }
@@ -343,7 +343,7 @@ export default function AssetsFirstScreen() {
             paddingBottom: 16,
           }}
         >
-          <TouchableOpacity 
+            <TouchableOpacity 
             onPress={() => router.back()} 
             className="flex-row items-center gap-3"
             style={{ flex: 1 }}
@@ -375,40 +375,40 @@ export default function AssetsFirstScreen() {
 
         {/* Content Area - with padding for fixed header */}
         <View className="flex-1" style={{ paddingTop: 68 }}>
-          {/* Carousel */}
-          <View className="flex-1">
-            <FlatList
-              ref={flatListRef}
-              data={investments}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.id}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={CARD_WIDTH + SPACING * 2}
-              decelerationRate="fast"
-              contentContainerStyle={{ 
-                paddingHorizontal: SPACING,
-                alignItems: 'center',
-              }}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={viewabilityConfig}
-              getItemLayout={(data, index) => ({
-                length: CARD_WIDTH + SPACING * 2,
-                offset: (CARD_WIDTH + SPACING * 2) * index,
-                index,
-              })}
+        {/* Carousel */}
+        <View className="flex-1">
+          <FlatList
+            ref={flatListRef}
+            data={investments}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={CARD_WIDTH + SPACING * 2}
+            decelerationRate="fast"
+            contentContainerStyle={{ 
+              paddingHorizontal: SPACING,
+              alignItems: 'center',
+            }}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            getItemLayout={(data, index) => ({
+              length: CARD_WIDTH + SPACING * 2,
+              offset: (CARD_WIDTH + SPACING * 2) * index,
+              index,
+            })}
             />
-          </View>
+        </View>
 
-          {/* Pagination Dots */}
-          {renderDots()}
+        {/* Pagination Dots */}
+        {renderDots()}
 
-          {/* Action Buttons */}
-          <View className="flex-row px-4 pt-2 gap-3">
+        {/* Action Buttons */}
+        <View className="flex-row px-4 pt-2 gap-3">
           <TouchableOpacity
             className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-2xl"
-            style={{ backgroundColor: colors.primary }}
+              style={{ backgroundColor: colors.primary }}
             onPress={() => {
               if (currentInvestment) {
                 router.push({
@@ -417,56 +417,56 @@ export default function AssetsFirstScreen() {
                 } as any);
               }
             }}
-            activeOpacity={0.8}
-          >
+              activeOpacity={0.8}
+            >
             <Ionicons name="add-circle" size={24} color={colors.primaryForeground} />
             <Text 
               className="text-[15px] font-semibold"
               style={{ color: colors.primaryForeground }}
             >
-              Invest More
-            </Text>
-          </TouchableOpacity>
+                Invest More
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity 
+            <TouchableOpacity 
             className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-2xl border"
-            style={{ 
+              style={{ 
               backgroundColor: colors.card, 
               borderColor: colors.border 
-            }}
+              }}
             onPress={() => handleShare(currentInvestment)}
-            activeOpacity={0.8}
-          >
+              activeOpacity={0.8}
+            >
             <Ionicons name="share-social" size={24} color={colors.textPrimary} />
             <Text 
               className="text-[15px] font-semibold"
               style={{ color: colors.textPrimary }}
             >
-              Share
-            </Text>
-          </TouchableOpacity>
-        </View>
+                Share
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Navigation Hint */}
-          <View className="flex-row items-center justify-center gap-2 py-4">
+        {/* Navigation Hint */}
+        <View className="flex-row items-center justify-center gap-2 py-4">
             <Ionicons name="chevron-back" size={16} color={colors.textMuted} />
-            <Text 
-              className="text-[13px] font-medium"
-              style={{ color: colors.textMuted }}
-            >
+          <Text 
+            className="text-[13px] font-medium"
+            style={{ color: colors.textMuted }}
+          >
               Swipe to navigate
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-          </View>
         </View>
-      </SafeAreaView>
+                  </View>
+                </SafeAreaView>
 
       {/* Asset Detail Modal */}
       <AssetDetailModal
         visible={isModalVisible}
         investment={selectedInvestment}
-        colors={colors}
-        isDarkColorScheme={isDarkColorScheme}
+                          colors={colors} 
+                          isDarkColorScheme={isDarkColorScheme}
         modalTranslateY={modalTranslateY}
         modalScale={modalScale}
         modalBackgroundOpacity={modalBackgroundOpacity}

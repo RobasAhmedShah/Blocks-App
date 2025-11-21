@@ -341,6 +341,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const investments = await investmentsApi.getMyInvestments();
       
+      // Debug: Log certificatePath from API
+      console.log('[AppContext] Investments loaded:', investments.length);
+      investments.forEach((inv, idx) => {
+        console.log(`[AppContext] Investment ${idx + 1}:`, {
+          id: inv.id,
+          propertyId: inv.property?.id,
+          certificatePath: inv.certificatePath,
+        });
+      });
+      
       // Group investments by property ID
       const investmentsByProperty = new Map<string, InvestmentResponse[]>();
       
@@ -378,6 +388,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const mergedRentalYield = totalInvestedAmount > 0 
           ? (totalMonthlyRentalIncome * 12 / totalInvestedAmount) * 100 
           : 0;
+        
+        // Collect all certificate paths from all investments for this property
+        const certificates = sortedInvestments
+          .map((inv) => {
+            const certPath = inv.certificatePath || null;
+            if (certPath) {
+              console.log(`[AppContext] Found certificate for investment ${inv.id}: ${certPath}`);
+            }
+            return certPath;
+          })
+          .filter((path): path is string => {
+            return !!path && typeof path === 'string' && path.trim() !== '';
+          });
+        
+        console.log(`[AppContext] Property ${propertyId}: Collected ${certificates.length} certificate(s) from ${sortedInvestments.length} investment(s)`);
         
         // Find property from state - it should exist since properties are loaded first
         const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
@@ -428,6 +453,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           roi: mergedROI,
           rentalYield: mergedRentalYield,
           monthlyRentalIncome: totalMonthlyRentalIncome,
+          certificates: certificates, // Include all certificates from merged investments
         };
       });
 

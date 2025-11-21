@@ -9,6 +9,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -407,7 +408,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
             paddingTop: 16,
           }}
           showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
           nestedScrollEnabled={true}
         >
           {messages.map((message, index) => (
@@ -582,9 +583,13 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
               borderColor: colors.border,
             }}
             multiline={false}
-            onSubmitEditing={handleSend}
+            onSubmitEditing={() => {
+              handleSend();
+              Keyboard.dismiss();
+            }}
             returnKeyType="send"
             editable={!isLoading}
+            blurOnSubmit={true}
           />
           <TouchableOpacity
             onPress={handleSend}

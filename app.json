@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -52,7 +52,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.intelik.Blocks",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Allow this app to use Face ID to sign you in securely."
       }
     },
     "android": {
@@ -67,7 +68,7 @@
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-    "apiUrl": "https://blocks-backend.vercel.app" 
+    "apiUrl": "http://192.168.1.183:3000" 
     },
     "owner": "robas",
     "runtimeVersion": {

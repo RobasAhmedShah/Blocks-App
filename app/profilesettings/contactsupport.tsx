@@ -126,6 +126,7 @@ export default function ContactSupportScreen() {
       <ScrollView 
         className="flex-1"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
       >
         <View className="px-4 py-6">
           {/* Support Hours Banner */}

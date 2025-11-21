@@ -12,12 +12,15 @@ import {
   Modal,
   Pressable,
   Dimensions,
+  Keyboard,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useApp } from "@/contexts/AppContext";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { KeyboardDismissButton } from "@/components/common/KeyboardDismissButton";
 import { savedPlansService } from "@/services/savedPlans";
 import { Alert } from "react-native";
 import Animated, {
@@ -277,6 +280,7 @@ export default function GuidedInvestmentScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+      <KeyboardDismissButton inputAccessoryViewID="guidanceTwoInputAccessory" />
 
       {/* Header */}
       <View style={{
@@ -307,7 +311,11 @@ export default function GuidedInvestmentScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
+      >
         <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 28 }}>
           {/* Toggle Section - Only show if not in goal-based mode */}
           {!isGoalBased && (
@@ -364,6 +372,7 @@ export default function GuidedInvestmentScreen() {
                     $
                   </Text>
                   <TextInput
+                    inputAccessoryViewID={Platform.OS === 'ios' ? 'guidanceTwoInputAccessory' : undefined}
                     style={{
                       width: '100%',
                       height: 64,
@@ -382,6 +391,9 @@ export default function GuidedInvestmentScreen() {
                     placeholder="1,000"
                     placeholderTextColor={colors.textMuted}
                     editable={investmentMode === "amount"}
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                    blurOnSubmit={true}
                   />
                 </View>
               </View>

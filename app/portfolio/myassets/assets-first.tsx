@@ -324,7 +324,7 @@ export default function AssetsFirstScreen() {
       <SafeAreaView className="flex-1">
         {/* Fixed Header */}
         <View 
-          className="flex-row justify-between items-end px-6 mt-3"
+          className="flex-row justify-between items-end px-6 mt-8"
           style={{ 
             backgroundColor: colors.background,
             position: 'absolute',
@@ -369,7 +369,7 @@ export default function AssetsFirstScreen() {
         </View>
 
         {/* Content Area - with padding for fixed header */}
-        <View className="flex-1" style={{ paddingTop: 68 }}>
+        <View className="flex-1" style={{ paddingTop: 68,marginTop: 26 }}>
         {/* Carousel */}
         <View className="flex-1">
           <FlatList

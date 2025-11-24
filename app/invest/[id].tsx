@@ -14,9 +14,10 @@ const BALANCE_EPSILON = 0.01;
 interface InvestScreenProps {
   propertyId?: string;
   onClose?: () => void;
+  initialInvestmentAmount?: number; // Amount in USDT from calculator
 }
 
-export default function InvestScreen({ propertyId, onClose }: InvestScreenProps = {}) {
+export default function InvestScreen({ propertyId, onClose, initialInvestmentAmount }: InvestScreenProps = {}) {
   const routeParams = useLocalSearchParams<{ id?: string; tokenCount?: string }>();
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
@@ -24,9 +25,22 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
   const { property, loading } = useProperty(id);
   const { balance } = useWallet();
   const { invest } = useApp();
-  const [tokenCount, setTokenCount] = useState<number>(routeParams.tokenCount ? parseFloat(routeParams.tokenCount) : 0);
-  const [tokenInput, setTokenInput] = useState<string>(routeParams.tokenCount ? parseFloat(routeParams.tokenCount).toFixed(2) : '');
-  const [priceInput, setPriceInput] = useState<string>('');
+  
+  // Calculate initial token count from initialInvestmentAmount if provided
+  const getInitialTokenCount = () => {
+    if (initialInvestmentAmount && property) {
+      return initialInvestmentAmount / property.tokenPrice;
+    }
+    if (routeParams.tokenCount) {
+      return parseFloat(routeParams.tokenCount);
+    }
+    return 0;
+  };
+
+  const initialTokenCount = getInitialTokenCount();
+  const [tokenCount, setTokenCount] = useState<number>(initialTokenCount);
+  const [tokenInput, setTokenInput] = useState<string>(initialTokenCount > 0 ? initialTokenCount.toFixed(2) : '');
+  const [priceInput, setPriceInput] = useState<string>(initialInvestmentAmount && initialInvestmentAmount > 0 ? initialInvestmentAmount.toFixed(2) : '');
   const [isInvesting, setIsInvesting] = useState(false);
 
   // Pan gesture for drag to close
@@ -62,6 +76,19 @@ export default function InvestScreen({ propertyId, onClose }: InvestScreenProps 
       router.back();
     }
   };
+
+  // Effect to update inputs when initialInvestmentAmount changes (e.g., from calculator)
+  useEffect(() => {
+    if (initialInvestmentAmount && initialInvestmentAmount > 0 && property) {
+      const calculatedTokens = initialInvestmentAmount / property.tokenPrice;
+      const availableTokens = property.totalTokens - property.soldTokens;
+      const validTokens = Math.min(calculatedTokens, availableTokens);
+      
+      setTokenCount(validTokens);
+      setTokenInput(validTokens > 0 ? validTokens.toFixed(2) : '');
+      setPriceInput(initialInvestmentAmount > 0 ? initialInvestmentAmount.toFixed(2) : '');
+    }
+  }, [initialInvestmentAmount, property]);
 
   if (loading || !property) {
     return (

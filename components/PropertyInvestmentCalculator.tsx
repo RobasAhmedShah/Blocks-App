@@ -45,9 +45,14 @@ export function PropertyInvestmentCalculator({
   const initialInvestment = property.minInvestment || 2000;
   const initialAppreciation = property.estimatedROI || 6;
   const initialRentalYield = property.estimatedYield || 5.85;
+  
+  // Calculate max investment based on available tokens
+  const availableTokens = property.totalTokens - property.soldTokens;
+  const maxInvestmentAmount = availableTokens * property.tokenPrice;
+  const effectiveMaxInvestment = Math.min(maxInvestmentAmount, 50000); // Cap at 50k for slider
 
   // Use numbers directly to avoid string conversion glitches
-  const [investmentAmount, setInvestmentAmount] = useState<number>(initialInvestment);
+  const [investmentAmount, setInvestmentAmount] = useState<number>(Math.min(initialInvestment, effectiveMaxInvestment));
   const [annualAppreciation, setAnnualAppreciation] = useState<number>(initialAppreciation);
   const [rentalYield, setRentalYield] = useState<number>(initialRentalYield);
   const [investmentPeriod, setInvestmentPeriod] = useState<number>(5);
@@ -81,8 +86,10 @@ export function PropertyInvestmentCalculator({
 
   // Memoized callbacks to prevent unnecessary re-renders
   const handleInvestmentChange = useCallback((value: number) => {
-    setInvestmentAmount(Math.round(value));
-  }, []);
+    // Ensure investment doesn't exceed available tokens
+    const cappedValue = Math.min(Math.round(value), effectiveMaxInvestment);
+    setInvestmentAmount(cappedValue);
+  }, [effectiveMaxInvestment]);
 
   const handleAppreciationChange = useCallback((value: number) => {
     setAnnualAppreciation(parseFloat(value.toFixed(1)));
@@ -108,7 +115,10 @@ export function PropertyInvestmentCalculator({
 
     switch (editingField) {
       case 'investment':
-        if (numValue >= 0) setInvestmentAmount(numValue);
+        if (numValue >= 0) {
+          const cappedValue = Math.min(numValue, effectiveMaxInvestment);
+          setInvestmentAmount(cappedValue);
+        }
         break;
       case 'appreciation':
         if (numValue >= 0 && numValue <= 100) setAnnualAppreciation(numValue);
@@ -124,7 +134,7 @@ export function PropertyInvestmentCalculator({
     setModalVisible(false);
     setEditingField(null);
     Keyboard.dismiss();
-  }, [editValue, editingField]);
+  }, [editValue, editingField, effectiveMaxInvestment]);
 
   const handleInvest = useCallback(() => {
     if (onInvest) {
@@ -152,7 +162,7 @@ export function PropertyInvestmentCalculator({
             </Text>
           </View>
 
-          <View style={{ marginBottom: 32 }}>
+          <View style={{ marginBottom: 32, }}>
             {/* Investment Amount */}
             <View style={{ marginBottom: 24 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -175,9 +185,9 @@ export function PropertyInvestmentCalculator({
               </View>
 
               <Slider
-                style={{ width: SCREEN_WIDTH - 80, height: 40 }}
-                minimumValue={0}
-                maximumValue={50000}
+                style={{ width: SCREEN_WIDTH - 40, height: 40 }}
+                minimumValue={property.minInvestment || 0}
+                maximumValue={effectiveMaxInvestment}
                 value={investmentAmount}
                 onValueChange={handleInvestmentChange}
                 step={1}
@@ -185,6 +195,11 @@ export function PropertyInvestmentCalculator({
                 maximumTrackTintColor={colors.muted}
                 thumbTintColor={colors.primary}
               />
+              {investmentAmount >= effectiveMaxInvestment && effectiveMaxInvestment < 50000 && (
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, textAlign: 'right' }}>
+                  Max: ${formatCurrency(effectiveMaxInvestment)} (Limited by available tokens)
+                </Text>
+              )}
             </View>
 
             {/* Annual Appreciation */}

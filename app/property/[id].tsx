@@ -808,6 +808,7 @@ export default function PropertyDetailScreen() {
       {showInvestModal && id && property && (
         <InvestScreen 
           propertyId={id} 
+          initialInvestmentAmount={initialInvestmentAmount || undefined}
           onClose={() => {
             console.log('Closing invest modal');
             setShowInvestModal(false);

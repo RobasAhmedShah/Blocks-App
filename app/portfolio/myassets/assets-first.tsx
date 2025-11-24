@@ -19,6 +19,7 @@ import { usePortfolio } from '@/services/usePortfolio';
 import { PropertyCard } from '@/components/assets/PropertyCard';
 import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
 import { ASSETS_CONSTANTS } from '@/components/assets/constants';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
@@ -275,15 +276,9 @@ export default function AssetsFirstScreen() {
     return (
       <View 
         className="flex-1 justify-center items-center px-8"
-        style={{ backgroundColor: colors.background }} 
-      >
-        <Text 
-          className="text-base font-medium"
-          style={{ color: colors.textSecondary }}
-        >
-          Loading your investments...
-        </Text>
-          </View>
+        style={{ backgroundColor: colors.background }} >
+      <EmeraldLoader size={48} color={colors.primary} />
+      </View>
     );
   }
 
@@ -329,7 +324,7 @@ export default function AssetsFirstScreen() {
       <SafeAreaView className="flex-1">
         {/* Fixed Header */}
         <View 
-          className="flex-row justify-between items-end px-6"
+          className="flex-row justify-between items-end px-6 mt-3"
           style={{ 
             backgroundColor: colors.background,
             position: 'absolute',

@@ -25,6 +25,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
+import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 
 const { width } = Dimensions.get("window");
 
@@ -39,6 +40,7 @@ export default function PropertyDetailScreen() {
   const [showInvestModal, setShowInvestModal] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+  const [initialInvestmentAmount, setInitialInvestmentAmount] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   
@@ -438,7 +440,7 @@ export default function PropertyDetailScreen() {
             borderBottomColor: colors.border, 
             marginBottom: 24 
           }}>
-            {["Financials", "Documents", "Location"].map((tab) => (
+            {["Financials", "Calculator", "Documents", "Location"].map((tab) => (
               <TouchableOpacity
                 key={tab}
                 onPress={() => setActiveTab(tab)}
@@ -506,6 +508,23 @@ export default function PropertyDetailScreen() {
                   </View>
                 </View>
               </View>
+            </View>
+          )}
+
+          {activeTab === "Calculator" && (
+            <View style={{ marginBottom: 64 }}>
+              <PropertyInvestmentCalculator
+                property={property}
+                colors={colors}
+                isDarkColorScheme={isDarkColorScheme}
+                onInvest={(investmentAmount) => {
+                  // Store the calculated investment amount
+                  setInitialInvestmentAmount(investmentAmount);
+                  // Close calculator tab and open invest modal
+                  setActiveTab("Financials");
+                  setShowInvestModal(true);
+                }}
+              />
             </View>
           )}
 
@@ -792,6 +811,7 @@ export default function PropertyDetailScreen() {
           onClose={() => {
             console.log('Closing invest modal');
             setShowInvestModal(false);
+            setInitialInvestmentAmount(null); // Reset initial amount
           }} 
         />
       )}

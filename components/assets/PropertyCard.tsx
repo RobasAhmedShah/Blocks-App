@@ -221,12 +221,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               <View className="items-center mb-6">
                 <View 
                   className="px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: `${tierInfo.tierColor}15` }}
-                >
+                  style={{ backgroundColor: `${tierInfo.tierColor}15` }} >
                   <Text 
                     className="text-[11px] font-bold uppercase tracking-widest"
-                    style={{ color: tierInfo.tierColor }}
-                  >
+                    style={{ color: tierInfo.tierColor }}>
                     {tierInfo.tier}
                   </Text>
                 </View>

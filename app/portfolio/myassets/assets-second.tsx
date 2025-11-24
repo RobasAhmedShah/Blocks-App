@@ -526,9 +526,9 @@ export default function AssetSecondScreen() {
                   style={{ 
                     backgroundColor: colors.card,
                     borderColor: colors.border,
+                    height: 200,
                   }}
                   className="rounded-2xl border p-6 items-center justify-center"
-                  style={{ height: 200 }}
                 >
                   <Ionicons name="bar-chart" size={56} color={colors.textMuted} />
                   <Text style={{ color: colors.textPrimary }} className="mt-3 text-base font-semibold">

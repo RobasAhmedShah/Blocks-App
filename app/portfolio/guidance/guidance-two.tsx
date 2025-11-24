@@ -289,6 +289,7 @@ export default function GuidedInvestmentScreen() {
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 16,
+        marginTop: 35,
         backgroundColor: colors.background,
       }}>
         <TouchableOpacity
@@ -677,6 +678,7 @@ export default function GuidedInvestmentScreen() {
                   paddingHorizontal: 20,
                   paddingTop: 16,
                   paddingBottom: 12,
+                  marginTop: 35,
                   borderBottomWidth: 1,
                   borderBottomColor: colors.border,
                 }}

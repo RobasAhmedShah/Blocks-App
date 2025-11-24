@@ -37,6 +37,15 @@ export default function InvestmentConfirmScreen() {
         padding: 16, 
         paddingTop: 48 
       }}>
+        <TouchableOpacity
+          onPress={() => router.push({
+            pathname: '/portfolio',
+            params: { id: id },
+          } as any)}
+          style={{ width: 48, alignItems: 'flex-start' }}
+        >
+          <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
+        </TouchableOpacity>
         <Text style={{ 
           flex: 1, 
           textAlign: 'center', 
@@ -46,15 +55,6 @@ export default function InvestmentConfirmScreen() {
         }}>
           Investment Successful
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push({
-            pathname: '/portfolio',
-            params: { id: id },
-          } as any)}
-          style={{ width: 48, alignItems: 'flex-end' }}
-        >
-          <Ionicons name="close" size={28} color={colors.textMuted} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -153,8 +153,8 @@ export default function InvestmentConfirmScreen() {
         <View style={{ width: '100%', maxWidth: 384, gap: 16, paddingTop: 32 }}>
           <TouchableOpacity
             onPress={() => router.push({
-              pathname: '/portfolio/ownproperty/propertydetails',
-              params: { id: id },
+              pathname: '/portfolio/myassets/assets-first',
+              params: { propertyId: id }, // Use propertyId to be more explicit
             } as any)}
             style={{ 
               width: '100%', 

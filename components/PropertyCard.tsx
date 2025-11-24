@@ -92,8 +92,8 @@ function AnimatedCard({
   
   const handleDetailsPress = () => {
     router.push({
-      pathname: "/portfolio/ownproperty/propertydetails",
-      params: { id: item.property.id },
+      pathname: "/portfolio/myassets/assets-first",
+      params: { propertyId: item.property.id },
     });
     setModalVisible(false);
   };

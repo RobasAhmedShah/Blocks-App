@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
 import { PropertyCard } from '@/components/assets/PropertyCard';
@@ -25,10 +25,12 @@ const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
 export default function AssetsFirstScreen() {
   const router = useRouter();
+  const routeParams = useLocalSearchParams<{ id?: string; propertyId?: string }>();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { investments, loading } = usePortfolio();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [hasScrolledToProperty, setHasScrolledToProperty] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedInvestment, setSelectedInvestment] = useState<any>(null);
   const [isModalAtTop, setIsModalAtTop] = useState(true);
@@ -133,6 +135,34 @@ export default function AssetsFirstScreen() {
 
     return () => backHandler.remove();
   }, [isModalVisible]);
+
+  // Scroll to specific property when navigating from confirmation screen
+  useEffect(() => {
+    if (!loading && investments.length > 0 && (routeParams.id || routeParams.propertyId) && !hasScrolledToProperty) {
+      // Find the investment index that matches the property ID
+      const propertyId = routeParams.propertyId || routeParams.id;
+      const investmentIndex = investments.findIndex(
+        (inv) => inv.property?.id === propertyId
+      );
+
+      if (investmentIndex !== -1 && investmentIndex !== activeIndex) {
+        setActiveIndex(investmentIndex);
+        setHasScrolledToProperty(true);
+
+        // Scroll to the investment after a short delay to ensure FlatList is ready
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: investmentIndex,
+            animated: true,
+            viewPosition: 0.5, // Center the item
+          });
+        }, 300);
+      } else if (investmentIndex === -1) {
+        // Property not found, mark as scrolled to prevent infinite loops
+        setHasScrolledToProperty(true);
+      }
+    }
+  }, [loading, investments, routeParams.id, routeParams.propertyId, activeIndex, hasScrolledToProperty]);
 
   // Pan responder for swipe down to close modal
   const modalPanResponder = useMemo(
@@ -393,6 +423,13 @@ export default function AssetsFirstScreen() {
               offset: (CARD_WIDTH + SPACING * 2) * index,
               index,
             })}
+            onScrollToIndexFailed={(info) => {
+              // Handle scroll to index failure gracefully
+              const wait = new Promise(resolve => setTimeout(resolve, 500));
+              wait.then(() => {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+              });
+            }}
             />
         </View>
 

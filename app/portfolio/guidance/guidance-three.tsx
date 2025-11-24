@@ -91,6 +91,7 @@ export default function ConfirmInvestmentScreen() {
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
+        marginTop: 35,
         paddingVertical: 16,
         backgroundColor: colors.background,
       }}>

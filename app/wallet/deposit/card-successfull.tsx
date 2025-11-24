@@ -75,12 +75,13 @@ export default function DepositConfirmationLight() {
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 32,
         padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
       }}>
         <TouchableOpacity onPress={() => router.push('/(tabs)/wallet')}>
-          <Ionicons name="close" size={28} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{
           flex: 1,

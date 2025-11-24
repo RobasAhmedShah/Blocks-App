@@ -65,7 +65,7 @@ export default function SetGoalScreen() {
       const amount = parseFloat(investmentAmount.replace(/,/g, '')) || 0;
       const estimatedMonthlyIncome = (amount * 0.05) / 12;
       
-      updateInvestmentPlan({
+      updateInvestmentPlan({ 
         investmentAmount: amount,
         estimatedInvestmentNeeded: amount,
         monthlyIncomeGoal: estimatedMonthlyIncome,
@@ -94,6 +94,7 @@ export default function SetGoalScreen() {
           justifyContent: 'space-between',
           paddingHorizontal: 16,
           paddingVertical: 16,
+          marginTop: 35,
           backgroundColor: colors.background,
         }}>
           <TouchableOpacity

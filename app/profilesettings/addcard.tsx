@@ -429,33 +429,30 @@ export default function AddCardScreen() {
       />
 
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Header */}
-        <View 
-          style={{ backgroundColor: 'transparent' }}
-          className="flex-row items-center px-4 py-4"
-        >
-          <TouchableOpacity
+          {/* Header */}
+      <View
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+      className="flex-row items-center px-4 py-4 mt-8"
+      >
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center"
             onPress={() => router.back()}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.9)',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
-            }}
           >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
-          <Text style={{ color: colors.textPrimary }} className="flex-1 text-center text-lg font-bold">
-            Add Payment Method
-          </Text>
+          <View className="flex-1 items-center">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              Add Card
+            </Text>
+          </View>
 
           <View className="w-10" />
         </View>
+
+       
+      </View>
 
         <ScrollView 
           className="flex-1"

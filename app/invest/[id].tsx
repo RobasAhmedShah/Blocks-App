@@ -42,27 +42,49 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   const [tokenInput, setTokenInput] = useState<string>(initialTokenCount > 0 ? initialTokenCount.toFixed(2) : '');
   const [priceInput, setPriceInput] = useState<string>(initialInvestmentAmount && initialInvestmentAmount > 0 ? initialInvestmentAmount.toFixed(2) : '');
   const [isInvesting, setIsInvesting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Pan gesture for drag to close
+  // Pan gesture for drag to close (bottom to top OR top to bottom)
   const pan = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to vertical gestures
         return Math.abs(gestureState.dy) > 5;
       },
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+      },
       onPanResponderMove: (_, gestureState) => {
+        // Allow dragging in both directions (down = positive, up = negative)
+        // But we want to close on swipe down (positive dy)
         if (gestureState.dy > 0) {
           pan.setValue(gestureState.dy);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 150) {
-          handleClose();
+        setIsDragging(false);
+        
+        // Close if:
+        // 1. Swiped down more than 150px
+        // 2. OR velocity is > 0.5 (fast swipe down)
+        if (gestureState.dy > 150 || gestureState.vy > 0.5) {
+          // Animate out and close
+          Animated.timing(pan, {
+            toValue: 500, // Slide down off screen
+            duration: 250,
+            useNativeDriver: true,
+          }).start(() => {
+            handleClose();
+          });
         } else {
+          // Spring back to original position
           Animated.spring(pan, {
             toValue: 0,
             useNativeDriver: true,
+            tension: 40,
+            friction: 7,
           }).start();
         }
       },
@@ -210,7 +232,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
       <TouchableOpacity 
         style={{ 
           flex: 1, 
-          backgroundColor: 'rgba(0, 0, 0, 0.6)', 
+          backgroundColor: 'rgba(3, 56, 36, 0.95)', 
           justifyContent: 'flex-end' 
         }}
         activeOpacity={1}
@@ -230,26 +252,40 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                 borderTopRightRadius: 20,
                 transform: [{ translateY: pan }],
               }}
-              {...panResponder.panHandlers}
             >
             {/* iOS Keyboard Dismiss Button */}
             <KeyboardDismissButton inputAccessoryViewID="tokenInputAccessory" />
             <KeyboardDismissButton inputAccessoryViewID="priceInputAccessory" />
             
-            {/* Handle - Drag to close */}
-            <View style={{ 
-              height: 32, 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              paddingTop: 12, 
-              paddingBottom: 8 
-            }}>
+            {/* Handle - Drag to close indicator */}
+            <View 
+              style={{ 
+                height: 32, 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                paddingTop: 12, 
+                paddingBottom: 8 
+              }}
+              {...panResponder.panHandlers}
+            >
               <View style={{ 
                 height: 5, 
                 width: 40, 
                 borderRadius: 9999, 
-                backgroundColor: colors.muted 
+                backgroundColor: isDragging ? colors.primary : colors.muted,
+                opacity: isDragging ? 0.8 : 1,
               }} />
+              {/* Optional: Add instruction text */}
+              {!isDragging && (
+                <Text style={{ 
+                  color: colors.textMuted, 
+                  fontSize: 10, 
+                  marginTop: 4,
+                  opacity: 0.6,
+                }}>
+                  Swipe down to close
+                </Text>
+              )}
             </View>
 
           {/* Header */}
@@ -638,8 +674,6 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
             </View>
           </View>
 
-          {/* Insufficient Balance Warning - Show when user has insufficient balance */}
-       
           {/* Financial Summary */}
           <View style={{ paddingHorizontal: 20, paddingVertical: 16, gap: 12 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

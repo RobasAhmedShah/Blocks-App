@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Modal,
   Dimensions,
   RefreshControl,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -39,6 +41,65 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Drag gesture animation
+  const translateY = useRef(new Animated.Value(0)).current;
+  const backgroundOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Pan responder for drag gesture (swipe down to close)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to vertical gestures
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Only allow dragging down (positive dy)
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        setIsDragging(false);
+        
+        // Close if dragged down more than 150px or fast swipe (velocity > 0.5)
+        if (gestureState.dy > 150 || gestureState.vy > 0.5) {
+          // Animate out and close with background fade
+          Animated.parallel([
+            Animated.timing(backgroundOpacity, {
+              toValue: 0,
+              duration: 250,
+              useNativeDriver: true,
+            }),
+            Animated.timing(translateY, {
+              toValue: SCREEN_HEIGHT,
+              duration: 250,
+              useNativeDriver: true,
+            })
+          ]).start(() => {
+            setModalVisible(false);
+            setSelectedNotification(null);
+            setTimeout(() => {
+              translateY.setValue(0);
+            }, 100);
+          });
+        } else {
+          // Spring back to original position
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 40,
+            friction: 7,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   // Get notifications based on context
   const contextNotifications = useMemo(() => {
@@ -86,6 +147,14 @@ export default function NotificationsScreen() {
   const handleNotificationPress = (notification: Notification) => {
     setSelectedNotification(notification);
     setModalVisible(true);
+    translateY.setValue(0); // Reset animation
+    
+    // Fade in background
+    Animated.timing(backgroundOpacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
     
     // Mark as read
     if (!notification.read) {
@@ -94,8 +163,26 @@ export default function NotificationsScreen() {
   };
 
   const handleCloseModal = () => {
-    setModalVisible(false);
-    setSelectedNotification(null);
+    // Fade out background and animate out modal
+    Animated.parallel([
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setModalVisible(false);
+      setSelectedNotification(null);
+      // Reset animation value after modal is hidden
+      setTimeout(() => {
+        translateY.setValue(0);
+      }, 100);
+    });
   };
 
   const getNotificationIcon = (type: string) => {
@@ -201,7 +288,6 @@ export default function NotificationsScreen() {
           : isDarkColorScheme ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.3)',
         flexDirection: 'row',
         gap: 10,
-      
       }}
     >
       {/* Icon Container */}
@@ -210,7 +296,6 @@ export default function NotificationsScreen() {
           width: 40,
           height: 40,
           borderRadius: 25,
-          // backgroundColor: `${colors.card}`,
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
@@ -325,8 +410,12 @@ export default function NotificationsScreen() {
         >
           {/* Top Navigation Bar */}
           <View 
-          className="flex-row items-center justify-between mb-5"
-        //   style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              marginBottom: 20 
+            }}
           >
             <TouchableOpacity
               onPress={() => router.back()}
@@ -344,14 +433,17 @@ export default function NotificationsScreen() {
               <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text
-            className="text-lg font-bold flex-1 text-center"
-            style={{
-              color: colors.textPrimary,
-            }}
-            
+              style={{
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: 'bold',
+                flex: 1,
+                textAlign: 'center',
+              }}
             >
               {getContextTitle()}
             </Text>
+            <View style={{ width: 36 }} />
           </View>
 
           {/* Search Bar */}
@@ -495,34 +587,28 @@ export default function NotificationsScreen() {
               </Text>
             </View>
           ) : (
-            <View
-              style={{
-                // backgroundColor: isDarkColorScheme
-                //   ? 'rgba(0, 0, 0, 0.15)'
-                //   : 'rgba(255, 255, 255, 0.4)',
-                // borderRadius: 14,
-                padding: 5,
-                // borderWidth: 1,
-                // borderColor: isDarkColorScheme
-                //   ? 'rgba(34, 197, 94, 0.1)'
-                //   : 'rgba(0, 0, 0, 0.04)',
-              }}
-            >
+            <View style={{ padding: 5 }}>
               {displayedNotifications.map((notification) => renderNotificationCard(notification))}
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Notification Detail Modal */}
+      {/* Notification Detail Modal with Drag Gesture */}
       <Modal
         visible={modalVisible}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={handleCloseModal}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <View
+        <Animated.View 
+          style={{ 
+            flex: 1, 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            opacity: backgroundOpacity,
+          }}
+        >
+          <Animated.View
             style={{
               position: 'absolute',
               bottom: 0,
@@ -534,18 +620,34 @@ export default function NotificationsScreen() {
               paddingTop: 16,
               paddingBottom: 30,
               maxHeight: SCREEN_HEIGHT * 0.85,
+              transform: [{ translateY }],
             }}
           >
-            {/* Drag Handle */}
-            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+            {/* Drag Handle with Pan Responder */}
+            <View 
+              style={{ alignItems: 'center', marginBottom: 12 }}
+              {...panResponder.panHandlers}
+            >
               <View
                 style={{
                   width: 40,
                   height: 4,
                   borderRadius: 2,
-                  backgroundColor: colors.textMuted,
+                  backgroundColor: isDragging ? colors.primary : colors.textMuted,
+                  opacity: isDragging ? 0.8 : 1,
                 }}
               />
+              {/* Optional: Swipe hint text */}
+              {!isDragging && (
+                <Text style={{ 
+                  color: colors.textMuted, 
+                  fontSize: 10, 
+                  marginTop: 4,
+                  opacity: 0.6,
+                }}>
+                  Swipe down to close
+                </Text>
+              )}
             </View>
 
             <ScrollView
@@ -591,7 +693,16 @@ export default function NotificationsScreen() {
                       </Text>
                     </View>
                     <TouchableOpacity
-                      onPress={handleCloseModal}
+                      onPress={() => {
+                        // Animate out before closing
+                        Animated.timing(translateY, {
+                          toValue: SCREEN_HEIGHT,
+                          duration: 250,
+                          useNativeDriver: true,
+                        }).start(() => {
+                          handleCloseModal();
+                        });
+                      }}
                       style={{
                         width: 32,
                         height: 32,
@@ -677,8 +788,19 @@ export default function NotificationsScreen() {
                   {/* Action Button */}
                   <TouchableOpacity
                     onPress={() => {
-                      deleteNotification(selectedNotification.id);
-                      handleCloseModal();
+                      // Animate out before closing
+                      Animated.timing(translateY, {
+                        toValue: SCREEN_HEIGHT,
+                        duration: 200,
+                        useNativeDriver: true,
+                      }).start(() => {
+                        deleteNotification(selectedNotification.id);
+                        setModalVisible(false);
+                        setSelectedNotification(null);
+                        setTimeout(() => {
+                          translateY.setValue(0);
+                        }, 100);
+                      });
                     }}
                     style={{
                       flexDirection: 'row',
@@ -698,15 +820,23 @@ export default function NotificationsScreen() {
                         fontSize: 13,
                         fontWeight: '600',
                         marginLeft: 6,
-                      }}
-                    >
+                      }}>
                       Delete Notification
                     </Text>
                   </TouchableOpacity>
 
                   {/* Close Button */}
                   <TouchableOpacity
-                    onPress={handleCloseModal}
+                    onPress={() => {
+                      // Animate out before closing
+                      Animated.timing(translateY, {
+                        toValue: SCREEN_HEIGHT,
+                        duration: 250,
+                        useNativeDriver: true,
+                      }).start(() => {
+                        handleCloseModal();
+                      });
+                    }}
                     style={{
                       marginTop: 12,
                       paddingVertical: 12,
@@ -726,8 +856,8 @@ export default function NotificationsScreen() {
                 </>
               )}
             </ScrollView>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </View>
   );

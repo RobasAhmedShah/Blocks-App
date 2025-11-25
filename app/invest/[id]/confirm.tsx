@@ -31,30 +31,29 @@ export default function InvestmentConfirmScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 16, 
-        paddingTop: 48 
-      }}>
-        <TouchableOpacity
-          onPress={() => router.push({
-            pathname: '/portfolio',
-            params: { id: id },
-          } as any)}
-          style={{ width: 48, alignItems: 'flex-start' }}
-        >
-          <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ 
-          flex: 1, 
-          textAlign: 'center', 
-          fontSize: 18, 
-          fontWeight: 'bold', 
-          color: colors.textPrimary 
-        }}>
-          Investment Successful
-        </Text>
+     {/* Header */}
+     <View
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+      className="flex-row items-center px-4 py-4 mt-8"
+      >
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center"
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+
+          <View className="flex-1 items-center">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              Confirm Investment
+            </Text>
+          </View>
+
+          <View className="w-10" />
+        </View>
+
+       
       </View>
 
       <ScrollView 

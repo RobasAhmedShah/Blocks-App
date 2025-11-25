@@ -354,7 +354,7 @@ export default function AssetsFirstScreen() {
       <SafeAreaView className="flex-1">
         {/* Fixed Header */}
         <View 
-          className="flex-row justify-between items-end px-6 mt-8"
+          className="flex-row justify-between items-center px-6 mt-8"
           style={{ 
             backgroundColor: colors.background,
             position: 'absolute',
@@ -370,12 +370,12 @@ export default function AssetsFirstScreen() {
         >
             <TouchableOpacity 
             onPress={() => router.back()} 
-            className="flex-row items-center gap-3"
+            className="flex-row items-center"
             style={{ flex: 1 }}
           >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             <Text 
-              className="text-lg font-semibold"
+              className="text-lg w-full text-center font-semibold"
               style={{ color: colors.textPrimary }}
             >
               My Assets
@@ -497,8 +497,8 @@ export default function AssetsFirstScreen() {
       <AssetDetailModal
         visible={isModalVisible}
         investment={selectedInvestment}
-                          colors={colors} 
-                          isDarkColorScheme={isDarkColorScheme}
+        colors={colors} 
+        isDarkColorScheme={isDarkColorScheme}
         modalTranslateY={modalTranslateY}
         modalScale={modalScale}
         modalBackgroundOpacity={modalBackgroundOpacity}

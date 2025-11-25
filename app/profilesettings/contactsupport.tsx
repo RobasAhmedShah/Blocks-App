@@ -104,23 +104,29 @@ export default function ContactSupportScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
 
-      {/* Header */}
-      <View 
-        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-        className="flex-row items-center px-4 py-4"
+     {/* Header */}
+     <View
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+      className="flex-row items-center px-4 py-4 mt-8"
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="w-12 h-12 items-center justify-center"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center"
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
 
-        <Text style={{ color: colors.textPrimary }} className="flex-1 text-center text-lg font-bold">
-          Contact Support
-        </Text>
+          <View className="flex-1 items-center">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+             Contact
+            </Text>
+          </View>
 
-        <View className="w-12" />
+          <View className="w-10" />
+        </View>
+
+       
       </View>
 
       <ScrollView 

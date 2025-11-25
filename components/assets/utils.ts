@@ -1,5 +1,35 @@
 // Utility functions for assets components
 
+/**
+ * Smart currency formatter that adapts to value size
+ * - Shows exact values with 2 decimals for amounts < $1,000 (e.g., "$50.00", "$99.50")
+ * - Shows "k" format for amounts >= $1,000 and < $1,000,000 (e.g., "$1.2k", "$5.5k")
+ * - Shows "M" format for amounts >= $1,000,000 (e.g., "$1.5M")
+ */
+export const formatCurrency = (value: number): string => {
+  if (value < 1000) {
+    // Show exact value with 2 decimals for small amounts
+    return `$${value.toFixed(2)}`;
+  } else if (value < 1000000) {
+    // Show in thousands with 1 decimal
+    const thousands = value / 1000;
+    // If it's a whole number, show without decimal
+    if (thousands % 1 === 0) {
+      return `$${thousands.toFixed(0)}k`;
+    }
+    return `$${thousands.toFixed(1)}k`;
+  } else {
+    // Show in millions with 1-2 decimals
+    const millions = value / 1000000;
+    if (millions % 1 === 0) {
+      return `$${millions.toFixed(0)}M`;
+    }
+    // Show 1 decimal if less than 10M, 2 decimals if more
+    const decimals = millions < 10 ? 1 : 2;
+    return `$${millions.toFixed(decimals)}M`;
+  }
+};
+
 export const getTierInfo = (roi: number) => {
   if (roi >= 15) {
     return {
@@ -45,7 +75,7 @@ export const getModalStats = (investment: any, colors: any) => {
     },
     {
       label: 'Total Invested',
-      value: `$${(investment.investedAmount / 1000).toFixed(1)}k`,
+      value: formatCurrency(investment.investedAmount),
       change: 'Principal',
       changeType: 'neutral' as const,
       changeColor: colors.textMuted,
@@ -53,7 +83,7 @@ export const getModalStats = (investment: any, colors: any) => {
     },
     {
       label: 'Current Value',
-      value: `$${(investment.currentValue / 1000).toFixed(1)}k`,
+      value: formatCurrency(investment.currentValue),
       change: `+${((investment.currentValue - investment.investedAmount) / investment.investedAmount * 100).toFixed(1)}%`,
       changeType: 'up' as const,
       changeColor: colors.primary,

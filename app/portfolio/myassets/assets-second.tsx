@@ -21,6 +21,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
 import { BlurView } from 'expo-blur';
+import { formatCurrency } from '@/components/assets/utils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -152,7 +153,7 @@ export default function AssetSecondScreen() {
     },
     {
       label: 'Total Invested',
-      value: `$${(investment.investedAmount / 1000).toFixed(1)}k`,
+      value: formatCurrency(investment.investedAmount),
       change: 'Principal',
       changeType: 'neutral',
       changeColor: colors.textMuted,
@@ -160,7 +161,7 @@ export default function AssetSecondScreen() {
     },
     {
       label: 'Current Value',
-      value: `$${(investment.currentValue / 1000).toFixed(1)}k`,
+      value: formatCurrency(investment.currentValue),
       change: `+${((investment.currentValue - investment.investedAmount) / investment.investedAmount * 100).toFixed(1)}%`,
       changeType: 'up',
       changeColor: colors.primary,

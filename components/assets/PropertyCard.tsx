@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Investment } from '@/types/portfolio';
-import { getTierInfo } from './utils';
+import { getTierInfo, formatCurrency } from './utils';
 import { ASSETS_CONSTANTS } from './constants';
 import * as Haptics from 'expo-haptics';
 
@@ -539,7 +539,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                         textShadowRadius: 3,
                       }}
                     >
-                      ${item.currentValue >= 1000 ? `${(item.currentValue / 1000).toFixed(1)}k` : item.currentValue}
+                      {formatCurrency(item.currentValue)}
                     </Text>
                     <View className="absolute top-3 right-3 opacity-30">
                       <Ionicons name="wallet" size={20} color={colors.primary} />

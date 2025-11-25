@@ -288,7 +288,7 @@ export function AssetDetailModal({
           bottom: 0,
           left: 0,
           right: 0,
-          height: SCREEN_HEIGHT * 0.92,
+          height: SCREEN_HEIGHT * 0.82,
           transform: [
             { translateY: modalTranslateY },
             { scale: modalScale },

@@ -17,6 +17,9 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { profileSections } from "@/data/mockProfile";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTour } from "@/contexts/TourContext";
+import { useCopilot } from "react-native-copilot";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -226,10 +229,27 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
 
 export default function BlocksProfileScreen() {
   const router = useRouter();
-  const { themePreference, setThemePreference, colors, isDarkColorScheme } = useColorScheme();
+  const { themePreference, setThemePreference, toggleColorScheme, colors, isDarkColorScheme } = useColorScheme();
   const { state, getBookmarkedProperties } = useApp();
   const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
+  const { resetAllTours, setShouldStartTour, setIsTourActive, resetTour } = useTour();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+
+  // Load demo mode state
+  useEffect(() => {
+    const loadDemoMode = async () => {
+      const value = await AsyncStorage.getItem('@demo_mode');
+      setDemoMode(value === 'true');
+    };
+    loadDemoMode();
+  }, []);
+
+  // Save demo mode state
+  const handleDemoModeToggle = async (value: boolean) => {
+    setDemoMode(value);
+    await AsyncStorage.setItem('@demo_mode', value ? 'true' : 'false');
+  };
   
   // Custom Alert States
   const [alertConfig, setAlertConfig] = useState<{
@@ -633,6 +653,137 @@ export default function BlocksProfileScreen() {
             </View>
           </View>
         )}
+
+        {/* App Settings Section */}
+        <View className="mb-8">
+          <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
+            App Settings
+          </Text>
+          <View 
+            style={{ 
+              backgroundColor: colors.card,
+              borderWidth: isDarkColorScheme ? 0 : 1,
+              borderColor: colors.border,
+            }}
+            className="rounded-xl shadow-sm overflow-hidden"
+          >
+            {/* Demo Mode Toggle */}
+            <View
+              style={{
+                backgroundColor: colors.card,
+              }}
+              className="flex-row items-center justify-between px-4 py-4"
+            >
+              <View className="flex-row items-center gap-4 flex-1">
+                <View
+                  style={{
+                    backgroundColor: isDarkColorScheme
+                      ? 'rgba(22, 163, 74, 0.15)'
+                      : 'rgba(22, 163, 74, 0.1)',
+                  }}
+                  className="w-10 h-10 rounded-lg items-center justify-center"
+                >
+                  <Ionicons 
+                    name="play-circle" 
+                    size={22} 
+                    color={colors.primary} 
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    style={{ color: colors.textPrimary }}
+                    className="text-base font-medium"
+                  >
+                    Demo Mode
+                  </Text>
+                  <Text
+                    style={{ color: colors.textMuted }}
+                    className="text-xs mt-0.5"
+                  >
+                    {demoMode ? 'Interactive tutorial enabled' : 'Enable app tour guidance'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={demoMode}
+                onValueChange={handleDemoModeToggle}
+                trackColor={{
+                  false: isDarkColorScheme ? '#374151' : '#d1d5db',
+                  true: colors.primary,
+                }}
+                thumbColor="#ffffff"
+                ios_backgroundColor={isDarkColorScheme ? '#374151' : '#d1d5db'}
+              />
+            </View>
+            
+            <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />
+            
+            {/* Replay App Tutorial Button */}
+            <TouchableOpacity
+              onPress={async () => {
+                if (!demoMode) {
+                  showAlert(
+                    'Demo Mode Required',
+                    'Please enable Demo Mode first to use the app tutorial.',
+                    'warning',
+                    [{ text: 'OK' }]
+                  );
+                  return;
+                }
+                
+                console.log('[Profile] Replay tutorial button pressed');
+                
+                // Step 1: Reset tour state
+                await resetTour('home'); // Clear home tour completion
+                setIsTourActive(false); // Ensure tour is not marked as active
+                console.log('[Profile] Tour state reset');
+                
+                // Step 2: Set flag to start tour
+                setShouldStartTour(true);
+                console.log('[Profile] Set shouldStartTour to true');
+                
+                // Step 3: Navigate to home screen
+                router.push('/(tabs)/home' as any); // Navigate to home tab
+                console.log('[Profile] Navigated to home, tour should start');
+              }}
+              disabled={!demoMode}
+              style={{ 
+                backgroundColor: colors.card,
+                opacity: demoMode ? 1 : 0.5,
+              }}
+              className="flex-row items-center justify-between px-4 py-4"
+              activeOpacity={demoMode ? 0.7 : 1}
+            >
+              <View className="flex-row items-center gap-4 flex-1">
+                <View
+                  style={{
+                    backgroundColor: isDarkColorScheme
+                      ? 'rgba(22, 163, 74, 0.15)'
+                      : 'rgba(22, 163, 74, 0.1)',
+                  }}
+                  className="w-10 h-10 rounded-lg items-center justify-center"
+                >
+                  <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    style={{ color: colors.textPrimary }}
+                    className="text-base font-medium"
+                  >
+                    Replay App Tutorial
+                  </Text>
+                  <Text
+                    style={{ color: colors.textMuted }}
+                    className="text-xs mt-0.5"
+                  >
+                    Restart the interactive app tour
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Logout */}
         <TouchableOpacity 

@@ -27,6 +27,9 @@ import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 
+// Effective token price (divided by 10 for fractional investments)
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+
 const { width } = Dimensions.get("window");
 
 export default function PropertyDetailScreen() {
@@ -102,7 +105,7 @@ export default function PropertyDetailScreen() {
     try {
       // Create a deep link URL to the property
       const propertyUrl = Linking.createURL(`/property/${id}`);
-      const shareMessage = `Check out ${property.title} - ${property.location}\n\nEstimated ROI: ${property.estimatedROI}%\nToken Price: $${property.tokenPrice.toFixed(2)}\n\nView property: ${propertyUrl}`;
+      const shareMessage = `Check out ${property.title} - ${property.location}\n\nEstimated ROI: ${property.estimatedROI}%\nToken Price: $${getEffectiveTokenPrice(property.tokenPrice).toFixed(2)}\n\nView property: ${propertyUrl}`;
       
       if (Platform.OS === 'web') {
         // For web, try to use Web Share API
@@ -253,7 +256,7 @@ export default function PropertyDetailScreen() {
           <View className="absolute top-12 left-0 right-0 px-4 flex-row justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
-              className="bg-white/1 p-2 rounded-full"
+              className="bg-black/20 p-2 rounded-full"
             >
               <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -379,7 +382,7 @@ export default function PropertyDetailScreen() {
                     textShadowRadius: 6,
                   }}
                 >
-                  ${property.tokenPrice.toFixed(2)}
+                  ${getEffectiveTokenPrice(property.tokenPrice).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -743,6 +746,7 @@ export default function PropertyDetailScreen() {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        // paddingBottom: 50,
       }}>
         <TouchableOpacity
           onPress={handleInvest}

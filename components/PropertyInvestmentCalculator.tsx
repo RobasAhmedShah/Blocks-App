@@ -36,19 +36,26 @@ const formatPercentage = (value: string | number) => {
   return num.toFixed(2);
 };
 
+// Effective token price (divided by 10 for fractional investments)
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+// Minimum investment: 0.1 tokens
+const MINIMUM_TOKENS = 0.1;
+
 export function PropertyInvestmentCalculator({
   property,
   colors,
   isDarkColorScheme,
   onInvest,
 }: PropertyInvestmentCalculatorProps) {
-  const initialInvestment = property.minInvestment || 2000;
+  const effectiveTokenPrice = getEffectiveTokenPrice(property.tokenPrice);
+  const minimumInvestment = MINIMUM_TOKENS * effectiveTokenPrice;
+  const initialInvestment = Math.max(property.minInvestment || 2000, minimumInvestment);
   const initialAppreciation = property.estimatedROI || 6;
   const initialRentalYield = property.estimatedYield || 5.85;
   
   // Calculate max investment based on available tokens
   const availableTokens = property.totalTokens - property.soldTokens;
-  const maxInvestmentAmount = availableTokens * property.tokenPrice;
+  const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
   const effectiveMaxInvestment = Math.min(maxInvestmentAmount, 50000); // Cap at 50k for slider
 
   // Use numbers directly to avoid string conversion glitches
@@ -115,9 +122,11 @@ export function PropertyInvestmentCalculator({
 
     switch (editingField) {
       case 'investment':
-        if (numValue >= 0) {
+        if (numValue >= minimumInvestment) {
           const cappedValue = Math.min(numValue, effectiveMaxInvestment);
           setInvestmentAmount(cappedValue);
+        } else {
+          setInvestmentAmount(minimumInvestment);
         }
         break;
       case 'appreciation':
@@ -186,7 +195,7 @@ export function PropertyInvestmentCalculator({
 
               <Slider
                 style={{ width: SCREEN_WIDTH - 40, height: 40 }}
-                minimumValue={property.minInvestment || 0}
+                minimumValue={minimumInvestment}
                 maximumValue={effectiveMaxInvestment}
                 value={investmentAmount}
                 onValueChange={handleInvestmentChange}

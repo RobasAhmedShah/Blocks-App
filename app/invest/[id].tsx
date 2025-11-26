@@ -10,6 +10,10 @@ import { KeyboardDismissButton } from '@/components/common/KeyboardDismissButton
 
 // Epsilon tolerance for floating-point comparison (1 cent)
 const BALANCE_EPSILON = 0.01;
+// Minimum investment: 0.1 tokens
+const MINIMUM_TOKENS = 0.1;
+// Effective token price (divided by 10 for fractional investments)
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
 
 interface InvestScreenProps {
   propertyId?: string;
@@ -29,7 +33,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   // Calculate initial token count from initialInvestmentAmount if provided
   const getInitialTokenCount = () => {
     if (initialInvestmentAmount && property) {
-      return initialInvestmentAmount / property.tokenPrice;
+      const effectivePrice = getEffectiveTokenPrice(property.tokenPrice);
+      return initialInvestmentAmount / effectivePrice;
     }
     if (routeParams.tokenCount) {
       return parseFloat(routeParams.tokenCount);
@@ -102,7 +107,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   // Effect to update inputs when initialInvestmentAmount changes (e.g., from calculator)
   useEffect(() => {
     if (initialInvestmentAmount && initialInvestmentAmount > 0 && property) {
-      const calculatedTokens = initialInvestmentAmount / property.tokenPrice;
+      const effectivePrice = getEffectiveTokenPrice(property.tokenPrice);
+      const calculatedTokens = initialInvestmentAmount / effectivePrice;
       const availableTokens = property.totalTokens - property.soldTokens;
       const validTokens = Math.min(calculatedTokens, availableTokens);
       
@@ -121,9 +127,10 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   }
 
   const availableTokens = property.totalTokens - property.soldTokens;
-  const maxInvestmentAmount = availableTokens * property.tokenPrice;
+  const effectiveTokenPrice = getEffectiveTokenPrice(property.tokenPrice);
+  const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
   
-  const totalAmount = (tokenCount || 0) * property.tokenPrice;
+  const totalAmount = (tokenCount || 0) * effectiveTokenPrice;
   const transactionFee = totalAmount * 0.02; // 2% fee
   const totalInvestment = totalAmount + transactionFee;
   
@@ -132,6 +139,9 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
 
   // Check if user has sufficient balance (with epsilon tolerance)
   const hasSufficientBalance = balance.usdc >= (totalInvestment - BALANCE_EPSILON);
+  
+  // Check if investment meets minimum token requirement (0.1 tokens)
+  const meetsMinimumTokens = tokenCount >= MINIMUM_TOKENS;
 
   // Synchronized update function for tokens
   const updateFromTokens = (tokens: number) => {
@@ -141,8 +151,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
     setTokenCount(validTokens);
     setTokenInput(validTokens > 0 ? validTokens.toFixed(2) : '');
     
-    // Update price with 2 decimals
-    const calculatedPrice = validTokens * property.tokenPrice;
+    // Update price with 2 decimals using effective price
+    const calculatedPrice = validTokens * effectiveTokenPrice;
     setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
   };
 
@@ -153,16 +163,19 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
     
     setPriceInput(validPrice > 0 ? validPrice.toFixed(2) : '');
     
-    // Update tokens with 2 decimals
-    const calculatedTokens = validPrice / property.tokenPrice;
+    // Update tokens with 2 decimals using effective price
+    const calculatedTokens = validPrice / effectiveTokenPrice;
     setTokenCount(calculatedTokens);
     setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
   };
 
   const handleConfirm = async () => {
     // Validation
-    if (tokenCount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid investment amount');
+    if (tokenCount < MINIMUM_TOKENS) {
+      Alert.alert(
+        'Minimum Investment Required', 
+        `Minimum investment is ${MINIMUM_TOKENS} tokens ($${(MINIMUM_TOKENS * effectiveTokenPrice).toFixed(2)}). Please increase your investment amount.`
+      );
       return;
     }
 
@@ -186,7 +199,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
 
     // Ensure tokenCount is valid before investing
     const finalTokenCount = tokenCount;
-    const finalTotalAmount = finalTokenCount * property.tokenPrice;
+    const finalTotalAmount = finalTokenCount * effectiveTokenPrice;
     const finalTransactionFee = finalTotalAmount * 0.02;
     const finalTotalInvestment = finalTotalAmount + finalTransactionFee;
 
@@ -232,13 +245,16 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
       <TouchableOpacity 
         style={{ 
           flex: 1, 
-          backgroundColor: 'rgba(3, 56, 36, 0.95)', 
-          justifyContent: 'flex-end' 
+          backgroundColor: 'rgba(255, 255, 255, 0)', 
+          justifyContent: 'flex-end',
+          // paddingBottom: 50
+          
         }}
         activeOpacity={1}
         onPress={handleClose}
       >
         <TouchableOpacity 
+        // className='border border-gray-200 mb-[-50px]'
           activeOpacity={1} 
           onPress={(e) => {
             e.stopPropagation();
@@ -248,8 +264,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
             <Animated.View 
               style={{ 
                 backgroundColor: colors.card, 
-                borderTopLeftRadius: 20, 
-                borderTopRightRadius: 20,
+                borderTopLeftRadius: 50, 
+                borderTopRightRadius: 50,
                 transform: [{ translateY: pan }],
               }}
             >
@@ -276,16 +292,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                 opacity: isDragging ? 0.8 : 1,
               }} />
               {/* Optional: Add instruction text */}
-              {!isDragging && (
-                <Text style={{ 
-                  color: colors.textMuted, 
-                  fontSize: 10, 
-                  marginTop: 4,
-                  opacity: 0.6,
-                }}>
-                  Swipe down to close
-                </Text>
-              )}
+            
             </View>
 
           {/* Header */}
@@ -299,7 +306,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
               Invest in {property.title}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 14, paddingTop: 4 }}>
-              {property.tokenSymbol} - ${property.tokenPrice.toFixed(2)}/token
+              {property.tokenSymbol} - ${effectiveTokenPrice.toFixed(2)}/token (Min: {MINIMUM_TOKENS} tokens)
             </Text>
           </View>
 
@@ -385,8 +392,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                       
                       setTokenCount(validNum);
                       
-                      // Sync price with 2 decimals
-                      const calculatedPrice = validNum * property.tokenPrice;
+                      // Sync price with 2 decimals using effective price
+                      const calculatedPrice = validNum * effectiveTokenPrice;
                       setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
                     } else if (cleaned === '.') {
                       setTokenCount(0);
@@ -419,8 +426,8 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                       setTokenCount(parseFloat(formatted));
                       setTokenInput(formatted);
                       
-                      // Sync price with 2 decimals
-                      const calculatedPrice = validNum * property.tokenPrice;
+                      // Sync price with 2 decimals using effective price
+                      const calculatedPrice = validNum * effectiveTokenPrice;
                       setPriceInput(calculatedPrice.toFixed(2));
                     } else {
                       setTokenInput('');
@@ -481,7 +488,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TouchableOpacity 
                   onPress={() => {
-                    const newAmount = Math.max(0, totalAmount - property.tokenPrice);
+                    const newAmount = Math.max(0, totalAmount - effectiveTokenPrice);
                     updateFromPrice(newAmount);
                   }}
                   style={{ 
@@ -534,7 +541,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                       
                       // Calculate tokens from price
                       const priceNum = parseFloat(cleaned);
-                      if (!isNaN(priceNum) && priceNum >= 0 && property.tokenPrice > 0) {
+                      if (!isNaN(priceNum) && priceNum >= 0 && effectiveTokenPrice > 0) {
                         // Check max limit
                         const validPrice = Math.min(priceNum, maxInvestmentAmount);
                         
@@ -543,7 +550,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                           setPriceInput(cleaned);
                         }
                         
-                        const calculatedTokens = validPrice / property.tokenPrice;
+                        const calculatedTokens = validPrice / effectiveTokenPrice;
                         setTokenCount(calculatedTokens);
                         
                         // Sync tokens with 2 decimals
@@ -563,7 +570,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                       }
                       
                       const priceNum = parseFloat(priceInput);
-                      if (!isNaN(priceNum) && priceNum > 0 && property.tokenPrice > 0) {
+                      if (!isNaN(priceNum) && priceNum > 0 && effectiveTokenPrice > 0) {
                         // Enforce max limit on blur
                         const validPrice = Math.min(priceNum, maxInvestmentAmount);
                         
@@ -578,7 +585,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                         const formatted = validPrice.toFixed(2);
                         setPriceInput(formatted);
                         
-                        const calculatedTokens = validPrice / property.tokenPrice;
+                        const calculatedTokens = validPrice / effectiveTokenPrice;
                         setTokenCount(calculatedTokens);
                         setTokenInput(calculatedTokens.toFixed(2));
                       } else {
@@ -606,7 +613,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                 </View>
                 <TouchableOpacity
                   onPress={() => {
-                    const newAmount = totalAmount + property.tokenPrice;
+                    const newAmount = totalAmount + effectiveTokenPrice;
                     updateFromPrice(newAmount);
                   }}
                   style={{ 
@@ -623,6 +630,27 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
               </View>
             </View>
 
+            {/* Warning if below minimum */}
+            {tokenCount > 0 && tokenCount < MINIMUM_TOKENS && (
+              <View 
+                style={{ 
+                  backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)',
+                  borderWidth: 1,
+                  borderColor: colors.destructive,
+                  borderRadius: 8,
+                  padding: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="warning" size={20} color={colors.destructive} />
+                <Text style={{ color: colors.destructive, fontSize: 12, flex: 1 }}>
+                  Minimum investment is {MINIMUM_TOKENS} tokens (${(MINIMUM_TOKENS * effectiveTokenPrice).toFixed(2)})
+                </Text>
+              </View>
+            )}
+            
             {/* Warning if exceeds available */}
             {tokenCount > availableTokens && (
               <View 
@@ -724,21 +752,21 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                 paddingVertical: 16,
                 paddingHorizontal: 16,
                 borderRadius: 12,
-                backgroundColor: (hasSufficientBalance && tokenCount <= availableTokens && tokenCount > 0) ? colors.primary : colors.muted,
-                opacity: (hasSufficientBalance && !isInvesting && tokenCount <= availableTokens && tokenCount > 0) ? 1 : 0.5,
+                backgroundColor: (hasSufficientBalance && tokenCount <= availableTokens && meetsMinimumTokens) ? colors.primary : colors.muted,
+                opacity: (hasSufficientBalance && !isInvesting && tokenCount <= availableTokens && meetsMinimumTokens) ? 1 : 0.5,
               }}
-              disabled={!hasSufficientBalance || isInvesting || tokenCount <= 0 || tokenCount > availableTokens}
+              disabled={!hasSufficientBalance || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens}
             >
               <Text style={{ 
-                color: (hasSufficientBalance && tokenCount <= availableTokens && tokenCount > 0) ? colors.primaryForeground : colors.textMuted, 
+                color: (hasSufficientBalance && tokenCount <= availableTokens && meetsMinimumTokens) ? colors.primaryForeground : colors.textMuted, 
                 fontSize: 16, 
                 fontWeight: 'bold', 
                 textAlign: 'center' 
               }}>
                 {isInvesting
                   ? 'Processing...'
-                  : tokenCount <= 0
-                  ? 'Enter Amount'
+                  : !meetsMinimumTokens
+                  ? `Minimum ${MINIMUM_TOKENS} tokens required`
                   : tokenCount > availableTokens
                   ? 'Exceeds Available Tokens'
                   : !hasSufficientBalance

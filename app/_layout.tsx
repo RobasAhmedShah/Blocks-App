@@ -9,6 +9,9 @@ import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider } from '@/lib/useColorScheme';
+import { TourProvider } from '@/contexts/TourContext';
+import { CopilotProvider } from 'react-native-copilot';
+import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 
@@ -47,10 +50,23 @@ export default function RootLayout() {
         <GuidanceProvider>
           <NotificationProvider>
             <ThemeProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootNavigation />
-                <StatusBar style="auto" />
-              </GestureHandlerRootView>
+              <TourProvider>
+                <CopilotProvider
+                  tooltipComponent={CustomTooltip}
+                  stepNumberComponent={() => null}
+                  overlay="view"
+                  animated={true}
+                  backdropColor="rgba(0, 0, 0, 0.85)"
+                  arrowColor="#00C896"
+                  verticalOffset={10}
+                  androidStatusBarVisible={true}
+                >
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootNavigation />
+                    <StatusBar style="auto" />
+                  </GestureHandlerRootView>
+                </CopilotProvider>
+              </TourProvider>
             </ThemeProvider>
           </NotificationProvider>
         </GuidanceProvider>

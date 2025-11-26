@@ -32,6 +32,11 @@ import Animated, {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Effective token price (divided by 10 for fractional investments)
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+// Minimum investment: 0.1 tokens
+const MINIMUM_TOKENS = 0.1;
+
 export default function GuidedInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
@@ -77,7 +82,8 @@ export default function GuidedInvestmentScreen() {
           // Calculate investment needed for this property to achieve monthly goal
           // Formula: investment = (monthlyGoal * 12) / (estimatedYield / 100)
           const investmentNeeded = (monthlyGoal * 12 * 100) / p.estimatedYield;
-          const tokens = investmentNeeded / p.tokenPrice;
+          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+          const tokens = investmentNeeded / effectivePrice;
           
           return {
             property: p,
@@ -88,8 +94,8 @@ export default function GuidedInvestmentScreen() {
           };
         })
         .filter(rp => {
-          // Filter: must be able to buy at least 0.1 tokens
-          return rp.tokens >= 0.1 && 
+          // Filter: must be able to buy at least minimum tokens
+          return rp.tokens >= MINIMUM_TOKENS && 
                  rp.property.totalTokens > 0 && 
                  rp.property.soldTokens < rp.property.totalTokens;
         })
@@ -113,18 +119,22 @@ export default function GuidedInvestmentScreen() {
       
       return state.properties
         .filter(p => {
-          const tokens = fixedAmount / p.tokenPrice;
-          return tokens >= 0.1 && p.totalTokens > 0 && p.soldTokens < p.totalTokens;
+          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+          const tokens = fixedAmount / effectivePrice;
+          return tokens >= MINIMUM_TOKENS && p.totalTokens > 0 && p.soldTokens < p.totalTokens;
         })
         .sort((a, b) => b.estimatedROI - a.estimatedROI)
         .slice(0, 10)
-        .map(p => ({
-          property: p,
-          expectedMonthlyReturn: ((fixedAmount * p.estimatedYield) / 100 / 12).toFixed(2),
-          breakEven: (100 / p.estimatedROI).toFixed(1),
-          tokensCount: fixedAmount / p.tokenPrice,
-          investmentNeeded: fixedAmount, // Same for all properties
-        }));
+        .map(p => {
+          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+          return {
+            property: p,
+            expectedMonthlyReturn: ((fixedAmount * p.estimatedYield) / 100 / 12).toFixed(2),
+            breakEven: (100 / p.estimatedROI).toFixed(1),
+            tokensCount: fixedAmount / effectivePrice,
+            investmentNeeded: fixedAmount, // Same for all properties
+          };
+        });
     }
   }, [investAmount, investmentPlan.isGoalBased, investmentPlan.monthlyIncomeGoal, state.properties]);
 
@@ -180,7 +190,7 @@ export default function GuidedInvestmentScreen() {
     console.log("Invest Now clicked - Amount:", amountToInvest, "Property:", selectedProp.title, "Monthly Return:", monthlyReturn);
     router.push({
       pathname: "/invest/[id]",
-      params: { id: selectedProp.id , tokenCount: (amountToInvest / selectedProp.tokenPrice).toFixed(2) },
+      params: { id: selectedProp.id , tokenCount: (amountToInvest / getEffectiveTokenPrice(selectedProp.tokenPrice)).toFixed(2) },
     })
   };
 
@@ -992,7 +1002,7 @@ export default function GuidedInvestmentScreen() {
                             fontWeight: '600',
                           }}
                         >
-                          ${selectedPropertyForModal.property.tokenPrice.toFixed(2)}
+                          ${getEffectiveTokenPrice(selectedPropertyForModal.property.tokenPrice).toFixed(2)}
                         </Text>
                       </View>
 

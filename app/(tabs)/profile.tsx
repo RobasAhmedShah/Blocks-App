@@ -17,9 +17,6 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { profileSections } from "@/data/mockProfile";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTour } from "@/contexts/TourContext";
-import { useCopilot } from "react-native-copilot";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -232,24 +229,9 @@ export default function BlocksProfileScreen() {
   const { themePreference, setThemePreference, toggleColorScheme, colors, isDarkColorScheme } = useColorScheme();
   const { state, getBookmarkedProperties } = useApp();
   const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
-  const { resetAllTours, setShouldStartTour, setIsTourActive, resetTour } = useTour();
+  const { resetAllWalkthroughs } = useWalkthrough();
+  const { start } = useWalkthroughLib();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
-
-  // Load demo mode state
-  useEffect(() => {
-    const loadDemoMode = async () => {
-      const value = await AsyncStorage.getItem('@demo_mode');
-      setDemoMode(value === 'true');
-    };
-    loadDemoMode();
-  }, []);
-
-  // Save demo mode state
-  const handleDemoModeToggle = async (value: boolean) => {
-    setDemoMode(value);
-    await AsyncStorage.setItem('@demo_mode', value ? 'true' : 'false');
-  };
   
   // Custom Alert States
   const [alertConfig, setAlertConfig] = useState<{
@@ -667,7 +649,7 @@ export default function BlocksProfileScreen() {
             }}
             className="rounded-xl shadow-sm overflow-hidden"
           >
-            {/* Demo Mode Toggle */}
+            {/* Dark Mode Toggle */}
             <View
               style={{
                 backgroundColor: colors.card,
@@ -684,7 +666,7 @@ export default function BlocksProfileScreen() {
                   className="w-10 h-10 rounded-lg items-center justify-center"
                 >
                   <Ionicons 
-                    name="play-circle" 
+                    name={isDarkColorScheme ? "moon" : "sunny"} 
                     size={22} 
                     color={colors.primary} 
                   />
@@ -694,19 +676,19 @@ export default function BlocksProfileScreen() {
                     style={{ color: colors.textPrimary }}
                     className="text-base font-medium"
                   >
-                    Demo Mode
+                    Dark Mode
                   </Text>
                   <Text
                     style={{ color: colors.textMuted }}
                     className="text-xs mt-0.5"
                   >
-                    {demoMode ? 'Interactive tutorial enabled' : 'Enable app tour guidance'}
+                    {isDarkColorScheme ? 'Dark theme enabled' : 'Light theme enabled'}
                   </Text>
                 </View>
               </View>
               <Switch
-                value={demoMode}
-                onValueChange={handleDemoModeToggle}
+                value={isDarkColorScheme}
+                onValueChange={toggleColorScheme}
                 trackColor={{
                   false: isDarkColorScheme ? '#374151' : '#d1d5db',
                   true: colors.primary,
@@ -718,41 +700,22 @@ export default function BlocksProfileScreen() {
             
             <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />
             
-            {/* Replay App Tutorial Button */}
+            {/* Replay Tutorial Button */}
             <TouchableOpacity
               onPress={async () => {
-                if (!demoMode) {
-                  showAlert(
-                    'Demo Mode Required',
-                    'Please enable Demo Mode first to use the app tutorial.',
-                    'warning',
-                    [{ text: 'OK' }]
-                  );
-                  return;
-                }
-                
-                console.log('[Profile] Replay tutorial button pressed');
-                
-                // Step 1: Reset tour state
-                await resetTour('home'); // Clear home tour completion
-                setIsTourActive(false); // Ensure tour is not marked as active
-                console.log('[Profile] Tour state reset');
-                
-                // Step 2: Set flag to start tour
-                setShouldStartTour(true);
-                console.log('[Profile] Set shouldStartTour to true');
-                
-                // Step 3: Navigate to home screen
-                router.push('/(tabs)/home' as any); // Navigate to home tab
-                console.log('[Profile] Navigated to home, tour should start');
+                await resetAllWalkthroughs();
+                showAlert(
+                  'Tutorial Reset',
+                  'All app tutorials have been reset. The tutorial will start automatically when you navigate to the home screen.',
+                  'success',
+                  [{ text: 'OK' }]
+                );
               }}
-              disabled={!demoMode}
               style={{ 
-                backgroundColor: colors.card,
-                opacity: demoMode ? 1 : 0.5,
+                backgroundColor: colors.card 
               }}
               className="flex-row items-center justify-between px-4 py-4"
-              activeOpacity={demoMode ? 0.7 : 1}
+              activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-4 flex-1">
                 <View
@@ -770,13 +733,13 @@ export default function BlocksProfileScreen() {
                     style={{ color: colors.textPrimary }}
                     className="text-base font-medium"
                   >
-                    Replay App Tutorial
+                    Replay Tutorial
                   </Text>
                   <Text
                     style={{ color: colors.textMuted }}
                     className="text-xs mt-0.5"
                   >
-                    Restart the interactive app tour
+                    Restart the interactive app tutorial
                   </Text>
                 </View>
               </View>

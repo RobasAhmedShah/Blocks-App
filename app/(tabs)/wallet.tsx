@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNotificationContext } from '@/contexts/NotificationContext';
+import { useWalkthroughStep, useWalkthrough as useWalkthroughLib } from '@/react-native-interactive-walkthrough/src/index';
+import { TooltipOverlay } from '@/components/walkthrough/TooltipOverlay';
+import { useWalkthrough } from '@/contexts/WalkthroughContext';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -20,6 +23,17 @@ export default function WalletScreen() {
   const { balance, transactions, loading, loadWallet, loadTransactions } = useWallet();
   const { walletUnreadCount } = useNotificationContext();
   const [activeTab, setActiveTab] = useState('all');
+  const { isWalkthroughCompleted, markWalkthroughCompleted } = useWalkthrough();
+  
+  // Refs for walkthrough elements
+  const balanceRef = useRef<View>(null);
+  const depositButtonRef = useRef<View>(null);
+  const withdrawButtonRef = useRef<View>(null);
+  const filterTabsRef = useRef<View>(null);
+  const transactionsRef = useRef<View>(null);
+  
+  // Track if walkthrough has been started
+  const walkthroughStartedRef = useRef(false);
 
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
@@ -30,6 +44,139 @@ export default function WalletScreen() {
       }
     }, [loadWallet, loadTransactions])
   );
+  
+  // Get start function from walkthrough context
+  const { isReady: isWalletReady, isWalkthroughOn, goTo } = useWalkthroughLib();
+  
+  // Walkthrough Step 1: Wallet Balance
+  const { onLayout: onBalanceLayout } = useWalkthroughStep({
+    number: 1,
+    identifier: 'wallet-balance-step',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Your Wallet Balance"
+        description="This shows your total USDC balance. You can deposit funds here to invest in properties."
+        position="bottom"
+        isFirstStep={true}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: false,
+  });
+  
+  // Walkthrough Step 2: Deposit Button
+  const { onLayout: onDepositButtonLayout } = useWalkthroughStep({
+    number: 2,
+    identifier: 'wallet-deposit-button',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Deposit Funds"
+        description="Tap here to add money to your wallet. You can deposit USDC to start investing in properties."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: false,
+  });
+  
+  // Walkthrough Step 3: Withdraw Button
+  const { onLayout: onWithdrawButtonLayout } = useWalkthroughStep({
+    number: 3,
+    identifier: 'wallet-withdraw-button',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Withdraw Funds"
+        description="Tap here to withdraw your earnings or unused funds back to your bank account."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: false,
+  });
+  
+  // Walkthrough Step 4: Transaction Filters
+  const { onLayout: onFilterTabsLayout } = useWalkthroughStep({
+    number: 4,
+    identifier: 'wallet-filter-tabs',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Filter Transactions"
+        description="Use these filters to view specific transaction types: All, Deposits, Withdrawals, Investments, or Rental Income."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: false,
+  });
+  
+  // Walkthrough Step 5: Transactions List
+  const { onLayout: onTransactionsLayout } = useWalkthroughStep({
+    number: 5,
+    identifier: 'wallet-transactions',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Transaction History"
+        description="View all your wallet transactions here. Each transaction shows the amount, type, date, and status."
+        position="top"
+        isFirstStep={false}
+        isLastStep={true}
+        onFinish={async () => {
+          await markWalkthroughCompleted('WALLET');
+        }}
+      />
+    ),
+    layoutLock: false,
+    onFinish: async () => {
+      await markWalkthroughCompleted('WALLET');
+    },
+  });
+  
+  // Auto-start walkthrough on first visit to wallet tab
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    
+    const checkAndStartWalkthrough = async () => {
+      if (walkthroughStartedRef.current || isWalkthroughOn || !isWalletReady || loading) {
+        return;
+      }
+      
+      try {
+        const completed = await isWalkthroughCompleted('WALLET');
+        
+        if (isMounted && !completed && !walkthroughStartedRef.current) {
+          walkthroughStartedRef.current = true;
+          timeoutId = setTimeout(() => {
+            if (isMounted && !isWalkthroughOn && isWalletReady) {
+              // Start at step 1
+              goTo(1);
+            }
+          }, 800);
+        }
+      } catch (error) {
+        console.error('Error checking wallet walkthrough status:', error);
+      }
+    };
+    
+    if (isWalletReady && !loading) {
+      checkAndStartWalkthrough();
+    }
+    
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isWalletReady, loading]);
 
   const filteredTransactions = transactions.filter((tx) => {
     if (activeTab === 'all') return true;
@@ -163,7 +310,11 @@ export default function WalletScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="mb-6">
+        <View 
+          ref={balanceRef}
+          onLayout={onBalanceLayout}
+          className="mb-6"
+        >
           <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
             ${balance.usdc.toFixed(2)}
           </Text>
@@ -201,6 +352,8 @@ export default function WalletScreen() {
           </Text>
           <View className="flex-row gap-3">
             <TouchableOpacity
+              ref={depositButtonRef}
+              onLayout={onDepositButtonLayout}
               onPress={() => router.push('../wallet')}
               style={{ 
                 backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.24)' : 'rgba(255, 255, 255, 0.8)',
@@ -221,6 +374,8 @@ export default function WalletScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              ref={withdrawButtonRef}
+              onLayout={onWithdrawButtonLayout}
               onPress={() => router.push('/wallet/withdraw' as any)}
               style={{ 
                 backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
@@ -263,7 +418,11 @@ export default function WalletScreen() {
         </View>
 
         {/* Transaction Filters */}
-        <View className="px-4 mb-4">
+        <View 
+          ref={filterTabsRef}
+          onLayout={onFilterTabsLayout}
+          className="px-4 mb-4"
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {[
               { value: 'all', label: 'All' },
@@ -299,7 +458,11 @@ export default function WalletScreen() {
         </View>
 
         {/* Transactions */}
-        <View className="px-4 pb-20">
+        <View 
+          ref={transactionsRef}
+          onLayout={onTransactionsLayout}
+          className="px-4 pb-20"
+        >
           <Text style={{ color: colors.textPrimary }} className="text-base font-bold mb-3">
             Recent Transactions
           </Text>

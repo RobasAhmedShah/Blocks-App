@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth.api";
+import { useNotifications } from "@/services/useNotifications";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -73,6 +74,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { signIn, loginWithBiometrics, isBiometricEnrolled, isBiometricSupported, isAuthenticated } = useAuth();
+  const { expoPushToken } = useNotifications();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -204,6 +206,7 @@ export default function SignInScreen() {
       const response = await authApi.login({
         email: email.trim(),
         password: password,
+        expoToken: expoPushToken || undefined, // Include Expo push token if available
       });
       
       await signIn(response.token, response.refreshToken);

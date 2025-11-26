@@ -5,6 +5,8 @@ const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:30
 export interface LoginDto {
   email: string;
   password: string;
+  expoToken?: string;
+  webPushSubscription?: any;
 }
 
 export interface RegisterDto {
@@ -12,6 +14,8 @@ export interface RegisterDto {
   password: string;
   fullName: string;
   phone?: string;
+  expoToken?: string;
+  webPushSubscription?: any;
 }
 
 export interface AuthResponse {

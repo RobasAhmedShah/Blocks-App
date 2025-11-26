@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useNotificationContext, NotificationContext as NotificationContextType } from '@/contexts/NotificationContext';
 import { Notification } from '@/contexts/NotificationContext';
@@ -35,6 +35,14 @@ export default function NotificationsScreen() {
     deleteNotification,
     loadNotifications,
   } = useNotificationContext();
+  
+  // Refresh notifications when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Reload notifications when screen comes into focus
+      loadNotifications();
+    }, [loadNotifications])
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'recent' | 'all'>('recent');
@@ -127,8 +135,8 @@ export default function NotificationsScreen() {
     const sorted = filtered.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     return {
-      recent: sorted.filter(n => !n.read),
-      all: sorted.filter(n => n.read),
+      recent: sorted.filter(n => !n.read), // Unread notifications
+      all: sorted, // All notifications (both read and unread)
     };
   }, [contextNotifications, searchQuery]);
 
@@ -195,6 +203,7 @@ export default function NotificationsScreen() {
       case 'withdrawal_success':
         return 'remove-circle';
       case 'rental_payment':
+      case 'reward':
         return 'cash';
       case 'property_value_increase':
       case 'property_milestone':

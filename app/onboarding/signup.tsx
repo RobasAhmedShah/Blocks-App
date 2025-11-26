@@ -132,7 +132,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { signIn, enableBiometrics, isBiometricSupported } = useAuth();
-  const { requestPermissions: requestNotificationPermissions, checkPermissions: checkNotificationPermissions } = useNotifications();
+  const { requestPermissions: requestNotificationPermissions, checkPermissions: checkNotificationPermissions, expoPushToken } = useNotifications();
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -293,6 +293,7 @@ export default function SignUpScreen() {
         email: email.trim(),
         password: password,
         fullName: fullName.trim(),
+        expoToken: expoPushToken || undefined, // Include Expo push token if available
       });
       
       await signIn(response.token, response.refreshToken);

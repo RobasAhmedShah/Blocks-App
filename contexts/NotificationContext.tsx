@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { AppState } from 'react-native';
 
 export type NotificationType = 
   | 'investment_success'
@@ -10,7 +11,8 @@ export type NotificationType =
   | 'portfolio_milestone'
   | 'rental_payment'
   | 'property_value_increase'
-  | 'transaction_complete';
+  | 'transaction_complete'
+  | 'reward';
 
 export type NotificationContext = 'portfolio' | 'wallet' | 'all';
 
@@ -121,14 +123,50 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return sampleNotifications;
   });
 
-  // Load notifications from storage (in-memory for now)
+  // Load notifications from backend API
   const loadNotifications = useCallback(async () => {
     try {
-      // For now, notifications are stored in-memory
-      // In a production app, you would load from AsyncStorage or a backend API
-      // This function can be used to refresh notifications from a backend
+      const { notificationsApi } = await import('@/services/api/notifications.api');
+      const backendNotifications = await notificationsApi.getMyNotifications();
+      
+      // Convert backend notifications to app format
+      const convertedNotifications: Notification[] = backendNotifications.map((n) => {
+        // Determine notification type from data
+        let type: NotificationType = 'transaction_complete';
+        let context: NotificationContext = 'all';
+        
+        if (n.data?.type === 'reward') {
+          type = 'reward';
+          context = 'portfolio';
+        } else if (n.data?.type === 'investment') {
+          type = 'investment_success';
+          context = 'portfolio';
+        } else if (n.data?.type === 'deposit') {
+          type = 'deposit_success';
+          context = 'wallet';
+        } else if (n.data?.type === 'withdrawal') {
+          type = 'withdrawal_success';
+          context = 'wallet';
+        }
+        
+        return {
+          id: n.id,
+          type,
+          context,
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.createdAt),
+          read: false, // Start as unread - user can mark as read
+          data: n.data,
+          url: n.data?.url || (context === 'portfolio' ? '/notifications?context=portfolio' : '/notifications?context=wallet'),
+        };
+      });
+      
+      // Replace all notifications with backend data (backend is source of truth)
+      setNotifications(convertedNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
+      // Don't throw - allow app to continue with existing notifications
     }
   }, []);
 
@@ -143,9 +181,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  // Load on mount
+  // Load on mount and when app comes to foreground
   useEffect(() => {
     loadNotifications();
+    
+    // Reload notifications when app comes to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        loadNotifications();
+      }
+    });
+    
+    return () => {
+      subscription?.remove();
+    };
   }, [loadNotifications]);
 
   // Computed values

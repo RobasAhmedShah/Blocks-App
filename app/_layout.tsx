@@ -54,10 +54,10 @@ export default function RootLayout() {
             <ThemeProvider>
               <WalkthroughContextProvider>
                 <WalkthroughProvider>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootNavigation />
-                    <StatusBar style="auto" />
-                  </GestureHandlerRootView>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootNavigation />
+                  <StatusBar style="auto" />
+                </GestureHandlerRootView>
                 </WalkthroughProvider>
               </WalkthroughContextProvider>
             </ThemeProvider>

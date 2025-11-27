@@ -17,6 +17,9 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { profileSections } from "@/data/mockProfile";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWalkthroughStep, useWalkthrough as useWalkthroughLib } from '@/react-native-interactive-walkthrough/src/index';
+import { useWalkthrough } from "@/contexts/WalkthroughContext";
+
 
 // Custom Alert Component
 interface CustomAlertProps {

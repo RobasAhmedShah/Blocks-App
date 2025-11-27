@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   FlatList,
   Text,
@@ -13,6 +13,9 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useNotificationContext } from "@/contexts/NotificationContext";
 import ArcLoader from "@/components/EmeraldLoader";
 import { SavedPlansSection } from "@/components/portfolio/SavedPlansSection";
+import { useWalkthroughStep, useWalkthrough as useWalkthroughLib } from '@/react-native-interactive-walkthrough/src/index';
+import { TooltipOverlay } from '@/components/walkthrough/TooltipOverlay';
+import { useWalkthrough } from '@/contexts/WalkthroughContext';
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -26,6 +29,113 @@ export default function PortfolioScreen() {
     loadInvestments,
   } = usePortfolio();
   const { portfolioUnreadCount } = useNotificationContext();
+  const { isWalkthroughCompleted, markWalkthroughCompleted } = useWalkthrough();
+  
+  // Refs for walkthrough elements
+  const portfolioValueRef = useRef<View>(null);
+  const roiBadgeRef = useRef<View>(null);
+  const overviewCardsRef = useRef<View>(null);
+  const totalEarningsCardRef = useRef<View>(null);
+  const thisMonthCardRef = useRef<View>(null);
+  const performanceSummaryRef = useRef<View>(null);
+  const savedPlansRef = useRef<View>(null);
+  const propertyCardsRef = useRef<View>(null);
+  const bottomActionsRef = useRef<View>(null);
+  const flatListRef = useRef<FlatList>(null);
+  
+  // Track Y positions of sections for scrolling
+  const sectionPositions = useRef<{ [key: string]: number }>({});
+  
+  // Track if walkthrough has been started
+  const walkthroughStartedRef = useRef(false);
+  
+  // Track if we're currently measuring to prevent infinite loops
+  const measuringRef = useRef<{ [key: string]: boolean }>({});
+  const measureTimeoutRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> | null }>({});
+  
+  // Helper function to scroll to a section and re-measure mask
+  const scrollToSection = (sectionKey: string, offset: number = 0, measureMaskFn?: () => void) => {
+    const position = sectionPositions.current[sectionKey];
+    
+    // Clear any existing timeout for this section to prevent multiple calls
+    if (measureTimeoutRef.current[sectionKey]) {
+      clearTimeout(measureTimeoutRef.current[sectionKey]!);
+      measureTimeoutRef.current[sectionKey] = null;
+    }
+    
+    // Prevent multiple simultaneous scrolls/measurements for the same section
+    if (position !== undefined && flatListRef.current && !measuringRef.current[sectionKey]) {
+      measuringRef.current[sectionKey] = true;
+      
+      const scrollTimeout = setTimeout(() => {
+        if (!flatListRef.current) {
+          measuringRef.current[sectionKey] = false;
+          return;
+        }
+        
+        flatListRef.current.scrollToOffset({ 
+          offset: Math.max(0, position - offset), 
+          animated: true 
+        });
+        
+        // Re-measure mask after scroll animation completes
+        // First measurement after scroll settles
+        if (measureMaskFn && !measuringRef.current[`${sectionKey}_measured`]) {
+          // Measure multiple times to ensure accurate positioning after scroll
+          measureTimeoutRef.current[sectionKey] = setTimeout(() => {
+            if (measuringRef.current[`${sectionKey}_measured`]) {
+              measuringRef.current[sectionKey] = false;
+              return;
+            }
+            
+            try {
+              // First measurement
+              measureMaskFn();
+              
+              // Second measurement after a short delay to ensure accuracy
+              setTimeout(() => {
+                try {
+                  measureMaskFn();
+                } catch (error) {
+                  console.error('Error in second mask measurement:', error);
+                }
+              }, 200);
+              
+            } catch (error) {
+              console.error('Error measuring mask:', error);
+            }
+            
+            measuringRef.current[`${sectionKey}_measured`] = true;
+            
+            // Reset after a delay to allow future measurements if needed
+            measureTimeoutRef.current[sectionKey] = setTimeout(() => {
+              measuringRef.current[sectionKey] = false;
+              measuringRef.current[`${sectionKey}_measured`] = false;
+              measureTimeoutRef.current[sectionKey] = null;
+            }, 1000);
+          }, 700); // Wait for scroll animation + some buffer
+        } else {
+          measuringRef.current[sectionKey] = false;
+        }
+      }, 300);
+      
+      measureTimeoutRef.current[`${sectionKey}_scroll`] = scrollTimeout;
+    }
+  };
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(measureTimeoutRef.current).forEach(timeout => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, []);
+  
+  // Helper function to store section position
+  const storeSectionPosition = (sectionKey: string, y: number) => {
+    sectionPositions.current[sectionKey] = y;
+  };
 
   // Refresh investments when screen comes into focus
   useFocusEffect(
@@ -35,6 +145,259 @@ export default function PortfolioScreen() {
       }
     }, [loadInvestments])
   );
+  
+  // Get start function from walkthrough context
+  const { isReady: isPortfolioReady, isWalkthroughOn, goTo } = useWalkthroughLib();
+  
+  // Walkthrough Step 1: Portfolio Value
+  const { onLayout: onPortfolioValueLayout, step: portfolioValueStep } = useWalkthroughStep({
+    number: 4,
+    identifier: 'portfolio-value-step',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Your Portfolio Value"
+        description="This shows your total investment value across all properties. This is the sum of all your property investments."
+        position="bottom"
+        isFirstStep={true}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+    onStart: () => {
+      scrollToSection('portfolioValue', 150, portfolioValueStep?.measureMask);
+    },
+  });
+  
+  // Walkthrough Step 2: ROI Badge
+  const { onLayout: onROIBadgeLayout, step: roiBadgeStep } = useWalkthroughStep({
+    number: 5,
+    identifier: 'portfolio-roi-badge',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Return on Investment"
+        description="This percentage shows your overall ROI across all investments. A positive percentage means your portfolio is growing!"
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+    onStart: () => {
+      scrollToSection('portfolioValue', 150, roiBadgeStep?.measureMask);
+    },
+  });
+  
+  // Walkthrough Step 3: Overview Cards Section
+  const { onLayout: onOverviewCardsLayout, step: overviewCardsStep } = useWalkthroughStep({
+    number: 6,
+    identifier: 'portfolio-overview-cards',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Portfolio Overview Cards"
+        description="These cards show key metrics: Total Earnings (all-time profits), This Month (current month performance), Total Invested (your capital), and Next Payout (when you'll receive rental income)."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+  });
+  
+  // Walkthrough Step 4: Performance Summary
+  const { onLayout: onPerformanceSummaryLayout, step: performanceSummaryStep } = useWalkthroughStep({
+    number: 7,
+    identifier: 'portfolio-performance-summary',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Performance Summary"
+        description="Track your investment performance here. See your average monthly return, which property is performing best, and how many active properties you own."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+    layoutAdjustments: {
+      addPadding: 0,
+      addY: 0
+    },
+    onFinish: () => {
+      // Scroll down to show Property Cards section after user clicks "Next"
+      if (flatListRef.current) {
+        const propertyCardsPosition = sectionPositions.current['propertyCards'];
+        if (propertyCardsPosition !== undefined) {
+          // Scroll to position Property Cards higher on screen to leave room for tooltip above
+          flatListRef.current.scrollToOffset({ 
+            offset: Math.max(0, propertyCardsPosition - 250), // Increased offset to position higher, leaving room for tooltip
+            animated: true 
+          });
+        }
+      }
+    },
+  });
+  
+  // Walkthrough Step 5: Property Cards
+  const { onLayout: onPropertyCardsLayout, step: propertyCardsStep } = useWalkthroughStep({
+    number: 8,
+    identifier: 'portfolio-property-cards',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Your Property Investments"
+        description="These are all the properties you've invested in. Tap any card to view detailed information, download certificates, and track individual property performance."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+    layoutAdjustments: {
+      addPadding: 8,
+      addHeight: 90,
+      addY: -560,
+      addX: -10,
+    },
+    onStart: () => {
+      // Wait for scroll from previous step to complete, then measure mask
+      setTimeout(() => {
+        try {
+          propertyCardsStep?.measureMask?.();
+        } catch (error) {
+          console.error('Error measuring property cards mask:', error);
+        }
+      }, 800); // Wait for scroll animation to complete
+    },
+  });
+  
+  // Walkthrough Step 6: Saved Plans Section
+  const { onLayout: onSavedPlansLayout, step: savedPlansStep } = useWalkthroughStep({
+    number: 9,
+    identifier: 'portfolio-saved-plans',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Saved Investment Plans"
+        description="View and manage your saved investment plans here. These are properties you've bookmarked or are planning to invest in later."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+    layoutAdjustments: {
+      // addPadding: 12, // Subtle padding for better visual highlight
+    },
+    onStart: () => {
+      // Scroll to Saved Plans section to ensure it's visible
+      if (flatListRef.current && savedPlansRef.current) {
+        const savedPlansPosition = sectionPositions.current['savedPlans'];
+        if (savedPlansPosition !== undefined) {
+          // Scroll to position Saved Plans section with enough space above for tooltip
+          setTimeout(() => {
+            flatListRef.current?.scrollToOffset({ 
+              offset: Math.max(0, savedPlansPosition - 200), // 200px offset to leave room for tooltip above
+              animated: true 
+            });
+            // Re-measure mask after scroll completes
+            setTimeout(() => {
+              try {
+                savedPlansStep?.measureMask?.();
+              } catch (error) {
+                console.error('Error measuring saved plans mask:', error);
+              }
+            }, 600);
+          }, 300);
+        } else {
+          // Fallback: just measure if position not available
+          setTimeout(() => {
+            try {
+              savedPlansStep?.measureMask?.();
+            } catch (error) {
+              console.error('Error measuring saved plans mask:', error);
+            }
+          }, 300);
+        }
+      }
+    },
+  });
+  
+  // Walkthrough Step 7: Bottom Actions
+  const { onLayout: onBottomActionsLayout, step: bottomActionsStep } = useWalkthroughStep({
+    number: 10,
+    identifier: 'portfolio-bottom-actions',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Quick Actions"
+        description="Use these buttons to: Deposit funds into your wallet, View your assets in detail, or Access investment guidance and educational resources."
+        position="top"
+        isFirstStep={false}
+        isLastStep={true}
+        onFinish={async () => {
+          await markWalkthroughCompleted('PORTFOLIO');
+        }}
+      />
+    ),
+    layoutLock: true,
+    onStart: () => {
+      // Scroll to bottom actions when this step starts
+      if (flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+          // Re-measure mask after scroll animation completes
+          setTimeout(() => {
+            bottomActionsStep?.measureMask?.();
+          }, 600);
+        }, 300);
+      }
+    },
+    onFinish: async () => {
+      await markWalkthroughCompleted('PORTFOLIO');
+    },
+  });
+  
+  // Auto-start walkthrough on first visit to portfolio tab
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    
+    const checkAndStartWalkthrough = async () => {
+      if (walkthroughStartedRef.current || isWalkthroughOn || !isPortfolioReady || loading) {
+        return;
+      }
+      
+      try {
+        const completed = await isWalkthroughCompleted('PORTFOLIO');
+        
+        if (isMounted && !completed && !walkthroughStartedRef.current) {
+          walkthroughStartedRef.current = true;
+          timeoutId = setTimeout(() => {
+            if (isMounted && !isWalkthroughOn && isPortfolioReady) {
+              // Start at step 5 (first portfolio step)
+              goTo(5);
+            }
+          }, 800);
+        }
+      } catch (error) {
+        console.error('Error checking portfolio walkthrough status:', error);
+      }
+    };
+    
+    if (isPortfolioReady && !loading) {
+      checkAndStartWalkthrough();
+    }
+    
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isPortfolioReady, loading]);
 
   // Loading state
   if (loading || !investments) {
@@ -111,7 +474,15 @@ export default function PortfolioScreen() {
           </TouchableOpacity>
         </View>
               
-        <View className="flex-row justify-between items-center mb-2">
+        <View 
+          ref={portfolioValueRef}
+          onLayout={(event) => {
+            const { y } = event.nativeEvent.layout;
+            storeSectionPosition('portfolioValue', y);
+            onPortfolioValueLayout(event);
+          }}
+          className="flex-row justify-between items-center mb-2"
+        >
           <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
             $
             {totalValue.toLocaleString("en-US", {
@@ -120,6 +491,8 @@ export default function PortfolioScreen() {
             })}
           </Text>
           <View 
+            ref={roiBadgeRef}
+            onLayout={onROIBadgeLayout}
             style={{ 
               backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)' 
             }}
@@ -137,7 +510,15 @@ export default function PortfolioScreen() {
       </View>
 
       {/* Stats Overview Cards */}
-      <View className="px-4 mt-6">
+      <View 
+        ref={overviewCardsRef}
+        onLayout={(event) => {
+          const { y } = event.nativeEvent.layout;
+          storeSectionPosition('overviewCards', y);
+          onOverviewCardsLayout(event);
+        }}
+        className="px-4 mt-6"
+      >
         <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
           Overview
         </Text>
@@ -264,7 +645,15 @@ export default function PortfolioScreen() {
       </View>
 
       {/* Performance Summary */}
-      <View className="px-4 mt-6">
+      <View 
+        ref={performanceSummaryRef}
+        onLayout={(event) => {
+          const { y } = event.nativeEvent.layout;
+          storeSectionPosition('performanceSummary', y);
+          onPerformanceSummaryLayout(event);
+        }}
+        className="px-4 mt-6"
+      >
         <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-3">
           Performance Summary
         </Text>
@@ -313,8 +702,6 @@ export default function PortfolioScreen() {
         </View>
       </View>
 
-  
-
       {/* Properties Header */}
       <View className="px-4 mb-2 mt-6">
         <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
@@ -323,79 +710,50 @@ export default function PortfolioScreen() {
       </View>
 
       {/* Overlapping Property Cards */}
-      <View className="px-4 mb-6">
+      <View 
+        ref={propertyCardsRef}
+        onLayout={(event) => {
+          const { y } = event.nativeEvent.layout;
+          storeSectionPosition('propertyCards', y);
+          onPropertyCardsLayout(event);
+        }}
+        className="px-4 mb-6"
+      >
         <PropertyCardStack data={investments} />
       </View>
 
       {/* Saved Plans Section */}
-      <SavedPlansSection />
+      <View 
+        ref={savedPlansRef}
+        onLayout={(event) => {
+          const { y } = event.nativeEvent.layout;
+          storeSectionPosition('savedPlans', y);
+          onSavedPlansLayout(event);
+        }}
+      >
+        <SavedPlansSection />
+      </View>
     </>
   );
-
-  // const renderFooter = () => (
-  //   <>
-  //     {/* Income Timeline */}
-  //     <View className="px-4 mt-8 mb-20">
-  //       <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-1">
-  //         Income Timeline
-  //       </Text>
-  //       <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
-  //         Total visible income:{" "}
-  //         <Text style={{ color: colors.textPrimary }} className="font-semibold">
-  //           ${monthlyRentalIncome.toFixed(2)}
-  //         </Text>
-  //       </Text>
-  //       <View className="flex-row items-end " style={{ marginLeft: -2 }}>
-  //         {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul","Aug",].map(
-  //           (month, index) => (
-  //             <View
-  //               key={month}
-  //               className="items-center p-1 justify-end"
-  //               style={{
-  //                 flex: 1,
-  //                 marginHorizontal: -1,
-  //                 zIndex: 10 - index,
-  //               }}
-  //             >
-  //               <View
-  //                 style={{
-  //                   backgroundColor: colors.primary,
-  //                   width: "100%",
-  //                   height: 60,
-  //                   borderRadius: 8,
-  //                   marginBottom: 8,
-  //                   shadowColor: isDarkColorScheme ? "#000" : "rgba(22, 163, 74, 0.3)",
-  //                   shadowOffset: { width: 0, height: 2 },
-  //                   shadowOpacity: isDarkColorScheme ? 0.3 : 0.2,
-  //                   shadowRadius: 4,
-  //                   elevation: 3,
-  //                 }}
-  //               />
-  //               <Text style={{ color: colors.textSecondary }} className="text-xs font-medium">
-  //                 {month}
-  //               </Text>
-  //             </View>
-  //           )
-  //         )}
-  //       </View>
-  //     </View>
-  //   </>
-  // );
 
   return (
     <View style={{ backgroundColor: colors.background }} className="flex-1">
       <FlatList
+        ref={flatListRef}
         data={[]}
         keyExtractor={(_, i) => i.toString()}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => <PropertyCardStack data={[item]} />}
         ListHeaderComponent={renderHeader}
-        // ListFooterComponent={renderFooter}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
 
       {/* Bottom Actions */}
-      <View className="mb-16 left-0 right-0 z-10 px-4 pb-6">
+      <View 
+        ref={bottomActionsRef}
+        onLayout={onBottomActionsLayout}
+        className="mb-16 left-0 right-0 z-10 px-4 pb-6"
+      >
         <View
           style={{
             backgroundColor: isDarkColorScheme 

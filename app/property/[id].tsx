@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useProperty } from "@/services/useProperty";
 import { useWallet } from "@/services/useWallet";
 import { useColorScheme } from "@/lib/useColorScheme";
@@ -26,6 +26,9 @@ import * as Sharing from "expo-sharing";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
+import { useWalkthroughStep, useWalkthrough as useWalkthroughLib } from '@/react-native-interactive-walkthrough/src/index';
+import { TooltipOverlay } from '@/components/walkthrough/TooltipOverlay';
+import { useWalkthrough } from '@/contexts/WalkthroughContext';
 
 // Effective token price (divided by 10 for fractional investments)
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
@@ -46,8 +49,213 @@ export default function PropertyDetailScreen() {
   const [initialInvestmentAmount, setInitialInvestmentAmount] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
-  
+  const { isWalkthroughCompleted, markWalkthroughCompleted } = useWalkthrough();
+
+  // Refs for walkthrough elements
+  const imageGalleryRef = useRef<View>(null);
+  const propertyInfoRef = useRef<View>(null);
+  const keyStatsRef = useRef<View>(null);
+  const tabsRef = useRef<View>(null);
+  const calculatorTabRef = useRef<View>(null);
+  const documentsTabRef = useRef<View>(null);
+  const bottomActionBarRef = useRef<View>(null);
+
+  // Track if walkthrough has been started
+  const walkthroughStartedRef = useRef(false);
+
   const bookmarked = id ? isBookmarked(id) : false;
+
+  // Get start function from walkthrough context
+  const { isReady: isPropertyReady, isWalkthroughOn, goTo } = useWalkthroughLib();
+
+  // Walkthrough Step 1: Image Gallery
+  const { onLayout: onImageGalleryLayout } = useWalkthroughStep({
+    number: 17,
+    identifier: 'property-image-gallery',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Property Images"
+        description="Swipe through professional photos of the property. Images help you visualize your investment."
+        position="bottom"
+        isFirstStep={true}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 2: Property Info (ROI & Token Price)
+  const { onLayout: onPropertyInfoLayout } = useWalkthroughStep({
+    number: 18,
+    identifier: 'property-info',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Key Metrics"
+        description="View the expected Annual ROI and Token Price. These are the most important figures for your investment decision."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 3: Key Stats
+  const { onLayout: onKeyStatsLayout } = useWalkthroughStep({
+    number: 19,
+    identifier: 'property-key-stats',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Investment Requirements"
+        description="Check the minimum investment amount and expected yield. The minimum investment is the smallest amount you can invest in this property."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 4: Tabs
+  const { onLayout: onTabsLayout } = useWalkthroughStep({
+    number: 20,
+    identifier: 'property-tabs',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Information Tabs"
+        description="Switch between Financials, Calculator, Documents, and Location tabs to explore all property details."
+        position="bottom"
+        isFirstStep={false}
+        isLastStep={false}
+        onFinish={() => {
+          // Switch to Calculator tab for next step
+          setActiveTab("Calculator");
+        }}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 5: Calculator Tab
+  const { onLayout: onCalculatorLayout } = useWalkthroughStep({
+    number: 21,
+    identifier: 'property-calculator',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Investment Calculator"
+        description="Use the calculator to simulate different investment amounts and see potential returns. Adjust the slider to see real-time projections."
+        position="top"
+        isFirstStep={false}
+        isLastStep={false}
+        onFinish={() => {
+          // Switch to Documents tab for next step
+          setActiveTab("Documents");
+        }}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 6: Documents Tab
+  const { onLayout: onDocumentsLayout } = useWalkthroughStep({
+    number: 22,
+    identifier: 'property-documents',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Legal Documents"
+        description="Review verified legal documents including property deeds, construction permits, and ownership papers. All documents are verified and stored on-chain."
+        position="top"
+        isFirstStep={false}
+        isLastStep={false}
+        onFinish={() => {
+          // Switch back to Financials tab
+          setActiveTab("Financials");
+          // Scroll to bottom to show action bar
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 300);
+        }}
+      />
+    ),
+    layoutLock: true,
+  });
+
+  // Walkthrough Step 7: Bottom Action Bar (Final Step)
+  const { onLayout: onBottomActionBarLayout } = useWalkthroughStep({
+    number: 23,
+    identifier: 'property-action-bar',
+    OverlayComponent: (props) => (
+      <TooltipOverlay
+        {...props}
+        title="Take Action"
+        description="Ready to invest? Tap the Invest button to start. You can also bookmark properties, share them with friends, or ask our AI chatbot questions."
+        position="top"
+        isFirstStep={false}
+        isLastStep={true}
+        onFinish={async () => {
+          await markWalkthroughCompleted('PROPERTY');
+        }}
+      />
+    ),
+    layoutLock: true,
+    onFinish: async () => {
+      await markWalkthroughCompleted('PROPERTY');
+    },
+  });
+
+  // Auto-start walkthrough on first visit to property detail
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const checkAndStartWalkthrough = async () => {
+      if (walkthroughStartedRef.current || isWalkthroughOn || !isPropertyReady || loading || !property) {
+        return;
+      }
+
+      try {
+        const completed = await isWalkthroughCompleted('PROPERTY');
+
+        if (isMounted && !completed && !walkthroughStartedRef.current) {
+          walkthroughStartedRef.current = true;
+          timeoutId = setTimeout(() => {
+            if (isMounted && !isWalkthroughOn) {
+              // Start from step 17 (first property step)
+              goTo(17);
+            }
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Error checking property walkthrough status:', error);
+      }
+    };
+
+    if (isPropertyReady && !loading && property) {
+      checkAndStartWalkthrough();
+    }
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isPropertyReady, loading, property, isWalkthroughOn, goTo, isWalkthroughCompleted]);
+
+  // Reset walkthrough started flag when leaving screen
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        walkthroughStartedRef.current = false;
+      };
+    }, [])
+  );
   
   if (loading) {
     return (
@@ -190,7 +398,7 @@ export default function PropertyDetailScreen() {
     <View className="flex-1 bg-[#f6f8f8]" style={{ backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false} ref={scrollViewRef}>
         {/* Image Gallery */}
-        <View className="relative h-[60vh]">
+        <View className="relative h-[60vh]" ref={imageGalleryRef} onLayout={onImageGalleryLayout}>
           {property.images && property.images.length > 0 ? (
             <>
               <ScrollView
@@ -282,7 +490,7 @@ export default function PropertyDetailScreen() {
           />
 
           {/* Property Info Overlay with Glassmorphism */}
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }} ref={propertyInfoRef} onLayout={onPropertyInfoLayout}>
             <View style={{
               paddingHorizontal: 12,
               paddingVertical: 4,
@@ -392,7 +600,7 @@ export default function PropertyDetailScreen() {
         {/* Main Content */}
         <View className="-mt-3 bg-white rounded-t-3xl -ml-1 p-6" style={{ backgroundColor: colors.card }}>
           {/* Key Stats */}
-          <View className="flex-row flex-wrap gap-6 mb-6" style={{ backgroundColor: colors.card }}>
+          <View className="flex-row flex-wrap gap-6 mb-6" style={{ backgroundColor: colors.card }} ref={keyStatsRef} onLayout={onKeyStatsLayout}>
             <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
               <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Min. Investment</Text>
               <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
@@ -437,12 +645,12 @@ export default function PropertyDetailScreen() {
           </View>
 
           {/* Tabs */}
-          <View style={{ 
-            flexDirection: 'row', 
-            borderBottomWidth: 1, 
-            borderBottomColor: colors.border, 
-            marginBottom: 24 
-          }}>
+          <View style={{
+            flexDirection: 'row',
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            marginBottom: 24
+          }} ref={tabsRef} onLayout={onTabsLayout}>
             {["Financials", "Calculator", "Documents", "Location"].map((tab) => (
               <TouchableOpacity
                 key={tab}
@@ -515,7 +723,7 @@ export default function PropertyDetailScreen() {
           )}
 
           {activeTab === "Calculator" && (
-            <View style={{ marginBottom: 64 }}>
+            <View style={{ marginBottom: 64 }} ref={calculatorTabRef} onLayout={onCalculatorLayout}>
               <PropertyInvestmentCalculator
                 property={property}
                 colors={colors}
@@ -532,7 +740,7 @@ export default function PropertyDetailScreen() {
           )}
 
           {activeTab === "Documents" && (
-            <View style={{ marginBottom: 64 }}>
+            <View style={{ marginBottom: 64 }} ref={documentsTabRef} onLayout={onDocumentsLayout}>
               <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
                 Documents & Verification
               </Text>
@@ -747,7 +955,7 @@ export default function PropertyDetailScreen() {
         alignItems: 'center',
         gap: 8,
         // paddingBottom: 50,
-      }}>
+      }} ref={bottomActionBarRef} onLayout={onBottomActionBarLayout}>
         <TouchableOpacity
           onPress={handleInvest}
           style={{

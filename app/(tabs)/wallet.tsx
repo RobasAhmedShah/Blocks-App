@@ -50,7 +50,7 @@ export default function WalletScreen() {
   
   // Walkthrough Step 1: Wallet Balance
   const { onLayout: onBalanceLayout } = useWalkthroughStep({
-    number: 1,
+    number: 12,
     identifier: 'wallet-balance-step',
     OverlayComponent: (props) => (
       <TooltipOverlay
@@ -62,12 +62,12 @@ export default function WalletScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
   });
   
   // Walkthrough Step 2: Deposit Button
   const { onLayout: onDepositButtonLayout } = useWalkthroughStep({
-    number: 2,
+    number: 13,
     identifier: 'wallet-deposit-button',
     OverlayComponent: (props) => (
       <TooltipOverlay
@@ -79,12 +79,12 @@ export default function WalletScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
   });
   
   // Walkthrough Step 3: Withdraw Button
   const { onLayout: onWithdrawButtonLayout } = useWalkthroughStep({
-    number: 3,
+    number: 14,
     identifier: 'wallet-withdraw-button',
     OverlayComponent: (props) => (
       <TooltipOverlay
@@ -96,12 +96,12 @@ export default function WalletScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
   });
   
   // Walkthrough Step 4: Transaction Filters
   const { onLayout: onFilterTabsLayout } = useWalkthroughStep({
-    number: 4,
+    number: 15,
     identifier: 'wallet-filter-tabs',
     OverlayComponent: (props) => (
       <TooltipOverlay
@@ -113,12 +113,12 @@ export default function WalletScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
   });
   
   // Walkthrough Step 5: Transactions List
   const { onLayout: onTransactionsLayout } = useWalkthroughStep({
-    number: 5,
+    number: 16,
     identifier: 'wallet-transactions',
     OverlayComponent: (props) => (
       <TooltipOverlay
@@ -133,7 +133,7 @@ export default function WalletScreen() {
         }}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
     onFinish: async () => {
       await markWalkthroughCompleted('WALLET');
     },
@@ -156,8 +156,8 @@ export default function WalletScreen() {
           walkthroughStartedRef.current = true;
           timeoutId = setTimeout(() => {
             if (isMounted && !isWalkthroughOn && isWalletReady) {
-              // Start at step 1
-              goTo(1);
+              // Start at step 12 (first wallet step)
+              goTo(12);
             }
           }, 800);
         }

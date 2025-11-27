@@ -125,11 +125,11 @@ export default function BlocksHomeScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false, // Allow re-measuring
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
   });
 
   // Walkthrough Step 3: Property cards
-  const { onLayout: onPropertyCardLayout, onMeasure } = useWalkthroughStep({
+  const { onLayout: onPropertyCardLayout } = useWalkthroughStep({
     number: 3,
     identifier: 'property-cards',
     OverlayComponent: (props) => (
@@ -142,7 +142,7 @@ export default function BlocksHomeScreen() {
         isLastStep={false}
       />
     ),
-    layoutLock: false, // Allow re-measuring
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
     onStart: () => {
       // Scroll to property cards when this step starts
       if (propertyCardRef.current && scrollViewRef.current) {
@@ -151,14 +151,6 @@ export default function BlocksHomeScreen() {
             scrollViewRef.current as any,
             (x, y) => {
               scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 150), animated: true });
-              // Re-measure after scrolling
-              setTimeout(() => {
-                if (propertyCardRef.current) {
-                  propertyCardRef.current.measure((_, __, width, height, x, y) => {
-                    onMeasure(_, __, width, height, x, y);
-                  });
-                }
-              }, 500);
             },
             () => {}
           );
@@ -185,7 +177,7 @@ export default function BlocksHomeScreen() {
         }}
       />
     ),
-    layoutLock: false,
+    layoutLock: true, // Lock after first measurement to prevent infinite loops
     onFinish: async () => {
       await markWalkthroughCompleted('home');
       await setFirstLaunch(false);

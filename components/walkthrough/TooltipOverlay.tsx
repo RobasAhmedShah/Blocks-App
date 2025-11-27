@@ -28,32 +28,64 @@ export const TooltipOverlay: React.FC<TooltipOverlayProps> = ({
   onFinish,
 }) => {
   const { colors, isDarkColorScheme } = useColorScheme();
-  const mask = step?.mask || { x: 0, y: 0, width: 0, height: 0 };
+  // Use computedMask if available (includes layout adjustments), otherwise use mask
+  const mask = step?.computedMask || step?.mask || { x: 0, y: 0, width: 0, height: 0 };
 
   // Calculate position relative to the mask
   const getPositionStyle = () => {
     const padding = 16;
     const tooltipWidth = 300;
+    const tooltipHeight = 200; // Approximate tooltip height
     const screenWidth = Dimensions.get('window').width;
     const screenHeight = Dimensions.get('window').height;
     
     // Ensure mask coordinates are valid
-    const maskX = mask.x || 0;
-    const maskY = mask.y || 0;
-    const maskWidth = mask.width || 0;
-    const maskHeight = mask.height || 0;
+    const maskX = Math.max(0, mask.x || 0);
+    const maskY = Math.max(0, mask.y || 0);
+    const maskWidth = Math.max(0, mask.width || 0);
+    const maskHeight = Math.max(0, mask.height || 0);
     
     // Calculate center position
     const centerX = maskX + maskWidth / 2;
-    const leftPosition = Math.max(16, Math.min(centerX - tooltipWidth / 2, screenWidth - tooltipWidth - 16));
+    let leftPosition = centerX - tooltipWidth / 2;
+    
+    // Ensure tooltip stays within screen bounds
+    leftPosition = Math.max(16, Math.min(leftPosition, screenWidth - tooltipWidth - 16));
     
     switch (position) {
       case 'top':
         // Position above the mask
-        const topY = maskY - padding;
+        const topY = maskY - padding - tooltipHeight;
+        const minTopSpace = 80; // Minimum space needed above tooltip (status bar + safe area)
+        
+        // If there's not enough space above, try to position it above the mask but constrained
+        if (topY < minTopSpace) {
+          // Calculate if we can fit the tooltip above by reducing padding
+          const constrainedTopY = maskY - 8 - tooltipHeight; // Reduced padding
+          
+          if (constrainedTopY >= minTopSpace) {
+            // Can fit with reduced padding
+            return {
+              position: 'absolute' as const,
+              top: Math.max(minTopSpace, constrainedTopY),
+              left: leftPosition,
+              maxWidth: tooltipWidth,
+            };
+          } else {
+            // Not enough space even with reduced padding - position above mask but ensure it's visible
+            // Position it as high as possible while staying above the mask
+            return {
+              position: 'absolute' as const,
+              top: Math.max(minTopSpace, Math.min(maskY - 8, screenHeight - tooltipHeight - 100)), // Leave 100px at bottom for navigation
+              left: leftPosition,
+              maxWidth: tooltipWidth,
+            };
+          }
+        }
+        // Normal case: enough space above
         return {
           position: 'absolute' as const,
-          top: Math.max(16, topY - 200), // 200 is approximate tooltip height
+          top: Math.max(minTopSpace, topY),
           left: leftPosition,
           maxWidth: tooltipWidth,
         };
@@ -62,21 +94,21 @@ export const TooltipOverlay: React.FC<TooltipOverlayProps> = ({
         const bottomY = maskY + maskHeight + padding;
         return {
           position: 'absolute' as const,
-          top: Math.min(bottomY, screenHeight - 250), // Ensure it's visible
+          top: Math.min(bottomY, screenHeight - tooltipHeight - 16), // Ensure it's visible
           left: leftPosition,
           maxWidth: tooltipWidth,
         };
       case 'left':
         return {
           position: 'absolute' as const,
-          top: Math.max(16, Math.min(maskY + maskHeight / 2 - 100, screenHeight - 250)),
+          top: Math.max(16, Math.min(maskY + maskHeight / 2 - tooltipHeight / 2, screenHeight - tooltipHeight - 16)),
           right: Math.max(16, screenWidth - maskX + padding),
           maxWidth: tooltipWidth,
         };
       case 'right':
         return {
           position: 'absolute' as const,
-          top: Math.max(16, Math.min(maskY + maskHeight / 2 - 100, screenHeight - 250)),
+          top: Math.max(16, Math.min(maskY + maskHeight / 2 - tooltipHeight / 2, screenHeight - tooltipHeight - 16)),
           left: Math.min(maskX + maskWidth + padding, screenWidth - tooltipWidth - 16),
           maxWidth: tooltipWidth,
         };
@@ -85,7 +117,7 @@ export const TooltipOverlay: React.FC<TooltipOverlayProps> = ({
         const defaultY = maskY + maskHeight + padding;
         return {
           position: 'absolute' as const,
-          top: Math.min(defaultY, screenHeight - 250),
+          top: Math.min(defaultY, screenHeight - tooltipHeight - 16),
           left: leftPosition,
           maxWidth: tooltipWidth,
         };

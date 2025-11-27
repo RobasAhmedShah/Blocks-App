@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { savedPlansService, SavedPlan } from '@/services/savedPlans';
 import { useGuidance } from '@/contexts/GuidanceContext';
@@ -22,28 +22,48 @@ export function SavedPlansSection() {
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadingRef = React.useRef(false);
+  const hasLoadedRef = React.useRef(false);
+  const isMountedRef = React.useRef(true);
+  
   const loadPlans = React.useCallback(async () => {
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current || !isMountedRef.current) return;
+    
     try {
-      setLoading(true);
+      loadingRef.current = true;
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
       const plans = await savedPlansService.getAllPlans();
-      setSavedPlans(plans);
+      if (isMountedRef.current) {
+        setSavedPlans(plans);
+        hasLoadedRef.current = true;
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error loading saved plans:', error);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
     }
-  }, []);
+  }, []); // No dependencies to prevent recreation
 
   useEffect(() => {
-    loadPlans();
-  }, [loadPlans]);
-
-  // Refresh plans when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
+    // Only load once on mount
+    if (!hasLoadedRef.current && !loadingRef.current) {
       loadPlans();
-    }, [loadPlans])
-  );
+    }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []); // Empty dependency array - only run once
+
+  // Remove useFocusEffect to prevent infinite loops
+  // Plans will only load once on mount
 
   const handleDeletePlan = async (planId: string) => {
     Alert.alert(

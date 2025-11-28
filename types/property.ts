@@ -4,6 +4,9 @@ export interface Property {
   title: string;
   location: string;
   city: string;
+  country?: string; // Optional country field
+  slug?: string; // Optional slug field
+  type?: string; // Property type: 'residential' | 'commercial' | 'mixed'
   valuation: number | string; // Can be number (PKR) or string (formatted)
   price?: string; // Optional, for backward compatibility
   image?: string; // Optional, for backward compatibility (use images array instead)

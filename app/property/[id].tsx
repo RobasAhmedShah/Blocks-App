@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -11,6 +11,7 @@ import {
   Share,
   ActivityIndicator,
 } from "react-native";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -23,6 +24,7 @@ import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import * as Location from "expo-location";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
@@ -31,6 +33,417 @@ import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCal
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
 
 const { width } = Dimensions.get("window");
+
+interface PropertyLocationMapProps {
+  property: any;
+  colors: any;
+  isDarkColorScheme?: boolean;
+}
+
+// Property Location Map Component
+function PropertyLocationMap({ property, colors, isDarkColorScheme = false }: PropertyLocationMapProps) {
+  const [coordinates, setCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [geocodingError, setGeocodingError] = useState<string | null>(null);
+  const mapRef = useRef<MapView>(null);
+
+  useEffect(() => {
+    const fetchCoordinates = async () => {
+      setIsLoading(true);
+      setGeocodingError(null);
+
+      try {
+        // Web-based geocoding using OpenStreetMap Nominatim (no API key required, no permissions needed)
+        const geocodeWithWebAPI = async (locationString: string): Promise<{ latitude: number; longitude: number } | null> => {
+          try {
+            const encodedLocation = encodeURIComponent(locationString);
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedLocation}&limit=1`;
+            
+            console.log('🌐 Attempting web geocoding:', locationString);
+            const response = await fetch(url, {
+              headers: {
+                'User-Agent': 'Blocks-Property-App/1.0', // Required by Nominatim
+              },
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+              const { lat, lon } = data[0];
+              const latitude = parseFloat(lat);
+              const longitude = parseFloat(lon);
+              console.log('✅ Web geocoding successful:', { latitude, longitude, locationString });
+              return { latitude, longitude };
+            }
+            
+            return null;
+          } catch (error: any) {
+            console.log(`⚠️ Web geocoding failed for "${locationString}":`, error?.message || error);
+            return null;
+          }
+        };
+
+        // Helper function to try geocoding with multiple location string variations
+        const tryGeocode = async (locationStrings: string[]): Promise<{ latitude: number; longitude: number } | null> => {
+          // First, try device-based geocoding (if permissions are available)
+          for (const locationString of locationStrings) {
+            if (!locationString || locationString.trim() === '') continue;
+            
+            try {
+              // Check if we have permissions first
+              const { status } = await Location.getForegroundPermissionsAsync();
+              
+              if (status === 'granted') {
+                console.log('🔍 Attempting device geocoding:', locationString);
+                const geocodeResult = await Location.geocodeAsync(locationString);
+                
+                if (geocodeResult && geocodeResult.length > 0) {
+                  const { latitude, longitude } = geocodeResult[0];
+                  console.log('✅ Device geocoding successful:', { latitude, longitude, locationString });
+                  return { latitude, longitude };
+                }
+              }
+            } catch (error: any) {
+              // Permission denied or other error - will fall through to web geocoding
+              console.log(`⚠️ Device geocoding unavailable for "${locationString}":`, error?.message || error);
+            }
+          }
+          
+          // If device geocoding fails or no permissions, try web-based geocoding
+          for (const locationString of locationStrings) {
+            if (!locationString || locationString.trim() === '') continue;
+            
+            const result = await geocodeWithWebAPI(locationString);
+            if (result) {
+              return result;
+            }
+          }
+          
+          return null;
+        };
+
+        // PRIORITY 1: Try to geocode with multiple location string variations
+        const locationVariations: string[] = [];
+        
+        // Build multiple location string variations for better geocoding success
+        if (property.location) {
+          locationVariations.push(property.location); // Full location string (e.g., "DHA Phase 8, Karachi")
+        }
+        
+        if (property.city) {
+          // City with country
+          if (property.country) {
+            locationVariations.push(`${property.city}, ${property.country}`);
+          }
+          // City alone
+          locationVariations.push(property.city);
+          // City with default country if no country specified
+          if (!property.country) {
+            locationVariations.push(`${property.city}, Pakistan`);
+          }
+        }
+        
+        // Try geocoding with all variations
+        const geocodeResult = await tryGeocode(locationVariations);
+        
+        if (geocodeResult) {
+          setCoordinates({
+            latitude: geocodeResult.latitude,
+            longitude: geocodeResult.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+          setIsLoading(false);
+          return; // Success! Exit early
+        }
+
+        // PRIORITY 2: Use latitude/longitude if available
+        if (property.latitude && property.longitude) {
+          console.log('✅ Using direct coordinates:', property.latitude, property.longitude);
+          setCoordinates({
+            latitude: property.latitude,
+            longitude: property.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // PRIORITY 3: No location data available - show placeholder
+        console.warn('⚠️ No location data available after all attempts, showing placeholder');
+        console.warn('Tried location variations:', locationVariations);
+        setCoordinates(null);
+        setGeocodingError('Unable to determine location coordinates');
+        
+      } catch (error: any) {
+        console.error('❌ Error fetching coordinates:', error);
+        console.error('Error details:', error?.message, error?.stack);
+        // On error, show placeholder instead of default coordinates
+        setCoordinates(null);
+        setGeocodingError(error?.message || 'Failed to load location');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Fetch coordinates (will use web geocoding if permissions not available)
+    fetchCoordinates();
+  }, [property]);
+
+  const handleOpenInMaps = async () => {
+    if (!coordinates) {
+      Alert.alert('Error', 'Location coordinates not available');
+      return;
+    }
+
+    const { latitude, longitude } = coordinates;
+    const locationName = property.location || property.title || 'Property Location';
+    
+    let url: string;
+    
+    if (Platform.OS === 'ios') {
+      // Apple Maps URL scheme
+      url = `http://maps.apple.com/?daddr=${latitude},${longitude}&q=${encodeURIComponent(locationName)}`;
+    } else {
+      // Google Maps URL scheme for Android
+      url = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encodeURIComponent(locationName)})`;
+    }
+
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        // Fallback to web-based Google Maps
+        const webUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      console.error('Error opening maps:', error);
+      Alert.alert('Error', 'Unable to open maps application');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ marginBottom: 64 }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+          Location
+        </Text>
+        <View style={{ 
+          height: 220, 
+          width: '100%', 
+          backgroundColor: colors.muted, 
+          borderWidth: 1, 
+          borderColor: colors.border, 
+          borderRadius: 16, 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textSecondary, marginTop: 12 }}>
+            Loading map...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!coordinates) {
+    return (
+      <View style={{ marginBottom: 64 }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+          Location
+        </Text>
+        
+        {/* Beautiful Placeholder */}
+        <View style={{ 
+          height: 220, 
+          width: '100%', 
+          backgroundColor: colors.card, 
+          borderWidth: 1, 
+          borderColor: colors.border, 
+          borderRadius: 16, 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: 24,
+          overflow: 'hidden',
+          position: 'relative'
+        }}>
+          {/* Content */}
+          <View style={{ alignItems: 'center', zIndex: 1 }}>
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(59, 246, 159, 0.25)' 
+                : 'rgba(59, 130, 246, 0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}>
+              <Ionicons name="map-outline" size={40} color={colors.primary} />
+            </View>
+            
+            <Text style={{ 
+              color: colors.textPrimary, 
+              fontSize: 18, 
+              fontWeight: '600',
+              marginBottom: 8,
+              textAlign: 'center'
+            }}>
+              {property.location || property.city || "Location"}
+            </Text>
+            
+            <Text style={{ 
+              color: colors.textSecondary, 
+              fontSize: 14, 
+              textAlign: 'center',
+              marginBottom: 4
+            }}>
+              {property.city && property.country 
+                ? `${property.city}, ${property.country}`
+                : property.city || property.country || "Location details coming soon"
+              }
+            </Text>
+            
+            <View style={{
+              marginTop: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(59, 130, 246, 0.15)' 
+                : 'rgba(59, 130, 246, 0.1)',
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: isDarkColorScheme 
+                ? 'rgba(59, 130, 246, 0.3)' 
+                : 'rgba(59, 130, 246, 0.2)',
+            }}>
+              <Text style={{ 
+                color: colors.primary, 
+                fontSize: 12, 
+                fontWeight: '500'
+              }}>
+                Map view unavailable
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginBottom: 64 }}>
+      <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+        Location
+      </Text>
+      
+      {/* Map View */}
+      <View style={{ 
+        height: 220, 
+        width: '100%', 
+        borderWidth: 1, 
+        borderColor: colors.border, 
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 12
+      }}>
+        <MapView
+          ref={mapRef}
+          style={{ flex: 1 }}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          initialRegion={coordinates}
+          region={coordinates}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          pitchEnabled={false}
+          rotateEnabled={false}
+          mapType="standard"
+        >
+          <Marker
+            coordinate={{
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude,
+            }}
+            title={property.title}
+            description={property.location}
+          />
+        </MapView>
+      </View>
+
+      {/* Location Info and Open in Maps Button */}
+      <View style={{ gap: 12 }}>
+        <View style={{ 
+          backgroundColor: colors.muted, 
+          borderRadius: 12, 
+          padding: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8
+        }}>
+          <Ionicons name="location" size={20} color={colors.primary} />
+          <Text style={{ color: colors.textSecondary, flex: 1, fontSize: 14 }}>
+            {property.location || `${property.city}${property.country ? `, ${property.country}` : ''}`}
+          </Text>
+        </View>
+
+        {geocodingError && (
+          <View style={{ 
+            backgroundColor: isDarkColorScheme ? 'rgba(251, 191, 36, 0.2)' : 'rgba(251, 191, 36, 0.1)',
+            borderWidth: 1,
+            borderColor: colors.warning || colors.primary,
+            borderRadius: 8,
+            padding: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.warning || colors.primary} />
+            <Text style={{ color: colors.textSecondary, fontSize: 12, flex: 1 }}>
+              {geocodingError}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          onPress={handleOpenInMaps}
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 12,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          <Ionicons name="map-outline" size={20} color={colors.primaryForeground || '#FFFFFF'} />
+          <Text style={{ 
+            color: colors.primaryForeground || '#FFFFFF', 
+            fontSize: 16, 
+            fontWeight: '600' 
+          }}>
+            Open in Maps
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -477,37 +890,324 @@ export default function PropertyDetailScreen() {
                 {property.description}
               </Text>
 
-              <View style={{ flexDirection: 'column', gap: 16, marginBottom: 64 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
-                  <View style={{ 
-                     
-                    padding: 10, 
-                    borderRadius: 12 
-                  }}>
-                    <Ionicons name="business" size={20} color={colors.primary} />
+              {/* Key Facts Section */}
+              <View style={{ 
+                backgroundColor: colors.card, 
+                borderRadius: 16, 
+                padding: 20, 
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  Key Facts
+                </Text>
+                <View style={{ flexDirection: 'column', gap: 16 }}>
+                  {property.valuation && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                        padding: 10, 
+                        borderRadius: 12 
+                      }}>
+                        <Ionicons name="cash-outline" size={20} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Property Valuation</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+                          {typeof property.valuation === 'number' 
+                            ? `$${property.valuation.toLocaleString()}` 
+                            : property.valuation}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {property.type && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                        padding: 10, 
+                        borderRadius: 12 
+                      }}>
+                        <Ionicons name="business-outline" size={20} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Property Type</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+                          {property.type.charAt(0).toUpperCase() + property.type.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {(property.city || property.country) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                        padding: 10, 
+                        borderRadius: 12 
+                      }}>
+                        <Ionicons name="globe-outline" size={20} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Location</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+                          {property.city}{property.country ? `, ${property.country}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {property.completionDate && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                        padding: 10, 
+                        borderRadius: 12 
+                      }}>
+                        <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Completion Date</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+                          {property.completionDate}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {property.slug && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ 
+                        backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                        padding: 10, 
+                        borderRadius: 12 
+                      }}>
+                        <Ionicons name="prism-outline" size={20} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>Slug</Text>
+                        <Text style={{ fontSize: 14, color: colors.textSecondary, fontFamily: 'monospace' }}>
+                          {property.slug}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Amenities Section */}
+              <View style={{ 
+                backgroundColor: colors.card, 
+                borderRadius: 16, 
+                padding: 20, 
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  Amenities
+                </Text>
+                {property.amenities && property.amenities.length > 0 ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {property.amenities.map((amenity, index) => (
+                      <View
+                        key={index}
+                        style={{
+                          backgroundColor: isDarkColorScheme 
+                            ? 'rgba(59, 130, 246, 0.15)' 
+                            : 'rgba(59, 130, 246, 0.1)',
+                          borderWidth: 1,
+                          borderColor: isDarkColorScheme 
+                            ? 'rgba(59, 130, 246, 0.3)' 
+                            : 'rgba(59, 130, 246, 0.2)',
+                          borderRadius: 20,
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
+                          {amenity}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>Developer</Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
-                      {property.builder.name}
-                    </Text>
+                ) : (
+                  <Text style={{ color: colors.textMuted, fontSize: 14, fontStyle: 'italic' }}>
+                    No amenities listed
+                  </Text>
+                )}
+              </View>
+
+              {/* Property Features Section */}
+              {(property.features?.bedrooms || 
+                property.features?.bathrooms || 
+                property.features?.area || 
+                property.features?.floors || 
+                property.features?.units) && (
+                <View style={{ 
+                  backgroundColor: colors.card, 
+                  borderRadius: 16, 
+                  padding: 20, 
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}>
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                    Property Features
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                    {property.features.bedrooms && (
+                      <View style={{ flex: 1, minWidth: '45%' }}>
+                        <View style={{ 
+                          backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                          borderRadius: 12,
+                          padding: 16,
+                          alignItems: 'center',
+                        }}>
+                          <Ionicons name="bed-outline" size={24} color={colors.primary} />
+                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, marginBottom: 4 }}>
+                            Bedrooms
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                            {property.features.bedrooms}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {property.features.bathrooms && (
+                      <View style={{ flex: 1, minWidth: '45%' }}>
+                        <View style={{ 
+                          backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                          borderRadius: 12,
+                          padding: 16,
+                          alignItems: 'center',
+                        }}>
+                          <Ionicons name="water-outline" size={24} color={colors.primary} />
+                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, marginBottom: 4 }}>
+                            Bathrooms
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                            {property.features.bathrooms}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {property.features.area && (
+                      <View style={{ flex: 1, minWidth: '45%' }}>
+                        <View style={{ 
+                          backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                          borderRadius: 12,
+                          padding: 16,
+                          alignItems: 'center',
+                        }}>
+                          <Ionicons name="resize-outline" size={24} color={colors.primary} />
+                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, marginBottom: 4 }}>
+                            Area
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                            {property.features.area.toLocaleString()} sq ft
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {property.features.floors && (
+                      <View style={{ flex: 1, minWidth: '45%' }}>
+                        <View style={{ 
+                          backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                          borderRadius: 12,
+                          padding: 16,
+                          alignItems: 'center',
+                        }}>
+                          <Ionicons name="layers-outline" size={24} color={colors.primary} />
+                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, marginBottom: 4 }}>
+                            Floors
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                            {property.features.floors}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {property.features.units && (
+                      <View style={{ flex: 1, minWidth: '45%' }}>
+                        <View style={{ 
+                          backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                          borderRadius: 12,
+                          padding: 16,
+                          alignItems: 'center',
+                        }}>
+                          <Ionicons name="business-outline" size={24} color={colors.primary} />
+                          <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8, marginBottom: 4 }}>
+                            Units
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                            {property.features.units}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
-                  <View style={{ 
-                     
-                    padding: 10, 
-                    borderRadius: 12 
-                  }}>
-                    <Ionicons name="calendar" size={20} color={colors.primary} />
-                  </View>
+              )}
+
+              {/* Developer / Builder Info Section */}
+              <View style={{ 
+                backgroundColor: colors.card, 
+                borderRadius: 16, 
+                padding: 20, 
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  Developer / Builder
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  {property.builder.logo ? (
+                    <Image
+                      source={{ uri: property.builder.logo }}
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 32,
+                        backgroundColor: colors.muted,
+                      }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 32,
+                      backgroundColor: isDarkColorScheme ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Ionicons name="business" size={32} color={colors.primary} />
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                      Completion Timeline
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 }}>
+                      {property.builder.name}
                     </Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
-                      {property.completionDate}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Ionicons name="star" size={16} color={colors.primary} />
+                      <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                        {property.builder.rating.toFixed(1)} Rating
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="checkmark-circle-outline" size={16} color={colors.textMuted} />
+                      <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                        {property.builder.projectsCompleted} {property.builder.projectsCompleted === 1 ? 'Project' : 'Projects'} Completed
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -706,29 +1406,7 @@ export default function PropertyDetailScreen() {
           )}
 
           {activeTab === "Location" && (
-            <View style={{ marginBottom: 64 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-                Location
-              </Text>
-              <View style={{ 
-                height: 192, 
-                width: '100%', 
-                backgroundColor: colors.muted, 
-                borderWidth: 1, 
-                borderColor: colors.border, 
-                borderRadius: 16, 
-                alignItems: 'center', 
-                justifyContent: 'center' 
-              }}>
-                <Ionicons name="map-outline" size={60} color={colors.primary} />
-                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-                  {property.location || "Location not available"}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                  (Map integration placeholder)
-                </Text>
-              </View>
-            </View>
+            <PropertyLocationMap property={property} colors={colors} isDarkColorScheme={isDarkColorScheme} />
           )}
         </View>
       </ScrollView>

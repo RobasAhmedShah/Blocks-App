@@ -668,7 +668,7 @@ export default function BlocksProfileScreen() {
             className="rounded-xl shadow-sm overflow-hidden"
           >
             {/* Demo Mode Toggle */}
-            <View
+          {/*  <View
               style={{
                 backgroundColor: colors.card,
               }}
@@ -715,6 +715,7 @@ export default function BlocksProfileScreen() {
                 ios_backgroundColor={isDarkColorScheme ? '#374151' : '#d1d5db'}
               />
             </View>
+            */}
             
             <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />
             

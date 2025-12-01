@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.0.3",
+    "version": "1.0.7",
     "scheme": "blocks",
     "platforms": [
       "ios",

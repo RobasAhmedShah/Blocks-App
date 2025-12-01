@@ -13,7 +13,7 @@ const BALANCE_EPSILON = 0.01;
 // Minimum investment: 0.1 tokens
 const MINIMUM_TOKENS = 0.1;
 // Effective token price (divided by 10 for fractional investments)
-const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
 interface InvestScreenProps {
   propertyId?: string;

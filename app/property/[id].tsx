@@ -30,7 +30,7 @@ import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 
 // Effective token price (divided by 10 for fractional investments)
-const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice ;
 
 const { width } = Dimensions.get("window");
 
@@ -809,7 +809,7 @@ export default function PropertyDetailScreen() {
             <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
               <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Min. Investment</Text>
               <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                ${property.minInvestment.toLocaleString()}
+                ${getEffectiveTokenPrice((property.minInvestment)/10).toFixed(2)}
               </Text>
             </View>
             <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>

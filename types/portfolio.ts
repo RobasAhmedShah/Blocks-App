@@ -9,5 +9,6 @@ export interface Investment {
   roi: number;
   rentalYield: number;
   monthlyRentalIncome: number;
+  certificates?: string[]; // Array of certificate URLs from all investments for this property
 }
 

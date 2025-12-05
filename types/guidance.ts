@@ -7,6 +7,7 @@ export interface InvestmentPlan {
   selectedProperty?: Property;
   expectedMonthlyReturn?: number;
   estimatedROI?: number;
+  isGoalBased?: boolean; // Flag to indicate if calculations are based on monthly goal
   recurringDeposit?: {
     amount: number;
     frequency: 'weekly' | 'monthly' | 'quarterly';

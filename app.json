@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.0.0",
+    "version": "1.0.7",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -11,7 +11,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/blocks-icon-128px.png"
     },
     "plugins": [
       "expo-router",
@@ -27,7 +27,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/blocks-icon-128px.png",
           "color": "#ffffff",
           "sounds": []
         }
@@ -38,10 +38,10 @@
       "tsconfigPaths": true
     },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/blocks-icon-128px.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/blocks-icon-128px.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -52,13 +52,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.intelik.Blocks",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Allow this app to use Face ID to sign you in securely."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/blocks-icon-128px.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.intelik.Blocks"
     },
@@ -67,7 +68,7 @@
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-      "apiUrl": "http://192.168.1.142:3000"
+    "apiUrl": "https://blocks-backend.vercel.app" 
     },
     "owner": "robas",
     "runtimeVersion": {

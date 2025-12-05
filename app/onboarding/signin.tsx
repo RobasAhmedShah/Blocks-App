@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth.api";
+import { useNotifications } from "@/services/useNotifications";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,17 +25,69 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+// Validation Rules & Regex
+const VALIDATION_RULES = {
+  EMAIL: {
+    MAX_LENGTH: 100,
+    REGEX: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  },
+  PASSWORD: {
+    MIN_LENGTH: 6,
+    MAX_LENGTH: 128,
+  },
+};
+
+// Validation Helper Functions
+const validateEmail = (value: string): { isValid: boolean; error?: string } => {
+  if (!value.trim()) {
+    return { isValid: false, error: "Email is required" };
+  }
+  
+  if (value.length > VALIDATION_RULES.EMAIL.MAX_LENGTH) {
+    return { isValid: false, error: "Email is too long" };
+  }
+  
+  if (!VALIDATION_RULES.EMAIL.REGEX.test(value.trim())) {
+    return { isValid: false, error: "Please enter a valid email address" };
+  }
+  
+  return { isValid: true };
+};
+
+const validatePassword = (value: string): { isValid: boolean; error?: string } => {
+  if (!value) {
+    return { isValid: false, error: "Password is required" };
+  }
+  
+  if (value.length < VALIDATION_RULES.PASSWORD.MIN_LENGTH) {
+    return { isValid: false, error: `Password must be at least ${VALIDATION_RULES.PASSWORD.MIN_LENGTH} characters` };
+  }
+  
+  if (value.length > VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
+    return { isValid: false, error: "Password is too long" };
+  }
+  
+  return { isValid: true };
+};
+
 export default function SignInScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { signIn, loginWithBiometrics, isBiometricEnrolled, isBiometricSupported, isAuthenticated } = useAuth();
+  const { expoPushToken } = useNotifications();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false,
+  });
+  
   const [apiError, setApiError] = useState<string | null>(null);
   const hasAttemptedAutoLogin = useRef(false);
 
@@ -41,22 +95,32 @@ export default function SignInScreen() {
   const passwordOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
-  React.useEffect(() => {
+  useEffect(() => {
     emailOpacity.value = withTiming(1, { duration: 400 });
     passwordOpacity.value = withTiming(1, { duration: 600 });
   }, []);
 
-  // Auto-login with biometrics if enrolled - only when screen is focused and user is not authenticated
+  // Real-time validation
+  useEffect(() => {
+    if (touched.email) {
+      const validation = validateEmail(email);
+      setErrors(prev => ({ ...prev, email: validation.error }));
+    }
+  }, [email, touched.email]);
+
+  useEffect(() => {
+    if (touched.password) {
+      const validation = validatePassword(password);
+      setErrors(prev => ({ ...prev, password: validation.error }));
+    }
+  }, [password, touched.password]);
+
+  // Auto-login with biometrics if enrolled
   useFocusEffect(
     React.useCallback(() => {
-      // Reset the flag when screen is focused
       hasAttemptedAutoLogin.current = false;
       
       const attemptBiometricLogin = async () => {
-        // Only attempt if:
-        // 1. User is NOT already authenticated
-        // 2. Biometric is enrolled and supported
-        // 3. We haven't already attempted auto-login
         if (!isAuthenticated && isBiometricEnrolled && isBiometricSupported && !hasAttemptedAutoLogin.current) {
           hasAttemptedAutoLogin.current = true;
           setIsBiometricLoading(true);
@@ -73,7 +137,6 @@ export default function SignInScreen() {
         }
       };
 
-      // Small delay to ensure screen is fully mounted
       const timer = setTimeout(() => {
         attemptBiometricLogin();
       }, 300);
@@ -98,24 +161,33 @@ export default function SignInScreen() {
     transform: [{ scale: buttonScale.value }],
   }));
 
+  const handleEmailChange = (text: string) => {
+    const cleanText = text.trim();
+    if (cleanText.length <= VALIDATION_RULES.EMAIL.MAX_LENGTH) {
+      setEmail(cleanText);
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    if (text.length <= VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
+      setPassword(text);
+    }
+  };
+
   const validateForm = () => {
+    const emailValidation = validateEmail(email);
+    const passwordValidation = validatePassword(password);
+
     const newErrors: { email?: string; password?: string } = {};
-
-    // Email validation
-    if (!email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    // Password validation
-    if (!password) {
-      newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
+    if (!emailValidation.isValid) newErrors.email = emailValidation.error;
+    if (!passwordValidation.isValid) newErrors.password = passwordValidation.error;
 
     setErrors(newErrors);
+    setTouched({
+      email: true,
+      password: true,
+    });
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -131,16 +203,13 @@ export default function SignInScreen() {
     });
 
     try {
-      // Call the real API
       const response = await authApi.login({
         email: email.trim(),
         password: password,
+        expoToken: expoPushToken || undefined, // Include Expo push token if available
       });
       
-      // Call signIn from AuthContext with both tokens
       await signIn(response.token, response.refreshToken);
-      
-      // The AuthContext will handle the navigation to /(tabs)/home
     } catch (error) {
       console.error('Sign in error:', error);
       setApiError(
@@ -181,6 +250,10 @@ export default function SignInScreen() {
     }
   };
 
+  const isFormValid = () => {
+    return validateEmail(email).isValid && validatePassword(password).isValid;
+  };
+
   return (
     <LinearGradient
       colors={
@@ -198,7 +271,7 @@ export default function SignInScreen() {
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60 }}>
@@ -273,8 +346,12 @@ export default function SignInScreen() {
                         ? "rgba(255, 255, 255, 0.1)"
                         : colors.input,
                       borderRadius: 12,
-                      borderWidth: errors.email ? 1 : 0,
-                      borderColor: colors.destructive,
+                      borderWidth: 2,
+                      borderColor: errors.email && touched.email
+                        ? colors.destructive
+                        : !errors.email && touched.email && email
+                        ? colors.primary
+                        : 'transparent',
                       paddingHorizontal: 16,
                       height: 56,
                     }}
@@ -282,19 +359,16 @@ export default function SignInScreen() {
                     <Ionicons
                       name="mail-outline"
                       size={20}
-                      color={errors.email ? colors.destructive : colors.textMuted}
+                      color={errors.email && touched.email ? colors.destructive : colors.textMuted}
                       style={{ marginRight: 12 }}
                     />
                     <TextInput
                       value={email}
-                      onChangeText={(text) => {
-                        setEmail(text);
-                        if (errors.email) {
-                          setErrors({ ...errors, email: undefined });
-                        }
-                      }}
+                      onChangeText={handleEmailChange}
+                      onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
                       placeholder="Enter your email"
                       placeholderTextColor={colors.textMuted}
+                      maxLength={VALIDATION_RULES.EMAIL.MAX_LENGTH}
                       style={{
                         flex: 1,
                         fontSize: 16,
@@ -303,19 +377,30 @@ export default function SignInScreen() {
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
-                    />
-                  </View>
-                  {errors.email && (
-                    <Text
-                      style={{
-                        color: colors.destructive,
-                        fontSize: 12,
-                        marginTop: 6,
-                        marginLeft: 4,
+                      returnKeyType="next"
+                      onSubmitEditing={() => {
+                        // Focus password input or dismiss keyboard
+                        Keyboard.dismiss();
                       }}
-                    >
-                      {errors.email}
-                    </Text>
+                      blurOnSubmit={false}
+                    />
+                    {!errors.email && touched.email && email && (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    )}
+                  </View>
+                  {errors.email && touched.email && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
+                      <Ionicons name="alert-circle" size={14} color={colors.destructive} />
+                      <Text
+                        style={{
+                          color: colors.destructive,
+                          fontSize: 12,
+                          marginLeft: 4,
+                        }}
+                      >
+                        {errors.email}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </Animated.View>
@@ -341,8 +426,12 @@ export default function SignInScreen() {
                         ? "rgba(255, 255, 255, 0.1)"
                         : colors.input,
                       borderRadius: 12,
-                      borderWidth: errors.password ? 1 : 0,
-                      borderColor: colors.destructive,
+                      borderWidth: 2,
+                      borderColor: errors.password && touched.password
+                        ? colors.destructive
+                        : !errors.password && touched.password && password
+                        ? colors.primary
+                        : 'transparent',
                       paddingHorizontal: 16,
                       height: 56,
                     }}
@@ -350,19 +439,16 @@ export default function SignInScreen() {
                     <Ionicons
                       name="lock-closed-outline"
                       size={20}
-                      color={errors.password ? colors.destructive : colors.textMuted}
+                      color={errors.password && touched.password ? colors.destructive : colors.textMuted}
                       style={{ marginRight: 12 }}
                     />
                     <TextInput
                       value={password}
-                      onChangeText={(text) => {
-                        setPassword(text);
-                        if (errors.password) {
-                          setErrors({ ...errors, password: undefined });
-                        }
-                      }}
+                      onChangeText={handlePasswordChange}
+                      onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
                       placeholder="Enter your password"
                       placeholderTextColor={colors.textMuted}
+                      maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
                       style={{
                         flex: 1,
                         fontSize: 16,
@@ -371,10 +457,18 @@ export default function SignInScreen() {
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        Keyboard.dismiss();
+                        if (email && password && !errors.email && !errors.password) {
+                          handleSignIn();
+                        }
+                      }}
+                      blurOnSubmit={true}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
-                      style={{ padding: 4 }}
+                      style={{ padding: 4, marginRight: 4 }}
                     >
                       <Ionicons
                         name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -382,18 +476,23 @@ export default function SignInScreen() {
                         color={colors.textMuted}
                       />
                     </TouchableOpacity>
+                    {!errors.password && touched.password && password && (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    )}
                   </View>
-                  {errors.password && (
-                    <Text
-                      style={{
-                        color: colors.destructive,
-                        fontSize: 12,
-                        marginTop: 6,
-                        marginLeft: 4,
-                      }}
-                    >
-                      {errors.password}
-                    </Text>
+                  {errors.password && touched.password && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
+                      <Ionicons name="alert-circle" size={14} color={colors.destructive} />
+                      <Text
+                        style={{
+                          color: colors.destructive,
+                          fontSize: 12,
+                          marginLeft: 4,
+                        }}
+                      >
+                        {errors.password}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </Animated.View>
@@ -418,14 +517,13 @@ export default function SignInScreen() {
               <Animated.View style={buttonAnimatedStyle}>
                 <TouchableOpacity
                   onPress={handleSignIn}
-                  disabled={isLoading}
+                  disabled={isLoading || !isFormValid()}
                   style={{
-                    backgroundColor: colors.primary,
+                    backgroundColor: (!isFormValid() || isLoading) ? colors.border : colors.primary,
                     height: 56,
                     borderRadius: 16,
                     alignItems: "center",
                     justifyContent: "center",
-                    opacity: isLoading ? 0.7 : 1,
                   }}
                   activeOpacity={0.8}
                 >
@@ -444,7 +542,7 @@ export default function SignInScreen() {
                   ) : (
                     <Text
                       style={{
-                        color: colors.primaryForeground,
+                        color: (!isFormValid() || isLoading) ? colors.textMuted : colors.primaryForeground,
                         fontSize: 16,
                         fontWeight: "bold",
                         letterSpacing: 0.5,
@@ -595,4 +693,3 @@ export default function SignInScreen() {
     </LinearGradient>
   );
 }
-

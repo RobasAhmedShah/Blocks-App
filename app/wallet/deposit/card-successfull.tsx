@@ -64,18 +64,24 @@ export default function DepositConfirmationLight() {
     Alert.alert('Copied!', 'Transaction ID copied to clipboard');
   };
 
+  // Truncate transaction ID if too long (max 10 characters + ...)
+  const displayTransactionId = transactionId.length > 10 
+    ? `${transactionId.substring(0, 10)}...` 
+    : transactionId;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 32,
         padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
       }}>
         <TouchableOpacity onPress={() => router.push('/(tabs)/wallet')}>
-          <Ionicons name="close" size={28} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{
           flex: 1,
@@ -175,7 +181,7 @@ export default function DepositConfirmationLight() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
             <Text style={{ color: colors.textMuted, fontSize: 14 }}>Transaction ID</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{transactionId}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{displayTransactionId}</Text>
               <TouchableOpacity onPress={handleCopyTransactionId}>
                 <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
               </TouchableOpacity>
@@ -240,15 +246,11 @@ export default function DepositConfirmationLight() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push('../wallet/deposit/card')}>
-            <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginTop: 4 }}>
-              Make Another Deposit
-            </Text>
-          </TouchableOpacity>
+        
         </View>
       </View>
     </SafeAreaView>
- 
+
   );
 }
 

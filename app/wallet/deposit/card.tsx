@@ -1,3 +1,12 @@
+// Rules:
+
+// ✅ Min: $10
+// ✅ Max: $100,000
+// ✅ Max 2 decimal places
+// ✅ Numeric only
+// ✅ Max length: 10 characters
+
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -17,6 +26,45 @@ import { quickAmounts } from '@/data/mockWallet';
 import { useWallet } from '@/services/useWallet';
 import { paymentMethodsApi, PaymentMethod } from '@/services/api/paymentMethods.api';
 
+// Validation constants
+const VALIDATION_RULES = {
+  MIN_AMOUNT: 10,
+  MAX_AMOUNT: 100000,
+  MAX_DECIMALS: 2,
+  AMOUNT_REGEX: /^\d+\.?\d{0,2}$/,
+};
+
+// Validation helper functions
+const validateAmount = (value: string): { isValid: boolean; error?: string } => {
+  if (!value || value === '') {
+    return { isValid: false, error: 'Amount is required' };
+  }
+
+  // Check if it matches the decimal pattern
+  if (!VALIDATION_RULES.AMOUNT_REGEX.test(value)) {
+    return { isValid: false, error: 'Invalid amount format' };
+  }
+
+  const numValue = parseFloat(value);
+
+  // Check if it's a valid number
+  if (isNaN(numValue)) {
+    return { isValid: false, error: 'Please enter a valid number' };
+  }
+
+  // Check minimum amount
+  if (numValue < VALIDATION_RULES.MIN_AMOUNT) {
+    return { isValid: false, error: `Minimum deposit is $${VALIDATION_RULES.MIN_AMOUNT}` };
+  }
+
+  // Check maximum amount
+  if (numValue > VALIDATION_RULES.MAX_AMOUNT) {
+    return { isValid: false, error: `Maximum deposit is $${VALIDATION_RULES.MAX_AMOUNT.toLocaleString()}` };
+  }
+
+  return { isValid: true };
+};
+
 export default function CardDepositScreen() {
   const router = useRouter();
   const { amount: suggestedAmount, selectedMethodId } = useLocalSearchParams();
@@ -24,7 +72,9 @@ export default function CardDepositScreen() {
   const { deposit, loadWallet } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
+  const [amountError, setAmountError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [touched, setTouched] = useState(!!suggestedAmount); // Auto-touch if amount is pre-filled
   
   // Payment method selection
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -47,6 +97,16 @@ export default function CardDepositScreen() {
     }
   }, [selectedMethodId, paymentMethods]);
 
+  // Validate amount on change
+  useEffect(() => {
+    if (touched && amount) {
+      const validation = validateAmount(amount);
+      setAmountError(validation.error || '');
+    } else if (touched && !amount) {
+      setAmountError('Amount is required');
+    }
+  }, [amount, touched]);
+
   const loadPaymentMethods = async () => {
     try {
       setIsLoadingMethods(true);
@@ -58,7 +118,6 @@ export default function CardDepositScreen() {
       if (defaultMethod) {
         setSelectedMethod(defaultMethod);
       } else if (methods.length > 0) {
-        // If no default, select the first verified method
         const firstVerified = methods.find(m => m.status === 'verified');
         if (firstVerified) {
           setSelectedMethod(firstVerified);
@@ -71,6 +130,31 @@ export default function CardDepositScreen() {
     }
   };
 
+  const handleAmountChange = (text: string) => {
+    // Remove any non-numeric characters except decimal point
+    let cleanText = text.replace(/[^0-9.]/g, '');
+    
+    // Prevent multiple decimal points
+    const decimalCount = (cleanText.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      cleanText = cleanText.substring(0, cleanText.lastIndexOf('.'));
+    }
+    
+    // Limit to 2 decimal places
+    const parts = cleanText.split('.');
+    if (parts[1] && parts[1].length > VALIDATION_RULES.MAX_DECIMALS) {
+      cleanText = `${parts[0]}.${parts[1].substring(0, VALIDATION_RULES.MAX_DECIMALS)}`;
+    }
+    
+    // Limit total length (including decimal)
+    if (cleanText.length > 10) {
+      return;
+    }
+    
+    setAmount(cleanText);
+    setTouched(true);
+  };
+
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method);
     setShowMethodSelector(false);
@@ -79,7 +163,7 @@ export default function CardDepositScreen() {
   const handleAddNewCard = () => {
     setShowMethodSelector(false);
     router.push({
-      pathname: '../profilesettings/addcard',
+      pathname: '../../profilesettings/addcard',
       params: {
         returnTo: 'wallet/deposit/card',
         returnAmount: amount,
@@ -88,8 +172,13 @@ export default function CardDepositScreen() {
   };
 
   const handleDeposit = async () => {
-    if (!amount) {
-      Alert.alert('Error', 'Please enter an amount');
+    // Mark as touched to show validation errors
+    setTouched(true);
+
+    // Validate amount
+    const validation = validateAmount(amount);
+    if (!validation.isValid) {
+      Alert.alert('Invalid Amount', validation.error || 'Please enter a valid amount');
       return;
     }
 
@@ -126,6 +215,17 @@ export default function CardDepositScreen() {
     }
   };
 
+  const handleQuickAmount = (qa: number) => {
+    setAmount(qa.toString());
+    setTouched(true);
+  };
+
+  // Calculate fees
+  const amountNum = parseFloat(amount || '0');
+  const processingFee = amountNum * 0.029;
+  const youReceive = amountNum - processingFee;
+  const isAmountValid = validateAmount(amount).isValid;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
@@ -160,12 +260,21 @@ export default function CardDepositScreen() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="never"
+      >
         {/* Amount Input */}
         <View style={{ marginBottom: 24 }}>
-          <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 8 }}>
-            Amount
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500' }}>
+              Amount
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              Min: ${VALIDATION_RULES.MIN_AMOUNT} • Max: ${VALIDATION_RULES.MAX_AMOUNT.toLocaleString()}
+            </Text>
+          </View>
           <View
             style={{
               flexDirection: 'row',
@@ -174,17 +283,29 @@ export default function CardDepositScreen() {
               paddingVertical: 16,
               borderRadius: 12,
               backgroundColor: isDarkColorScheme ? colors.card : colors.muted,
-              borderWidth: isDarkColorScheme ? 1 : 0,
-              borderColor: `${colors.primary}33`,
+              borderWidth: 2,
+              borderColor: amountError && touched
+                ? '#EF4444'
+                : isAmountValid && touched
+                ? colors.primary
+                : isDarkColorScheme
+                ? `${colors.primary}33`
+                : 'transparent',
             }}
           >
-            <MaterialIcons name="attach-money" size={24} color={colors.primary} />
+            <MaterialIcons 
+              name="attach-money" 
+              size={24} 
+              color={amountError && touched ? '#EF4444' : colors.primary} 
+            />
             <TextInput
               value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
+              onChangeText={handleAmountChange}
+              onBlur={() => setTouched(true)}
+              keyboardType="decimal-pad"
               placeholder="0.00"
               placeholderTextColor={colors.textMuted}
+              maxLength={10}
               style={{
                 flex: 1,
                 marginLeft: 12,
@@ -193,17 +314,37 @@ export default function CardDepositScreen() {
                 color: colors.textPrimary,
               }}
             />
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: '600' }}>
               USDC
             </Text>
           </View>
+
+          {/* Validation Error Message */}
+          {amountError && touched && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>
+              <Ionicons name="alert-circle" size={16} color="#EF4444" />
+              <Text style={{ color: '#EF4444', fontSize: 13, marginLeft: 6 }}>
+                {amountError}
+              </Text>
+            </View>
+          )}
+
+          {/* Success indicator */}
+          {isAmountValid && touched && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 13, marginLeft: 6 }}>
+                Valid amount
+              </Text>
+            </View>
+          )}
 
           {/* Quick Amount Buttons */}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             {quickAmounts.map((qa) => (
               <TouchableOpacity
                 key={qa}
-                onPress={() => setAmount(qa.toString())}
+                onPress={() => handleQuickAmount(qa)}
                 style={{
                   flex: 1,
                   paddingVertical: 8,
@@ -270,7 +411,7 @@ export default function CardDepositScreen() {
                   width: 48,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: `${colors.primary}20`,
+                  
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
@@ -298,7 +439,7 @@ export default function CardDepositScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 6,
-                  backgroundColor: `${colors.primary}20`,
+                 
                 }}
               >
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Change</Text>
@@ -337,13 +478,15 @@ export default function CardDepositScreen() {
           borderRadius: 16,
           marginBottom: 24,
           backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={{ color: colors.textSecondary }}>
               Deposit Amount
             </Text>
             <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
-              ${parseFloat(amount || '0').toFixed(2)}
+              ${amountNum.toFixed(2)}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -351,7 +494,7 @@ export default function CardDepositScreen() {
               Processing Fee (2.9%)
             </Text>
             <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
-              ${(parseFloat(amount || '0') * 0.029).toFixed(2)}
+              ${processingFee.toFixed(2)}
             </Text>
           </View>
           <View style={{ height: 1, marginVertical: 8, backgroundColor: colors.border }} />
@@ -359,8 +502,8 @@ export default function CardDepositScreen() {
             <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
               You'll Receive
             </Text>
-            <Text style={{ color: colors.primary, fontWeight: 'bold' }}>
-              ${(parseFloat(amount || '0') * 0.971).toFixed(2)} USDC
+            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
+              ${youReceive.toFixed(2)} USDC
             </Text>
           </View>
         </View>
@@ -436,7 +579,6 @@ export default function CardDepositScreen() {
                       width: 48,
                       height: 48,
                       borderRadius: 24,
-                      backgroundColor: `${colors.primary}20`,
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: 12,
@@ -509,9 +651,11 @@ export default function CardDepositScreen() {
       >
         <TouchableOpacity
           onPress={handleDeposit}
-          disabled={isProcessing || !selectedMethod}
+          disabled={isProcessing || !selectedMethod || !isAmountValid || !amount}
           style={{
-            backgroundColor: (!selectedMethod || isProcessing) ? colors.border : colors.primary,
+            backgroundColor: (!selectedMethod || isProcessing || !isAmountValid || !amount) 
+              ? colors.border 
+              : colors.primary,
             paddingVertical: 16,
             borderRadius: 12,
             alignItems: 'center',
@@ -522,7 +666,13 @@ export default function CardDepositScreen() {
             <ActivityIndicator size="small" color={colors.primaryForeground} />
           ) : (
             <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
-              {selectedMethod ? 'Deposit Funds' : 'Select Payment Method'}
+              {!amount 
+                ? 'Enter Amount' 
+                : !isAmountValid 
+                ? 'Invalid Amount' 
+                : !selectedMethod 
+                ? 'Select Payment Method' 
+                : 'Deposit Funds'}
             </Text>
           )}
         </TouchableOpacity>
@@ -530,4 +680,3 @@ export default function CardDepositScreen() {
     </View>
   );
 }
-

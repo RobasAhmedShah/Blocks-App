@@ -15,12 +15,15 @@ export function InvestmentDistributionChart({
   height = 96,
   textColor = '#9CA3AF',
 }: InvestmentDistributionChartProps) {
-  // Optimized for landscape layout - chart on left, legend on right
-  const chartSize = Math.min(height - 4, width * 0.30); // Chart size fits in height
-  const centerX = width * 0.20; // Position chart on the left side
+  // Responsive layout - chart on left, legend on right
+  // Chart takes up 35% of width, legend takes 60%, with 5% gap
+  const chartWidthPercent = 0.35;
+  const chartSize = Math.min(height - 8, width * chartWidthPercent);
+  const centerX = (width * chartWidthPercent) / 2; // Center of chart area
   const centerY = height / 2;
-  const radius = chartSize / 2;
+  const radius = chartSize / 2 - 4; // Add padding
   const innerRadius = radius * 0.60; // Thicker donut for better visibility
+  const legendStartX = width * chartWidthPercent + 16; // Start legend after chart + gap
 
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
@@ -91,8 +94,8 @@ export function InvestmentDistributionChart({
         {/* Center text */}
         <SvgText
           x={centerX}
-          y={centerY - 5}
-          fontSize="11"
+          y={centerY - 6}
+          fontSize={Math.max(10, Math.min(12, width / 30))}
           fontWeight="bold"
           fill={textColor}
           textAnchor="middle"
@@ -107,7 +110,7 @@ export function InvestmentDistributionChart({
         <SvgText
           x={centerX}
           y={centerY + 8}
-          fontSize="8"
+          fontSize={Math.max(7, Math.min(9, width / 40))}
           fill={textColor}
           textAnchor="middle"
         >
@@ -118,41 +121,53 @@ export function InvestmentDistributionChart({
       {/* Legend - Right side, vertically centered */}
       <View style={{ 
         position: 'absolute',
+        left: legendStartX,
         right: 12,
         top: 0,
         bottom: 0,
         justifyContent: 'center',
-        left: 150,
       }}>
-        <View style={{ gap: 10 }}>
-          {data.map((item, index) => (
-            <View key={`legend-${index}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-              <View
-                style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 6,
-                  backgroundColor: item.color,
-                  flexShrink: 0,
-                }}
-              />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text 
-                  style={{ 
-                    fontSize: 10, 
-                    color: textColor, 
-                    fontWeight: '600',
+        <View style={{ gap: Math.max(6, Math.min(10, height / 15)) }}>
+          {data.map((item, index) => {
+            const percentage = (item.value / total * 100);
+            return (
+              <View key={`legend-${index}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={{
+                    width: Math.max(10, Math.min(14, width / 25)),
+                    height: Math.max(10, Math.min(14, width / 25)),
+                    borderRadius: Math.max(5, Math.min(7, width / 50)),
+                    backgroundColor: item.color,
+                    flexShrink: 0,
                   }}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-                <Text style={{ fontSize: 9, color: textColor, opacity: 0.75, marginTop: 1 }}>
-                  {(item.value / total * 100).toFixed(0)}%
-                </Text>
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text 
+                    style={{ 
+                      fontSize: Math.max(9, Math.min(12, width / 30)), 
+                      color: textColor, 
+                      fontWeight: '600',
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {item.label}
+                  </Text>
+                  <Text style={{ 
+                    fontSize: Math.max(8, Math.min(10, width / 35)), 
+                    color: textColor, 
+                    opacity: 0.75, 
+                    marginTop: 2 
+                  }}>
+                    {percentage.toFixed(1)}% • ${item.value.toLocaleString('en-US', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </View>

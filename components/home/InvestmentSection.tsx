@@ -1,9 +1,11 @@
 import React from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
+import { useRouter } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 
 export default function InvestmentSection({ data, title }: { data: any[]; title: string }) {
+  const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   
   return (
@@ -61,6 +63,11 @@ export default function InvestmentSection({ data, title }: { data: any[]; title:
             </Svg>
           </View>
           <TouchableOpacity 
+            onPress={() => {
+              if (item.id) {
+                router.push(`/property/${item.id}`);
+              }
+            }}
             style={{ 
               width: '100%', 
               marginTop: 12, 
@@ -71,6 +78,7 @@ export default function InvestmentSection({ data, title }: { data: any[]; title:
               padding: 12, 
               alignItems: 'center' 
             }}
+            activeOpacity={0.7}
           >
             <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>View Insights</Text>
           </TouchableOpacity>

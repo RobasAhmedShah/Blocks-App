@@ -31,6 +31,7 @@ export interface InvestmentResponse {
   purchaseDate: string;
   createdAt: string;
   updatedAt: string;
+  certificatePath?: string | null;
 }
 
 export interface InvestmentsListResponse {

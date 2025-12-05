@@ -3,10 +3,13 @@ node_modules/
 dist/
 npm-debug.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+keystore.properties
+android/keystores/
 *.orig.*
 web-build/
 # expo router

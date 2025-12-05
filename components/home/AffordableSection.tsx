@@ -63,7 +63,7 @@ export default function AffordableSection({ affordable }: { affordable: any[] })
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
               <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                Entry {"\n"}
+                Min. Inv {"\n"}
                 <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>{item.entry}</Text>
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 14 }}>

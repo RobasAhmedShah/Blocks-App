@@ -163,6 +163,11 @@ function RootNavigation() {
       <Stack.Screen name="property/[id]" />
       <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />
       <Stack.Screen name="invest/[id]" options={{ presentation: 'modal' }} />
+      
+      {/* Profile Settings screens */}
+      <Stack.Screen name="profilesettings/kyc" />
+      <Stack.Screen name="profilesettings/kyc-upload" />
+      <Stack.Screen name="profilesettings/kyc-details" />
     </Stack>
   );
 }

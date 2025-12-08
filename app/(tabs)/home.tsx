@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
   Dimensions,
   StatusBar,
+  TouchableOpacity,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -20,9 +22,15 @@ import FeaturedSection, { Stat as FeaturedStat} from "@/components/home/Featured
 import AffordableSection from "@/components/home/AffordableSection";
 import InvestmentSection from "@/components/home/InvestmentSection";
 import CTAButton from "@/components/home/CTAButton";
-import { mockProperties } from "@/data/mockProperties";
+import GuidanceCard from "@/components/home/GuidanceCard";
 import { useColorScheme } from "@/lib/useColorScheme";
-import { midrangeInvestments as midrange } from "@/data/mockHome";
+import { useApp } from "@/contexts/AppContext";
+import { Property } from "@/types/property";
+import { CopilotStep, useCopilot } from "react-native-copilot";
+import { CustomTooltip } from "@/components/tour/CustomTooltip";
+import { CopilotView, CopilotTouchableOpacity } from "@/components/tour/walkthroughable";
+import { useTour } from "@/contexts/TourContext";
+import { TOUR_STEPS } from "@/utils/tourHelpers";
 
 const { width, height } = Dimensions.get("window");
 
@@ -70,10 +78,282 @@ const SubtlePattern = ({ isDark }: { isDark: boolean }) => (
   </Svg>
 );
 
-export default function BlocksHomeScreen() {
+function BlocksHomeScreen() {
   const router = useRouter();
   const scrollY = useSharedValue(0);
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { state, loadWallet } = useApp();
+  const { start, copilotEvents } = useCopilot();
+  const { 
+    isTourCompleted, 
+    markTourCompleted, 
+    isFirstLaunch, 
+    shouldStartTour, 
+    setShouldStartTour, 
+    updateCurrentStep,
+    isTourActive,
+    setIsTourActive,
+    setScrollViewRef,
+  } = useTour();
+  
+  // Create ref for ScrollView only
+  // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
+  const scrollViewRef = useRef<any>(null);
+  
+  // Register ScrollView ref with context
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      setScrollViewRef(scrollViewRef);
+    }
+  }, [setScrollViewRef]);
+  
+  // Refresh wallet balance when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // CRITICAL: Don't reload wallet during active tour!
+      if (isTourActive) {
+        console.log('[HomeScreen] Skipping wallet reload - tour is active');
+        return;
+      }
+      
+      loadWallet();
+    }, [loadWallet, isTourActive])
+  );
+  
+  // Check for shouldStartTour when screen comes into focus (for replay button)
+  // REMOVED: This was causing duplicate tour starts. useLayoutEffect handles it.
+
+  // Auto-start tour logic - use useLayoutEffect to ensure layout is ready
+  useLayoutEffect(() => {
+    const checkAndStartTour = async () => {
+      // CRITICAL: Don't start if tour is already active!
+      if (isTourActive) {
+        console.log('[HomeScreen] Tour already active, skipping start check');
+        return;
+      }
+
+      const firstLaunch = await isFirstLaunch();
+      const tourDone = await isTourCompleted('home');
+      
+      console.log('[HomeScreen] Tour check:', { 
+        firstLaunch, 
+        tourDone, 
+        shouldStartTour,
+        isTourActive 
+      });
+      
+      // FIX: Check shouldStartTour FIRST (highest priority)
+      // This allows manual replay from Profile button
+      const shouldStart = shouldStartTour || (!tourDone && firstLaunch);
+      
+      if (shouldStart) {
+        console.log('[HomeScreen] Starting tour... Reason:', {
+          manualReplay: shouldStartTour,
+          firstLaunch: !tourDone && firstLaunch,
+        });
+        
+        // Use longer delay to ensure screen is fully rendered and CopilotProvider is ready
+        setTimeout(() => {
+          console.log('[HomeScreen] Calling start() now...');
+          setIsTourActive(true);
+          try {
+            start();
+            console.log('[HomeScreen] start() called successfully');
+          } catch (error) {
+            console.error('[HomeScreen] Error calling start():', error);
+          }
+          setShouldStartTour(false); // Reset flag after starting
+        }, 800); // Increased delay to ensure everything is ready
+      } else {
+        console.log('[HomeScreen] Not starting tour:', {
+          shouldStartTour,
+          tourDone,
+          firstLaunch,
+          isTourActive,
+        });
+      }
+    };
+    
+    checkAndStartTour();
+  }, [start, shouldStartTour, setShouldStartTour, isTourActive, setIsTourActive, isFirstLaunch, isTourCompleted]);
+
+  // Tour event listeners
+  useEffect(() => {
+    const handleStart = () => {
+      console.log('[HomeScreen] 🚀 Tour STARTED');
+      setIsTourActive(true);
+    };
+
+    const handleStop = async () => {
+      console.log('[HomeScreen] 🛑 Tour STOPPED');
+      setIsTourActive(false); // CRITICAL: Set inactive when tour stops
+      await markTourCompleted('home');
+    };
+    
+    const handleStepChange = (step: any) => {
+      console.log('[HomeScreen] 📍 Step changed:', step?.name, 'Order:', step?.order);
+      // FIX: Don't use JSON.stringify on step object - it has circular references
+      // Log only the properties we need
+      console.log('[HomeScreen] 📍 Step details:', {
+        name: step?.name,
+        order: step?.order,
+        text: step?.text,
+        visible: step?.visible,
+        hasWrapperRef: !!step?.wrapperRef,
+        wrapperRefCurrent: !!step?.wrapperRef?.current,
+      });
+      
+      if (step?.name) {
+        updateCurrentStep(step.name);
+        // AUTO-SCROLL TO STEP using wrapperRef from step object
+        // react-native-copilot provides wrapperRef in the step object
+        if (step?.wrapperRef?.current && scrollViewRef.current) {
+          setTimeout(() => {
+            try {
+              step.wrapperRef.current.measureLayout(
+                scrollViewRef.current,
+                (x: number, y: number, width: number, height: number) => {
+                  console.log(`[HomeScreen] Scrolling to ${step.name}:`, { x, y, width, height });
+                  const screenHeight = Dimensions.get('window').height;
+                  const centerOffset = (screenHeight / 2) - (height / 2);
+                  const scrollToY = Math.max(0, y - centerOffset);
+                  
+                  scrollViewRef.current?.scrollTo({
+                    y: scrollToY,
+                    animated: true,
+                  });
+                },
+                (error: any) => {
+                  console.error(`[HomeScreen] Error measuring ${step.name}:`, error);
+                }
+              );
+            } catch (error) {
+              console.error(`[HomeScreen] Error scrolling to ${step.name}:`, error);
+            }
+          }, 200); // Delay to ensure tooltip is rendered
+        } else {
+          console.warn(`[HomeScreen] Cannot scroll - missing refs for step: ${step.name}`, {
+            hasWrapperRef: !!step?.wrapperRef?.current,
+            hasScrollViewRef: !!scrollViewRef.current,
+          });
+        }
+      }
+    };
+
+    copilotEvents.on('start', handleStart);
+    copilotEvents.on('stop', handleStop);
+    copilotEvents.on('stepChange', handleStepChange);
+
+    return () => {
+      copilotEvents.off('start', handleStart);
+      copilotEvents.off('stop', handleStop);
+      copilotEvents.off('stepChange', handleStepChange);
+    };
+  }, [copilotEvents, markTourCompleted, updateCurrentStep, setIsTourActive]);
+  
+  // Get user's wallet balance
+  const balance = state.balance.usdc;
+  
+  // Filter properties based on user's purchase power
+  const { affordable, featured, midRange } = useMemo(() => {
+    const allProperties = state.properties.filter(
+      (p) => p.totalTokens > 0 && p.soldTokens < p.totalTokens // Only available properties
+    );
+    
+    // If user has no balance, show default properties (all properties)
+    if (balance <= 0) {
+      return {
+        affordable: allProperties
+          .sort((a, b) => a.tokenPrice - b.tokenPrice)
+          .slice(0, 2)
+          .map((property) => ({
+            id: property.id,
+            name: property.title,
+            entry: `$${(property.minInvestment/10).toFixed(2)}`,
+            roi: `${property.estimatedROI}%`,
+            image: property.images?.[0] || '',
+          })),
+        featured: allProperties
+          .sort((a, b) => b.estimatedROI - a.estimatedROI)
+          .slice(0, 2)
+          .map((property) => ({
+            id: property.id,
+            title: property.title,
+            roi: `${property.estimatedROI}%`,
+            funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
+            minInvestment: `$${(property.minInvestment/10).toFixed(2) || (property.tokenPrice/10).toFixed(2)}`,
+            image: property.images?.[0] || '',
+          })),
+        midRange: allProperties
+          .filter((p) => {
+            // Mid-range: properties between 30% and 100% of average property price
+            const avgPrice = allProperties.reduce((sum, prop) => sum + prop.tokenPrice, 0) / allProperties.length;
+            return p.tokenPrice >= avgPrice * 0.3 && p.tokenPrice <= avgPrice;
+          })
+          .sort((a, b) => b.estimatedROI - a.estimatedROI)
+          .slice(0, 3)
+          .map((property) => ({
+            id: property.id,
+            name: property.title,
+            value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
+            roi: `${property.estimatedROI}%`,
+            image: property.images?.[0] || '',
+            path: "M0,30 Q25,20 50,25 T100,30", // Simple path for chart
+          })),
+      };
+    }
+    
+    // User has balance - filter by affordability
+    // Affordable: Properties where user can buy at least 1 token (tokenPrice <= balance)
+    const affordableProperties = allProperties.filter(
+      (p) => p.tokenPrice <= balance
+    );
+    
+    // Featured: High ROI properties user can afford (can buy at least 0.1 tokens)
+    const featuredProperties = allProperties.filter(
+      (p) => balance >= p.tokenPrice * 0.1 // Can buy at least 0.1 tokens
+    );
+    
+    // Mid-range: Properties where user can buy 0.1 to 1 tokens (balance * 0.1 <= tokenPrice <= balance)
+    const midRangeProperties = allProperties.filter(
+      (p) => p.tokenPrice >= balance * 0.1 && p.tokenPrice <= balance
+    );
+    
+    return {
+      affordable: affordableProperties
+        .sort((a, b) => a.tokenPrice - b.tokenPrice)
+        .slice(0, 2)
+        .map((property) => ({
+          id: property.id,
+          name: property.title,
+          entry: `$${(property.tokenPrice/10).toFixed(2)}`,
+          roi: `${property.estimatedROI}%`,
+          image: property.images?.[0] || '',
+        })),
+      featured: featuredProperties
+        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .slice(0, 2)
+        .map((property) => ({
+          id: property.id,
+          title: property.title,
+          roi: `${property.estimatedROI}%`,
+          funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
+          minInvestment: `$${(property.minInvestment/10).toFixed(2) || (property.tokenPrice/10).toFixed(2)}`,
+          image: property.images?.[0] || '',
+        })),
+      midRange: midRangeProperties
+        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .slice(0, 3)
+        .map((property) => ({
+          id: property.id,
+          name: property.title,
+          value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
+          roi: `${property.estimatedROI}%`,
+          image: property.images?.[0] || '',
+          path: "M0,30 Q25,20 50,25 T100,30", // Simple path for chart
+        })),
+    };
+  }, [balance, state.properties, isTourActive]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -138,33 +418,41 @@ export default function BlocksHomeScreen() {
     };
   });
 
-  // Get featured properties (first 2 properties)
-  const featured = mockProperties.slice(0, 2).map((property) => ({
-    id: property.id,
-    title: property.title,
-    roi: `${property.estimatedROI}%`,
-    funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
-    minInvestment: `$${property.minInvestment}`,
-    image: property.images[0],
-  }));
-
-  // Get affordable properties (properties with lower token prices, limit to 2)
-  const affordable = mockProperties
-    .sort((a, b) => a.tokenPrice - b.tokenPrice)
-    .slice(0, 2)
-    .map((property) => ({
-      id: property.id,
-      name: property.title,
-      entry: `$${property.tokenPrice.toFixed(2)}`,
-      roi: `${property.estimatedROI}%`,
-      image: property.images[0],
-    }));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar 
         barStyle={isDarkColorScheme ? "light-content" : "dark-content"}
         backgroundColor={colors.background}
+        translucent={false}
+      />
+      
+      {/* Linear Gradient Background - 40% green top, black bottom */}
+      <LinearGradient
+        colors={isDarkColorScheme 
+          ? [
+              '#00C896',           // Teal green (top)
+              '#064E3B',           // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
+            ]
+          : [
+            '#F5F5F5', // Smoky light gray
+            '#EDEDED', // Soft ash
+            '#E0E0E0', // Gentle gray
+            '#FFFFFF'  // Pure white
+            ]
+        }
+        locations={[0, 0.4, 0.7, 1]}  // 40% green, then transition to black
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
       />
       
       {/* Grid pattern background - visible in both modes */}
@@ -174,11 +462,11 @@ export default function BlocksHomeScreen() {
 
       {/* Scrollable content with parallax */}
       <Animated.ScrollView 
+        ref={scrollViewRef}
         className="flex-1"
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         {/* Header with parallax */}
         <Animated.View 
           style={[
@@ -194,19 +482,32 @@ export default function BlocksHomeScreen() {
           ]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="apps" size={28} color={colors.primary} />
+            <Ionicons name="apps" size={28} color={colors.textPrimary} />
             <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>Blocks</Text>
           </View>
-          <View style={{
-            // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 9999,
-            borderWidth: 1,
-            borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
-          }}>
-            <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>$15,430</Text>
-          </View>
+          <CopilotStep
+            text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
+            order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
+            name={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.name}
+          >
+            <CopilotView 
+              style={{
+                // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 9999,
+                borderWidth: 1,
+                borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
+              }}
+            >
+              <CopilotTouchableOpacity
+               onPress={() => router.push('./wallet')}>
+              <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
+                ${balance.toFixed(2)}
+              </Text>
+              </CopilotTouchableOpacity>
+            </CopilotView>
+          </CopilotStep>
         </Animated.View>
 
         {/* Hero Section - Typography Focus with Parallax */}
@@ -222,31 +523,14 @@ export default function BlocksHomeScreen() {
             }
           ]}
         >
-          {/* Background gradient overlay - very subtle */}
-          <LinearGradient
-            colors={
-              isDarkColorScheme
-                ? ['rgba(22, 163, 74, 0.08)', 'rgba(22, 163, 74, 0.04)', 'transparent']
-                : ['rgba(236, 253, 245, 0.3)', 'rgba(209, 250, 229, 0.15)', 'transparent']
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              borderRadius: 32,
-            }}
-          />
+       
 
           {/* Oversized Typography */}
           <View style={{ alignItems: 'center', zIndex: 10 }}>
-            {/* Small eyebrow text */}
+      
             <Text 
               style={{
-                color: colors.primary,
+                color: colors.textPrimary,
                 fontSize: 14,
                 fontWeight: 'bold',
                 letterSpacing: 3,
@@ -257,7 +541,7 @@ export default function BlocksHomeScreen() {
               Real Estate. Reimagined.
             </Text>
 
-            {/* Main headline with gradient effect */}
+          
             <View style={{ marginBottom: 8 }}>
               <Text 
                 style={{
@@ -288,11 +572,11 @@ export default function BlocksHomeScreen() {
               </Text>
             </View>
 
-            {/* Subtitle with gradient underline */}
+        
             <View style={{ marginTop: 24, alignItems: 'center' }}>
               <Text 
                 style={{
-                  color: colors.textSecondary,
+                  color: colors.textPrimary,
                   fontSize: 24,
                   fontWeight: 'bold',
                   textAlign: 'center',
@@ -315,10 +599,10 @@ export default function BlocksHomeScreen() {
               />
             </View>
 
-            {/* Description */}
+     
             <Text 
               style={{
-                color: colors.textSecondary,
+                color: colors.textPrimary,
                 fontSize: 16,
                 textAlign: 'center',
                 lineHeight: 24,
@@ -332,57 +616,100 @@ export default function BlocksHomeScreen() {
             </Text>
 
             {/* Minimal stats */}
-            <View style={{ flexDirection: 'row', gap: 32, marginTop: 40 }}>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>50+</Text>
-                <Text style={{ 
-                  fontSize: 12, 
-                  color: colors.textMuted, 
-                  textTransform: 'uppercase', 
-                  letterSpacing: 1, 
-                  marginTop: 4 
-                }}>
-                  Properties
-                </Text>
-              </View>
-              <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>$2M+</Text>
-                <Text style={{ 
-                  fontSize: 12, 
-                  color: colors.textMuted, 
-                  textTransform: 'uppercase', 
-                  letterSpacing: 1, 
-                  marginTop: 4 
-                }}>
-                  Invested
-                </Text>
-              </View>
-              <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>12%</Text>
-                <Text style={{ 
-                  fontSize: 12, 
-                  color: colors.textMuted, 
-                  textTransform: 'uppercase', 
-                  letterSpacing: 1, 
-                  marginTop: 4 
-                }}>
-                  Avg ROI
-                </Text>
-              </View>
-            </View>
+            <CopilotStep
+              text={TOUR_STEPS.HOME.STATS_SECTION.text}
+              order={TOUR_STEPS.HOME.STATS_SECTION.order}
+              name={TOUR_STEPS.HOME.STATS_SECTION.name}
+            >
+              <CopilotView 
+                style={{ flexDirection: 'row', gap: 32, marginTop: 40 }}
+              >
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>50+</Text>
+                  <Text style={{ 
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
+                    marginTop: 4 
+                  }}>
+                    Properties
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>$2M+</Text>
+                  <Text style={{ 
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
+                    marginTop: 4 
+                  }}>
+                    Invested
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>12%</Text>
+                  <Text style={{ 
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
+                    marginTop: 4 
+                  }}>
+                    Avg ROI
+                  </Text>
+                </View>
+              </CopilotView>
+            </CopilotStep>
           </View>
         </Animated.View>
 
         {/* Content sections with smooth entrance */}
         <Animated.View style={[contentParallaxStyle]}>
-          <FeaturedSection featured={featured} />
-          <AffordableSection affordable={affordable} />
-          <InvestmentSection title="Mid-Range Investments" data={midrange} />
+          {/* Guidance Card - Step 4 - Must be rendered AFTER Property Cards for correct order */}
+          <CopilotStep
+            text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
+            order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
+            name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}
+          >
+            <CopilotView>
+              <GuidanceCard />
+            </CopilotView>
+          </CopilotStep>
+          
+          {/* Property Cards - Step 3 - Must be rendered BEFORE Guidance Card for correct order */}
+          {/* Property Cards - Always render CopilotStep even if no featured properties */}
+          <CopilotStep
+            text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
+            order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
+            name={TOUR_STEPS.HOME.PROPERTY_CARD.name}
+          >
+            <CopilotView>
+              {featured.length > 0 ? (
+                <FeaturedSection featured={featured} />
+              ) : (
+                <View style={{ minHeight: 200, padding: 20 }}>
+                  <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                    No featured properties available
+                  </Text>
+                </View>
+              )}
+            </CopilotView>
+          </CopilotStep>
+          
+          
+          
+          
+          {affordable.length > 0 && <AffordableSection affordable={affordable} />}
+          {midRange.length > 0 && <InvestmentSection title="Mid-Range Investments" data={midRange} />}
           <CTAButton />
         </Animated.View>
       </Animated.ScrollView>
     </View>
   );
 }
+
+export default BlocksHomeScreen;

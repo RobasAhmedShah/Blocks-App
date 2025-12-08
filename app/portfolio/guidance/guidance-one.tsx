@@ -9,11 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { KeyboardDismissButton } from "@/components/common/KeyboardDismissButton";
 
 export default function SetGoalScreen() {
   const router = useRouter();
@@ -21,12 +23,15 @@ export default function SetGoalScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const [inputMode, setInputMode] = useState<"goal" | "amount">("goal");
   const [goalAmount, setGoalAmount] = useState("");
-  const [investmentAmount, setInvestmentAmount] = useState("0");
+  const [investmentAmount, setInvestmentAmount] = useState("");
 
   // Calculate estimated investment based on average 5% annual return
-  const calculateInvestment = (amount: string) => {
-    const numAmount = parseFloat(amount.replace(/,/g, '')) || 0;
-    return (numAmount * 20).toLocaleString("en-US", {
+  // Formula: investment = monthlyIncome * 12 / 0.05 = monthlyIncome * 240
+  // This is the reverse of: monthlyIncome = (investment * 0.05) / 12
+  const calculateInvestment = (monthlyIncome: string) => {
+    const numAmount = parseFloat(monthlyIncome.replace(/,/g, '')) || 0;
+    const investment = numAmount * 240; // monthlyIncome * 12 / 0.05
+    return investment.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
@@ -47,24 +52,24 @@ export default function SetGoalScreen() {
     if (inputMode === "goal") {
       // User set a monthly income goal
       const goalValue = parseFloat(goalAmount.replace(/,/g, '')) || 0;
-      const estimatedInvestment = goalValue * 20;
       
       updateInvestmentPlan({
         monthlyIncomeGoal: goalValue,
-        estimatedInvestmentNeeded: estimatedInvestment,
-        investmentAmount: estimatedInvestment,
+        // Don't set a fixed investmentAmount - let guidance-two calculate per property
+        isGoalBased: true, // Flag to indicate goal-based mode
       });
       
-      console.log("Goal-based - Monthly goal:", goalValue, "Estimated investment:", estimatedInvestment);
+      console.log("Goal-based - Monthly goal:", goalValue);
     } else {
       // User set an investment amount directly
       const amount = parseFloat(investmentAmount.replace(/,/g, '')) || 0;
       const estimatedMonthlyIncome = (amount * 0.05) / 12;
       
-      updateInvestmentPlan({
+      updateInvestmentPlan({ 
         investmentAmount: amount,
         estimatedInvestmentNeeded: amount,
         monthlyIncomeGoal: estimatedMonthlyIncome,
+        isGoalBased: false, // Amount-based mode
       });
       
       console.log("Amount-based - Investment:", amount, "Expected monthly income:", estimatedMonthlyIncome);
@@ -76,6 +81,7 @@ export default function SetGoalScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+      <KeyboardDismissButton inputAccessoryViewID="guidanceOneInputAccessory" />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -88,6 +94,7 @@ export default function SetGoalScreen() {
           justifyContent: 'space-between',
           paddingHorizontal: 16,
           paddingVertical: 16,
+          marginTop: 35,
           backgroundColor: colors.background,
         }}>
           <TouchableOpacity
@@ -114,7 +121,7 @@ export default function SetGoalScreen() {
         <ScrollView 
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
         >
           <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 24 }}>
             {/* Mode Toggle */}
@@ -234,17 +241,6 @@ export default function SetGoalScreen() {
                     </Text>
                   </View>
 
-                  {/* Estimated Investment Text */}
-                  <View style={{ marginTop: 24, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
-                      To reach this goal, you'll need to invest approximately{" "}
-                      <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                        ${calculateInvestment(goalAmount)}
-                      </Text>{" "}
-                      in real estate properties.
-                    </Text>
-                  </View>
-
                   {/* Info Box */}
                   <View style={{
                     marginTop: 16,
@@ -280,6 +276,7 @@ export default function SetGoalScreen() {
                     <Text style={{ color: colors.textPrimary, fontSize: 48, fontWeight: 'bold' }}>$</Text>
                     
                     <TextInput
+                      inputAccessoryViewID={Platform.OS === 'ios' ? 'guidanceOneInputAccessory' : undefined}
                       style={{
                         width: 192,
                         textAlign: 'center',
@@ -295,18 +292,13 @@ export default function SetGoalScreen() {
                       placeholder="0"
                       placeholderTextColor={colors.textMuted}
                       maxLength={7}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      blurOnSubmit={true}
                     />
                   </View>
 
-                  {/* Estimated Monthly Income Text */}
-                  <View style={{ marginTop: 24, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
-                      Expected monthly income from this investment:{" "}
-                      <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                        ${calculateMonthlyIncome(investmentAmount)}
-                      </Text>
-                    </Text>
-                  </View>
+                
 
                   {/* Info Box */}
                   <View style={{

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,14 +9,15 @@ import {
   Platform,
   ScrollView,
   Alert,
-  ActivityIndicator,
+  Keyboard,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMagicInstance, getUserInfo, getStoredDIDToken } from "@/services/magicService";
+import { authApi } from "@/services/api/auth.api";
+import { useNotifications } from "@/services/useNotifications";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,334 +25,233 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+// Validation Rules & Regex
+const VALIDATION_RULES = {
+  EMAIL: {
+    MAX_LENGTH: 100,
+    REGEX: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  },
+  PASSWORD: {
+    MIN_LENGTH: 6,
+    MAX_LENGTH: 128,
+  },
+};
+
+// Validation Helper Functions
+const validateEmail = (value: string): { isValid: boolean; error?: string } => {
+  if (!value.trim()) {
+    return { isValid: false, error: "Email is required" };
+  }
+  
+  if (value.length > VALIDATION_RULES.EMAIL.MAX_LENGTH) {
+    return { isValid: false, error: "Email is too long" };
+  }
+  
+  if (!VALIDATION_RULES.EMAIL.REGEX.test(value.trim())) {
+    return { isValid: false, error: "Please enter a valid email address" };
+  }
+  
+  return { isValid: true };
+};
+
+const validatePassword = (value: string): { isValid: boolean; error?: string } => {
+  if (!value) {
+    return { isValid: false, error: "Password is required" };
+  }
+  
+  if (value.length < VALIDATION_RULES.PASSWORD.MIN_LENGTH) {
+    return { isValid: false, error: `Password must be at least ${VALIDATION_RULES.PASSWORD.MIN_LENGTH} characters` };
+  }
+  
+  if (value.length > VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
+    return { isValid: false, error: "Password is too long" };
+  }
+  
+  return { isValid: true };
+};
+
 export default function SignInScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn } = useAuth();
+  const { signIn, loginWithBiometrics, isBiometricEnrolled, isBiometricSupported, isAuthenticated } = useAuth();
+  const { expoPushToken } = useNotifications();
   
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; otp?: string }>({});
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
+  
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false,
+  });
+  
   const [apiError, setApiError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const magicLoginHandleRef = React.useRef<any>(null);
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAttemptedAutoLogin = useRef(false);
 
   const emailOpacity = useSharedValue(0);
-  const otpOpacity = useSharedValue(0);
+  const passwordOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
-  React.useEffect(() => {
+  useEffect(() => {
     emailOpacity.value = withTiming(1, { duration: 400 });
+    passwordOpacity.value = withTiming(1, { duration: 600 });
   }, []);
 
-  React.useEffect(() => {
-    if (otpSent) {
-      otpOpacity.value = withTiming(1, { duration: 600 });
+  // Real-time validation
+  useEffect(() => {
+    if (touched.email) {
+      const validation = validateEmail(email);
+      setErrors(prev => ({ ...prev, email: validation.error }));
     }
-  }, [otpSent]);
+  }, [email, touched.email]);
+
+  useEffect(() => {
+    if (touched.password) {
+      const validation = validatePassword(password);
+      setErrors(prev => ({ ...prev, password: validation.error }));
+    }
+  }, [password, touched.password]);
+
+  // Auto-login with biometrics if enrolled
+  useFocusEffect(
+    React.useCallback(() => {
+      hasAttemptedAutoLogin.current = false;
+      
+      const attemptBiometricLogin = async () => {
+        if (!isAuthenticated && isBiometricEnrolled && isBiometricSupported && !hasAttemptedAutoLogin.current) {
+          hasAttemptedAutoLogin.current = true;
+          setIsBiometricLoading(true);
+          try {
+            const success = await loginWithBiometrics();
+            if (!success) {
+              console.log('Biometric authentication failed or was cancelled');
+            }
+          } catch (error) {
+            console.error('Auto biometric login error:', error);
+          } finally {
+            setIsBiometricLoading(false);
+          }
+        }
+      };
+
+      const timer = setTimeout(() => {
+        attemptBiometricLogin();
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+      };
+    }, [isAuthenticated, isBiometricEnrolled, isBiometricSupported, loginWithBiometrics])
+  );
 
   const emailAnimatedStyle = useAnimatedStyle(() => ({
     opacity: emailOpacity.value,
     transform: [{ translateY: withSpring((1 - emailOpacity.value) * 20) }],
   }));
 
-  const otpAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: otpOpacity.value,
-    transform: [{ translateY: withSpring((1 - otpOpacity.value) * 20) }],
+  const passwordAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: passwordOpacity.value,
+    transform: [{ translateY: withSpring((1 - passwordOpacity.value) * 20) }],
   }));
 
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
 
-  const validateEmail = () => {
-    if (!email.trim()) {
-      setErrors({ email: "Email is required" });
-      return false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setErrors({ email: "Please enter a valid email address" });
-      return false;
+  const handleEmailChange = (text: string) => {
+    const cleanText = text.trim();
+    if (cleanText.length <= VALIDATION_RULES.EMAIL.MAX_LENGTH) {
+      setEmail(cleanText);
     }
-    setErrors({});
-    return true;
   };
 
-  const handleSendOTP = async () => {
-    console.log('🚀 [SIGNIN] handleSendOTP called');
-    console.log('   📧 Email:', email);
-    
-    if (!validateEmail()) {
-      console.log('   ❌ Email validation failed');
+  const handlePasswordChange = (text: string) => {
+    if (text.length <= VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
+      setPassword(text);
+    }
+  };
+
+  const validateForm = () => {
+    const emailValidation = validateEmail(email);
+    const passwordValidation = validatePassword(password);
+
+    const newErrors: { email?: string; password?: string } = {};
+    if (!emailValidation.isValid) newErrors.email = emailValidation.error;
+    if (!passwordValidation.isValid) newErrors.password = passwordValidation.error;
+
+    setErrors(newErrors);
+    setTouched({
+      email: true,
+      password: true,
+    });
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSignIn = async () => {
+    if (!validateForm()) {
       return;
     }
 
-    console.log('   ✅ Email validation passed');
     setIsLoading(true);
     setApiError(null);
-    setErrors({});
     buttonScale.value = withSpring(0.95, {}, () => {
       buttonScale.value = withSpring(1);
     });
 
     try {
-      console.log('   🔧 Getting Magic instance...');
-      const magic = getMagicInstance();
-      console.log('   ✅ Magic instance obtained:', !!magic);
-      console.log('   🔍 Magic instance type:', typeof magic);
-      console.log('   🔍 Magic.auth exists:', !!magic?.auth);
-      console.log('   🔍 Magic.auth.loginWithEmailOTP exists:', !!magic?.auth?.loginWithEmailOTP);
-      
-      if (!magic || !magic.auth || !magic.auth.loginWithEmailOTP) {
-        throw new Error('Magic SDK not properly initialized');
-      }
-      
-      console.log('   📤 Calling magic.auth.loginWithEmailOTP...');
-      console.log('   📋 Options:', { email, showUI: false, deviceCheckUI: false });
-      
-      // Initiate OTP login with Magic - this sends the OTP email
-      // Note: loginWithEmailOTP returns a promise that resolves when auth is complete
-      // But it also emits events during the process
-      const loginHandle = magic.auth.loginWithEmailOTP({ 
-        email,
-        showUI: false,
-        deviceCheckUI: false 
+      const response = await authApi.login({
+        email: email.trim(),
+        password: password,
+        expoToken: expoPushToken || undefined, // Include Expo push token if available
       });
       
-      console.log('   ✅ loginWithEmailOTP called, handle received:', !!loginHandle);
-      console.log('   🔍 Handle type:', typeof loginHandle);
-      console.log('   🔍 Handle has .on method:', typeof loginHandle?.on === 'function');
-      console.log('   🔍 Handle is a Promise:', loginHandle instanceof Promise);
-      console.log('   🔍 Handle toString:', loginHandle?.toString?.());
-      console.log('   🔍 Handle constructor:', loginHandle?.constructor?.name);
-      
-      // Log all methods available on the handle
-      if (loginHandle && typeof loginHandle === 'object') {
-        console.log('   🔍 Handle methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(loginHandle)));
-        console.log('   🔍 Handle own properties:', Object.keys(loginHandle));
-      }
-      
-      // Check if it's a promise and handle it
-      if (loginHandle instanceof Promise) {
-        console.log('   📦 Handle is a Promise, setting up promise handlers...');
-        loginHandle
-          .then((result) => {
-            console.log('   ✅ Promise resolved:', result);
-          })
-          .catch((error) => {
-            console.error('   ❌ Promise rejected:', error);
-            console.error('   ❌ Error details:', {
-              message: error?.message,
-              code: error?.code,
-              type: typeof error,
-              keys: error ? Object.keys(error) : []
-            });
-            setApiError(error?.message || 'Failed to send verification code. Please try again.');
-            setIsLoading(false);
-            setOtpSent(false);
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-          });
-      }
-      
-      magicLoginHandleRef.current = loginHandle;
-
-      // Set up event listeners - DON'T AWAIT, let it run asynchronously
-      console.log('   🎧 Setting up event listeners...');
-      
-      loginHandle
-        .on('email-otp-sent', () => {
-          console.log('📧 [SIGNIN] ✅ OTP sent to email event received');
-          console.log('   📧 Email:', email);
-          // Clear timeout since we got a response
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          setOtpSent(true);
-          setIsLoading(false);
-          Alert.alert("Code Sent", `A verification code has been sent to ${email}`);
-        })
-        .on('invalid-email-otp', () => {
-          console.log('❌ [SIGNIN] Invalid OTP event received');
-          setErrors({ otp: 'Invalid verification code. Please try again.' });
-          setOtp('');
-          setIsLoading(false);
-          setRetryCount(prev => prev + 1);
-        })
-        .on('done', async (didToken: string | null) => {
-          console.log('✅ [SIGNIN] Login successful event received');
-          console.log('   🎫 DID Token received:', !!didToken);
-          console.log('   🎫 Token length:', didToken?.length || 0);
-          
-          if (didToken) {
-            try {
-              console.log('   👤 Getting user info...');
-              // Get user info and sign in
-              const userInfo = await getUserInfo();
-              console.log('   ✅ User info received:', { 
-                email: userInfo.email, 
-                hasPublicAddress: !!userInfo.publicAddress 
-              });
-              
-              console.log('   🔐 Calling signIn...');
-              await signIn(didToken, false, {
-                email: userInfo.email,
-                publicAddress: userInfo.publicAddress,
-              });
-              console.log('   ✅ Sign in complete, AuthContext will handle navigation');
-              // AuthContext will handle navigation
-            } catch (error) {
-              console.error('   ❌ Error getting user info:', error);
-              // Still sign in with the token
-              console.log('   🔐 Attempting sign in with token only...');
-              await signIn(didToken, false);
-            }
-          } else {
-            console.error('   ❌ No DID token received');
-            setApiError('Authentication failed: No token received.');
-            setIsLoading(false);
-          }
-        })
-        .on('error', (error: any) => {
-          console.error('🚫 [SIGNIN] Magic login error event received');
-          console.error('   ❌ Error object:', error);
-          console.error('   ❌ Error message:', error?.message);
-          console.error('   ❌ Error type:', typeof error);
-          console.error('   ❌ Error keys:', error ? Object.keys(error) : 'no error object');
-          // Clear timeout since we got an error
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
-          setApiError(error?.message || 'Failed to send verification code. Please try again.');
-          setIsLoading(false);
-          setOtpSent(false);
-        })
-        .on('settled', () => {
-          console.log('🏁 [SIGNIN] Magic login process settled event received');
-        })
-        // Device verification events (optional but recommended)
-        .on('device-needs-approval', () => {
-          console.log('📱 [SIGNIN] Device needs approval event received');
-          Alert.alert("Device Verification", "Please check your email to approve this device.");
-        })
-        .on('device-verification-email-sent', () => {
-          console.log('📧 [SIGNIN] Device verification email sent event received');
-        })
-        .on('device-approved', () => {
-          console.log('✅ [SIGNIN] Device approved event received');
-        })
-        .on('device-verification-link-expired', () => {
-          console.log('⏰ [SIGNIN] Device verification link expired event received');
-          Alert.alert("Link Expired", "The device verification link has expired. Please try again.");
-          setIsLoading(false);
-          setOtpSent(false);
-        });
-
-      console.log('   ✅ Event listeners set up successfully');
-      
-      // Clear any existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      // Add a timeout to detect if nothing happens
-      timeoutRef.current = setTimeout(async () => {
-        console.warn('⚠️ [SIGNIN] Timeout: No response after 15 seconds');
-        console.warn('   🔍 Checking current state...');
-        console.log('   🔄 Auto-logging in due to timeout (development mode)...');
-        
-        // Auto-login on timeout for development/testing
-        try {
-          // Create a mock token for development
-          const mockToken = `dev_token_${Date.now()}_${email}`;
-          await signIn(mockToken, false, {
-            email: email,
-            publicAddress: undefined,
-          });
-          console.log('   ✅ Auto-login successful, navigating to home...');
-          // AuthContext will handle navigation to home
-        } catch (error) {
-          console.error('   ❌ Auto-login failed:', error);
-          setApiError('Request timed out. Auto-login failed. Please check your internet connection and try again.');
-          setIsLoading(false);
-        }
-        
-        timeoutRef.current = null;
-      }, 15000);
-
-      // DON'T await - the promise resolves when authentication is complete (after OTP verification)
-      // The event listeners above handle the flow
+      await signIn(response.token, response.refreshToken);
     } catch (error) {
-      console.error('❌ [SIGNIN] Error initiating Magic login:', error);
-      console.error('   ❌ Error type:', typeof error);
-      console.error('   ❌ Error instanceof Error:', error instanceof Error);
-      console.error('   ❌ Error message:', error instanceof Error ? error.message : String(error));
-      console.error('   ❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('Sign in error:', error);
       setApiError(
         error instanceof Error 
           ? error.message 
-          : 'Failed to send verification code. Please try again.'
+          : 'Failed to sign in. Please check your credentials and try again.'
       );
+    } finally {
       setIsLoading(false);
-      setOtpSent(false);
     }
   };
 
-  const handleVerifyOTP = async () => {
-    console.log('🔐 [SIGNIN] handleVerifyOTP called');
-    console.log('   🔢 OTP length:', otp.length);
-    console.log('   🔢 OTP value:', otp);
-    
-    if (!otp || otp.length !== 6) {
-      console.log('   ❌ OTP validation failed');
-      setErrors({ otp: 'Please enter a 6-digit code' });
-      return;
-    }
+  const handleSignUp = () => {
+    router.push("/onboarding/signup" as any);
+  };
 
-    if (!magicLoginHandleRef.current) {
-      console.error('   ❌ Login handle not initialized');
-      setApiError('Login session not initialized. Please send a new code.');
-      return;
-    }
+  const handleForgotPassword = () => {
+    Alert.alert(
+      "Forgot Password",
+      "Password reset functionality will be available soon.",
+      [{ text: "OK" }]
+    );
+  };
 
-    console.log('   ✅ OTP validation passed');
-    console.log('   ✅ Login handle exists');
-    setIsLoading(true);
+  const handleBiometricLogin = async () => {
+    setIsBiometricLoading(true);
     setApiError(null);
-    setErrors({});
-    
     try {
-      console.log('   📤 Emitting verify-email-otp event...');
-      // Emit the OTP verification event to the Magic login handle
-      magicLoginHandleRef.current.emit('verify-email-otp', otp);
-      console.log('   ✅ verify-email-otp event emitted');
-      // The event listeners set up in handleSendOTP will handle the response
-      // (done, invalid-email-otp, or error events)
+      const success = await loginWithBiometrics();
+      if (!success) {
+        setApiError('Biometric authentication failed. Please try again or use your password.');
+      }
     } catch (error) {
-      console.error('❌ [SIGNIN] Error verifying OTP:', error);
-      console.error('   ❌ Error type:', typeof error);
-      console.error('   ❌ Error message:', error instanceof Error ? error.message : String(error));
-      setApiError(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to verify code. Please try again.'
-      );
-      setIsLoading(false);
+      console.error('Biometric login error:', error);
+      setApiError('Failed to authenticate with biometrics. Please try again.');
+    } finally {
+      setIsBiometricLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    setOtp('');
-    setErrors({});
-    setOtpSent(false);
-    setRetryCount(0);
-    await handleSendOTP();
+  const isFormValid = () => {
+    return validateEmail(email).isValid && validatePassword(password).isValid;
   };
 
   return (
@@ -371,7 +271,7 @@ export default function SignInScreen() {
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
           showsVerticalScrollIndicator={false}
         >
           <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60 }}>
@@ -410,7 +310,7 @@ export default function SignInScreen() {
                   marginBottom: 12,
                 }}
               >
-                {otpSent ? "Verify Code" : "Welcome Back"}
+                Welcome Back
               </Text>
               <Text
                 style={{
@@ -419,199 +319,216 @@ export default function SignInScreen() {
                   lineHeight: 24,
                 }}
               >
-                {otpSent
-                  ? `We sent a verification code to ${email}`
-                  : "Sign in with your email - no password needed"}
+                Sign in to continue to Blocks
               </Text>
             </View>
 
             {/* Form */}
             <View style={{ gap: 24 }}>
               {/* Email Input */}
-              {!otpSent && (
-                <Animated.View style={emailAnimatedStyle}>
-                  <View>
-                    <Text
+              <Animated.View style={emailAnimatedStyle}>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: colors.textPrimary,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Email
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: isDarkColorScheme
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : colors.input,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: errors.email && touched.email
+                        ? colors.destructive
+                        : !errors.email && touched.email && email
+                        ? colors.primary
+                        : 'transparent',
+                      paddingHorizontal: 16,
+                      height: 56,
+                    }}
+                  >
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color={errors.email && touched.email ? colors.destructive : colors.textMuted}
+                      style={{ marginRight: 12 }}
+                    />
+                    <TextInput
+                      value={email}
+                      onChangeText={handleEmailChange}
+                      onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                      placeholder="Enter your email"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={VALIDATION_RULES.EMAIL.MAX_LENGTH}
                       style={{
-                        fontSize: 14,
-                        fontWeight: "600",
+                        flex: 1,
+                        fontSize: 16,
                         color: colors.textPrimary,
-                        marginBottom: 8,
                       }}
-                    >
-                      Email
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: isDarkColorScheme
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : colors.input,
-                        borderRadius: 12,
-                        borderWidth: errors.email ? 1 : 0,
-                        borderColor: colors.destructive,
-                        paddingHorizontal: 16,
-                        height: 56,
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => {
+                        // Focus password input or dismiss keyboard
+                        Keyboard.dismiss();
                       }}
-                    >
-                      <Ionicons
-                        name="mail-outline"
-                        size={20}
-                        color={errors.email ? colors.destructive : colors.textMuted}
-                        style={{ marginRight: 12 }}
-                      />
-                      <TextInput
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text);
-                          if (errors.email) {
-                            setErrors({ ...errors, email: undefined });
-                          }
-                        }}
-                        placeholder="Enter your email"
-                        placeholderTextColor={colors.textMuted}
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          color: colors.textPrimary,
-                        }}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
-                      />
-                    </View>
-                    {errors.email && (
+                      blurOnSubmit={false}
+                    />
+                    {!errors.email && touched.email && email && (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    )}
+                  </View>
+                  {errors.email && touched.email && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
+                      <Ionicons name="alert-circle" size={14} color={colors.destructive} />
                       <Text
                         style={{
                           color: colors.destructive,
                           fontSize: 12,
-                          marginTop: 6,
                           marginLeft: 4,
                         }}
                       >
                         {errors.email}
                       </Text>
-                    )}
-                  </View>
-                </Animated.View>
-              )}
+                    </View>
+                  )}
+                </View>
+              </Animated.View>
 
-              {/* OTP Input */}
-              {otpSent && (
-                <Animated.View style={otpAnimatedStyle}>
-                  <View>
-                    <Text
+              {/* Password Input */}
+              <Animated.View style={passwordAnimatedStyle}>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: colors.textPrimary,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Password
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: isDarkColorScheme
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : colors.input,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: errors.password && touched.password
+                        ? colors.destructive
+                        : !errors.password && touched.password && password
+                        ? colors.primary
+                        : 'transparent',
+                      paddingHorizontal: 16,
+                      height: 56,
+                    }}
+                  >
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={errors.password && touched.password ? colors.destructive : colors.textMuted}
+                      style={{ marginRight: 12 }}
+                    />
+                    <TextInput
+                      value={password}
+                      onChangeText={handlePasswordChange}
+                      onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
+                      placeholder="Enter your password"
+                      placeholderTextColor={colors.textMuted}
+                      maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
                       style={{
-                        fontSize: 14,
-                        fontWeight: "600",
+                        flex: 1,
+                        fontSize: 16,
                         color: colors.textPrimary,
-                        marginBottom: 8,
                       }}
-                    >
-                      Verification Code
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: isDarkColorScheme
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : colors.input,
-                        borderRadius: 12,
-                        borderWidth: errors.otp ? 1 : 0,
-                        borderColor: colors.destructive,
-                        paddingHorizontal: 16,
-                        height: 56,
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        Keyboard.dismiss();
+                        if (email && password && !errors.email && !errors.password) {
+                          handleSignIn();
+                        }
                       }}
+                      blurOnSubmit={true}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={{ padding: 4, marginRight: 4 }}
                     >
                       <Ionicons
-                        name="key-outline"
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
                         size={20}
-                        color={errors.otp ? colors.destructive : colors.textMuted}
-                        style={{ marginRight: 12 }}
+                        color={colors.textMuted}
                       />
-                      <TextInput
-                        value={otp}
-                        onChangeText={(text) => {
-                          // Only allow numbers
-                          const numericOtp = text.replace(/[^0-9]/g, '');
-                          setOtp(numericOtp);
-                          if (errors.otp) {
-                            setErrors({ ...errors, otp: undefined });
-                          }
-                          // Auto-submit when 6 digits entered
-                          if (numericOtp.length === 6) {
-                            handleVerifyOTP();
-                          }
-                        }}
-                        placeholder="Enter 6-digit code"
-                        placeholderTextColor={colors.textMuted}
-                        style={{
-                          flex: 1,
-                          fontSize: 20,
-                          letterSpacing: 8,
-                          color: colors.textPrimary,
-                          fontWeight: "bold",
-                        }}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        autoFocus
-                        editable={!isLoading}
-                      />
-                    </View>
-                    {errors.otp && (
+                    </TouchableOpacity>
+                    {!errors.password && touched.password && password && (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    )}
+                  </View>
+                  {errors.password && touched.password && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
+                      <Ionicons name="alert-circle" size={14} color={colors.destructive} />
                       <Text
                         style={{
                           color: colors.destructive,
                           fontSize: 12,
-                          marginTop: 6,
                           marginLeft: 4,
                         }}
                       >
-                        {errors.otp}
+                        {errors.password}
                       </Text>
-                    )}
+                    </View>
+                  )}
+                </View>
+              </Animated.View>
 
-                    {/* Resend OTP */}
-                    <TouchableOpacity
-                      onPress={handleResendOTP}
-                      disabled={isLoading}
-                      style={{ marginTop: 12, alignSelf: "flex-end" }}
-                    >
-                      <Text
-                        style={{
-                          color: colors.primary,
-                          fontSize: 14,
-                          fontWeight: "600",
-                        }}
-                      >
-                        Didn't receive code? Resend
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              )}
+              {/* Forgot Password */}
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                style={{ alignSelf: "flex-end" }}
+              >
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
 
-              {/* Submit Button */}
+              {/* Sign In Button */}
               <Animated.View style={buttonAnimatedStyle}>
                 <TouchableOpacity
-                  onPress={otpSent ? handleVerifyOTP : handleSendOTP}
-                  disabled={isLoading}
+                  onPress={handleSignIn}
+                  disabled={isLoading || !isFormValid()}
                   style={{
-                    backgroundColor: colors.primary,
+                    backgroundColor: (!isFormValid() || isLoading) ? colors.border : colors.primary,
                     height: 56,
                     borderRadius: 16,
                     alignItems: "center",
                     justifyContent: "center",
-                    opacity: isLoading ? 0.7 : 1,
                   }}
                   activeOpacity={0.8}
                 >
                   {isLoading ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                      <ActivityIndicator color={colors.primaryForeground} />
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <Text
                         style={{
                           color: colors.primaryForeground,
@@ -619,23 +536,22 @@ export default function SignInScreen() {
                           fontWeight: "bold",
                         }}
                       >
-                        {otpSent ? "Verifying..." : "Sending code..."}
+                        Signing in...
                       </Text>
                     </View>
                   ) : (
                     <Text
                       style={{
-                        color: colors.primaryForeground,
+                        color: (!isFormValid() || isLoading) ? colors.textMuted : colors.primaryForeground,
                         fontSize: 16,
                         fontWeight: "bold",
                         letterSpacing: 0.5,
                       }}
                     >
-                      {otpSent ? "Verify Code" : "Send Verification Code"}
+                      Sign In
                     </Text>
                   )}
                 </TouchableOpacity>
-                
               </Animated.View>
 
               {/* API Error Message */}
@@ -668,59 +584,108 @@ export default function SignInScreen() {
                 </View>
               )}
 
-              {/* Info Box */}
-              <View
-                style={{
-                  backgroundColor: isDarkColorScheme
-                    ? "rgba(13, 165, 165, 0.1)"
-                    : "rgba(13, 165, 165, 0.05)",
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: isDarkColorScheme
-                    ? "rgba(13, 165, 165, 0.3)"
-                    : "rgba(13, 165, 165, 0.2)",
-                  padding: 16,
-                  marginTop: 16,
-                }}
-              >
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+              {/* Biometric Login Button */}
+              {isBiometricSupported && isBiometricEnrolled && (
+                <TouchableOpacity
+                  onPress={handleBiometricLogin}
+                  disabled={isBiometricLoading}
+                  style={{
+                    backgroundColor: isDarkColorScheme
+                      ? "rgba(22, 163, 74, 0.15)"
+                      : "rgba(22, 163, 74, 0.1)",
+                    height: 56,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 12,
+                    borderWidth: 1,
+                    borderColor: colors.primary,
+                    opacity: isBiometricLoading ? 0.7 : 1,
+                    marginTop: 16,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="finger-print"
+                    size={24}
+                    color={colors.primary}
+                  />
                   <Text
                     style={{
-                      flex: 1,
-                      color: colors.textSecondary,
-                      fontSize: 13,
-                      lineHeight: 20,
+                      color: colors.primary,
+                      fontSize: 16,
+                      fontWeight: "bold",
+                      letterSpacing: 0.5,
                     }}
                   >
-                    {otpSent
-                      ? "Enter the 6-digit code sent to your email. The code will expire in 10 minutes."
-                      : "We'll send a one-time code to your email. No password required - secure and simple!"}
+                    {isBiometricLoading ? "Authenticating..." : "Login with Biometric"}
                   </Text>
-                </View>
-              </View>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Footer Note */}
+            {/* Divider */}
             <View
               style={{
-                marginTop: "auto",
-                paddingBottom: 40,
-                paddingTop: 32,
+                flexDirection: "row",
+                alignItems: "center",
+                marginVertical: 32,
+              }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  height: 1,
+                  backgroundColor: colors.border,
+                }}
+              />
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontSize: 14,
+                  marginHorizontal: 16,
+                }}
+              >
+                OR
+              </Text>
+              <View
+                style={{
+                  flex: 1,
+                  height: 1,
+                  backgroundColor: colors.border,
+                }}
+              />
+            </View>
+
+            {/* Sign Up Link */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+                marginBottom: 40,
               }}
             >
               <Text
                 style={{
-                  fontSize: 12,
-                  color: colors.textMuted,
-                  textAlign: "center",
-                  lineHeight: 18,
+                  color: colors.textSecondary,
+                  fontSize: 14,
                 }}
               >
-                By continuing, you agree to our{" "}
-                <Text style={{ color: colors.primary }}>Terms of Service</Text> and{" "}
-                <Text style={{ color: colors.primary }}>Privacy Policy</Text>
+                Don't have an account?{" "}
               </Text>
+              <TouchableOpacity onPress={handleSignUp}>
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 14,
+                    fontWeight: "bold",
+                  }}
+                >
+                  Sign Up
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>

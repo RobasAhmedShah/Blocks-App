@@ -33,9 +33,24 @@ export const mockProperties: Property[] = [
       area: 250000,
     },
     documents: [
-      { name: 'Property Deed', type: 'PDF', verified: true },
-      { name: 'Appraisal Report', type: 'PDF', verified: true },
-      { name: 'Legal Opinion', type: 'PDF', verified: true },
+      { 
+        name: 'Property Deed', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'Appraisal Report', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'Legal Opinion', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
     ],
     updates: [
       {
@@ -84,8 +99,18 @@ export const mockProperties: Property[] = [
       area: 320000,
     },
     documents: [
-      { name: 'Property Deed', type: 'PDF', verified: true },
-      { name: 'Environmental Impact', type: 'PDF', verified: true },
+      { 
+        name: 'Property Deed', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'Environmental Impact', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
     ],
     updates: [
       {
@@ -128,8 +153,18 @@ export const mockProperties: Property[] = [
       area: 180000,
     },
     documents: [
-      { name: 'Property Deed', type: 'PDF', verified: true },
-      { name: 'NOC Document', type: 'PDF', verified: true },
+      { 
+        name: 'Property Deed', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'NOC Document', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
     ],
     updates: [
       {
@@ -172,9 +207,24 @@ export const mockProperties: Property[] = [
       area: 420000,
     },
     documents: [
-      { name: 'Property Deed', type: 'PDF', verified: true },
-      { name: 'Completion Certificate', type: 'PDF', verified: true },
-      { name: 'Rental Agreements', type: 'PDF', verified: true },
+      { 
+        name: 'Property Deed', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'Completion Certificate', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
+      { 
+        name: 'Rental Agreements', 
+        type: 'PDF', 
+        verified: true,
+        url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      },
     ],
     updates: [
       {

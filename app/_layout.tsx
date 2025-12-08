@@ -7,7 +7,11 @@ import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider } from '@/lib/useColorScheme';
+import { TourProvider } from '@/contexts/TourContext';
+import { CopilotProvider } from 'react-native-copilot';
+import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 
@@ -38,12 +42,27 @@ export default function RootLayout() {
     <AuthProvider>
       <AppProvider>
         <GuidanceProvider>
-          <ThemeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootNavigation />
-              <StatusBar style="auto" />
-            </GestureHandlerRootView>
-          </ThemeProvider>
+          <NotificationProvider>
+            <ThemeProvider>
+              <TourProvider>
+                <CopilotProvider
+                  tooltipComponent={CustomTooltip}
+                  stepNumberComponent={() => null}
+                  overlay="view"
+                  animated={true}
+                  backdropColor="rgba(0, 0, 0, 0.85)"
+                  arrowColor="#00C896"
+                  verticalOffset={10}
+                  androidStatusBarVisible={true}
+                >
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <RootNavigation />
+                    <StatusBar style="auto" />
+                  </GestureHandlerRootView>
+                </CopilotProvider>
+              </TourProvider>
+            </ThemeProvider>
+          </NotificationProvider>
         </GuidanceProvider>
       </AppProvider>
     </AuthProvider>
@@ -157,6 +176,7 @@ function RootNavigation() {
       <Stack.Screen name="property/[id]" />
       <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />
       <Stack.Screen name="invest/[id]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

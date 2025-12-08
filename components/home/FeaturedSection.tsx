@@ -120,7 +120,7 @@ export const Stat = ({
     </Text>
     <Text style={{ 
       color: '#FFFFFF', 
-      fontSize: 18, 
+      fontSize: 17.5, 
       fontWeight: 'bold',
       textShadowColor: 'rgba(0, 0, 0, 0.5)', 
       textShadowOffset: { width: 0, height: 1 }, 

@@ -3,12 +3,13 @@ import * as React from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useSegments } from 'expo-router';
-import { verifySession, getUserInfo, logout as magicLogout, getStoredDIDToken } from '@/services/magicService';
+import { authApi } from '@/services/api/auth.api';
 
 // --- Define Storage Keys ---
 const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
 const BIOMETRIC_TOKEN_KEY = 'biometric_auth_token';
-const MAGIC_USER_INFO_KEY = 'magic_user_info';
+const BIOMETRIC_REFRESH_TOKEN_KEY = 'biometric_refresh_token';
 
 // --- Define State and Context Shapes ---
 interface AuthState {
@@ -17,13 +18,11 @@ interface AuthState {
   isLoading: boolean;
   isBiometricSupported: boolean;
   isBiometricEnrolled: boolean;
-  userEmail: string | null;
-  userWalletAddress: string | null;
 }
 
 interface AuthContextProps extends Omit<AuthState, 'token'> {
-  signIn: (token: string, enableBiometrics?: boolean, userInfo?: { email?: string; publicAddress?: string }) => Promise<void>;
-  signOut: () => void;
+  signIn: (token: string, refreshToken: string, enableBiometrics?: boolean) => Promise<void>;
+  signOut: () => Promise<void>;
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<boolean>;
   loginWithBiometrics: () => Promise<boolean>;
@@ -39,8 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
     isBiometricSupported: false,
     isBiometricEnrolled: false,
-    userEmail: null,
-    userWalletAddress: null,
   });
   
   const router = useRouter();
@@ -52,84 +49,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       
-      let biometricToken: string | null = null;
-      if (hasHardware && isEnrolled) {
-        // Check if we have a biometric token stored
-        biometricToken = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
-      }
-
+      // Check if biometric login is enabled (stored as a flag)
+      const biometricEnabled = await SecureStore.getItemAsync('biometric_enabled');
+      
       setAuthState(prev => ({
         ...prev,
-        isBiometricSupported: hasHardware,
-        isBiometricEnrolled: !!biometricToken, // Enrolled *in our app* if token exists
+        isBiometricSupported: hasHardware && isEnrolled,
+        isBiometricEnrolled: biometricEnabled === 'true',
       }));
-
-      return biometricToken;
     };
 
     // 2. Check Auth Status on load
     const checkAuthStatus = async () => {
       try {
-        const biometricToken = await checkBiometricHardware();
+        await checkBiometricHardware();
 
-        if (biometricToken) {
-          // If a biometric token exists, the user is "enrolled" but not yet authenticated.
-          // We will wait for them to trigger loginWithBiometrics() from the signin screen.
+        // Always check for standard token keys
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        const biometricEnabled = await SecureStore.getItemAsync('biometric_enabled');
+        
+        // If biometric is enabled, don't auto-authenticate - require biometric verification
+        if (biometricEnabled === 'true' && token) {
           setAuthState(prev => ({
             ...prev,
             isLoading: false,
-            isAuthenticated: false,
+            isAuthenticated: false, // Require biometric verification
           }));
-        } else {
-          // Check Magic session first
-          const isMagicSessionValid = await verifySession();
-          
-          if (isMagicSessionValid) {
-            // Get user info from Magic
-            try {
-              const userInfo = await getUserInfo();
-              // Get DID token from Magic service (it stores it)
-              const didToken = await getStoredDIDToken();
-              // Also store in TOKEN_KEY for compatibility
-              if (didToken) {
-                await SecureStore.setItemAsync(TOKEN_KEY, didToken);
-              }
-              
-              setAuthState(prev => ({
-                ...prev,
-                token: didToken,
-                isAuthenticated: true,
-                isLoading: false,
-                userEmail: userInfo.email || null,
-                userWalletAddress: userInfo.publicAddress || null,
-              }));
-            } catch (error) {
-              console.error('Error fetching Magic user info:', error);
-              // Fall back to stored token
-              const token = await getStoredDIDToken() || await SecureStore.getItemAsync(TOKEN_KEY);
-              if (token) {
+          return;
+        }
+        
+        if (token) {
+          // Validate token with backend
+          try {
+            await authApi.getMe(token);
+            // Token is valid
+            setAuthState(prev => ({
+              ...prev,
+              token: token,
+              isAuthenticated: true,
+              isLoading: false,
+            }));
+            // Profile will be loaded by AppContext's useEffect when it detects the token
+          } catch (error) {
+            // Token is invalid or expired, try to refresh
+            if (refreshToken) {
+              try {
+                const refreshed = await authApi.refreshToken(refreshToken);
+                await SecureStore.setItemAsync(TOKEN_KEY, refreshed.token);
+                await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshed.refreshToken);
                 setAuthState(prev => ({
                   ...prev,
-                  token: token,
+                  token: refreshed.token,
                   isAuthenticated: true,
                   isLoading: false,
                 }));
-              } else {
+                // Profile will be loaded by AppContext's useEffect when it detects the token
+              } catch (refreshError) {
+                // Refresh failed, clear tokens and require login
+                await SecureStore.deleteItemAsync(TOKEN_KEY);
+                await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
                 setAuthState(prev => ({
                   ...prev,
                   isLoading: false,
                   isAuthenticated: false,
                 }));
               }
+            } else {
+              // No refresh token, clear and require login
+              await SecureStore.deleteItemAsync(TOKEN_KEY);
+              setAuthState(prev => ({
+                ...prev,
+                isLoading: false,
+                isAuthenticated: false,
+              }));
             }
-          } else {
-            // No valid session
-            setAuthState(prev => ({
-              ...prev,
-              isLoading: false,
-              isAuthenticated: false,
-            }));
           }
+        } else {
+          // No tokens at all
+          setAuthState(prev => ({
+            ...prev,
+            isLoading: false,
+            isAuthenticated: false,
+          }));
         }
       } catch (e) {
         console.error('Error checking auth status:', e);
@@ -156,14 +158,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authState.isAuthenticated, authState.isLoading, segments, router]);
 
   // --- Auth Actions ---
-  const signIn = async (token: string, enableBiometrics: boolean = false, userInfo?: { email?: string; publicAddress?: string }) => {
+  const signIn = async (token: string, refreshToken: string, enableBiometrics: boolean = false) => {
     try {
-      const key = enableBiometrics ? BIOMETRIC_TOKEN_KEY : TOKEN_KEY;
-      await SecureStore.setItemAsync(key, token);
+      // Always store tokens in standard keys
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
+      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
       
-      // Store user info if provided
-      if (userInfo) {
-        await SecureStore.setItemAsync(MAGIC_USER_INFO_KEY, JSON.stringify(userInfo));
+      // If biometrics is enabled, set the flag
+      if (enableBiometrics) {
+        await SecureStore.setItemAsync('biometric_enabled', 'true');
       }
       
       setAuthState(prev => ({
@@ -172,35 +175,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: true,
         isLoading: false,
         isBiometricEnrolled: enableBiometrics,
-        userEmail: userInfo?.email || null,
-        userWalletAddress: userInfo?.publicAddress || null,
       }));
+      
+      // Profile will be loaded by AppContext's useEffect when it detects the token
     } catch (e) {
       console.error('Error saving token:', e);
+      throw e;
     }
   };
 
   const signOut = async () => {
     try {
-      // Logout from Magic first
-      try {
-        await magicLogout();
-      } catch (error) {
-        console.error('Error logging out from Magic:', error);
+      // Try to call logout API if we have a token
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      
+      if (token) {
+        try {
+          await authApi.logout(token);
+        } catch (error) {
+          // Ignore logout API errors, still clear local tokens
+          console.error('Logout API error:', error);
+        }
       }
       
-      // Clear ALL keys on sign out
+      // Clear ALL tokens and flags on sign out
       await SecureStore.deleteItemAsync(TOKEN_KEY);
-      await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(MAGIC_USER_INFO_KEY);
+      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      await SecureStore.deleteItemAsync('biometric_enabled');
+      // Clean up old biometric keys if they exist (for migration)
+      await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
+      await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY).catch(() => {});
       
       setAuthState(prev => ({
         ...prev,
         token: null,
         isAuthenticated: false,
         isBiometricEnrolled: false,
-        userEmail: null,
-        userWalletAddress: null,
       }));
     } catch (e) {
       console.error('Error removing token:', e);
@@ -209,19 +219,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Sign in to your account',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {
-        const token = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
+        // Use standard token keys - biometric is just a gate to access them
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        
         if (token) {
-          setAuthState(prev => ({
-            ...prev,
-            token: token,
-            isAuthenticated: true,
-          }));
-          return true;
+          // Validate token with backend
+          try {
+            await authApi.getMe(token);
+            setAuthState(prev => ({
+              ...prev,
+              token: token,
+              isAuthenticated: true,
+            }));
+            return true;
+          } catch (error) {
+            // Token expired, try to refresh
+            if (refreshToken) {
+              try {
+                const refreshed = await authApi.refreshToken(refreshToken);
+                await SecureStore.setItemAsync(TOKEN_KEY, refreshed.token);
+                await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshed.refreshToken);
+                setAuthState(prev => ({
+                  ...prev,
+                  token: refreshed.token,
+                  isAuthenticated: true,
+                }));
+                return true;
+              } catch (refreshError) {
+                // Refresh failed, clear tokens
+                await SecureStore.deleteItemAsync(TOKEN_KEY);
+                await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+                await SecureStore.deleteItemAsync('biometric_enabled');
+                setAuthState(prev => ({
+                  ...prev,
+                  isBiometricEnrolled: false,
+                }));
+                return false;
+              }
+            }
+            return false;
+          }
         }
       }
       return false;
@@ -233,16 +282,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const enableBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Enable Biometric Login',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {
-        // Move token from standard to biometric key
+        // Check if tokens exist
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
-        if (token) {
-          await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, token);
-          await SecureStore.deleteItemAsync(TOKEN_KEY); // Delete standard key
+        const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        
+        if (token && refreshToken) {
+          // Just set the flag - tokens stay in standard keys
+          await SecureStore.setItemAsync('biometric_enabled', 'true');
           setAuthState(prev => ({ ...prev, isBiometricEnrolled: true }));
           return true;
         }
@@ -256,19 +313,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const disableBiometrics = async (): Promise<boolean> => {
     try {
+      // Check available authentication types and prefer Face ID
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const hasFaceID = supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Disable Biometric Login',
+        fallbackLabel: hasFaceID ? 'Use Passcode' : undefined,
+        disableDeviceFallback: false, // Allow passcode fallback if biometric fails
       });
 
       if (result.success) {
-        // Move token from biometric to standard key
-        const token = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
-        if (token) {
-          await SecureStore.setItemAsync(TOKEN_KEY, token);
-          await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY); // Delete biometric key
-          setAuthState(prev => ({ ...prev, isBiometricEnrolled: false }));
-          return true;
-        }
+        // Just remove the flag - tokens stay in standard keys
+        await SecureStore.deleteItemAsync('biometric_enabled');
+        // Clean up old biometric keys if they exist (for migration)
+        await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
+        await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY).catch(() => {});
+        setAuthState(prev => ({ ...prev, isBiometricEnrolled: false }));
+        return true;
       }
       return false;
     } catch (e) {
@@ -288,8 +350,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: authState.isLoading,
     isBiometricSupported: authState.isBiometricSupported,
     isBiometricEnrolled: authState.isBiometricEnrolled,
-    userEmail: authState.userEmail,
-    userWalletAddress: authState.userWalletAddress,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

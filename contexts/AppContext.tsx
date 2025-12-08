@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Property } from '@/types/property';
 import { WalletBalance, Transaction } from '@/types/wallet';
 import { Investment } from '@/types/portfolio';
@@ -10,6 +10,12 @@ import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@
 import { professionalBankAccounts } from '@/data/mockProfile';
 import * as SecureStore from 'expo-secure-store';
 import { NotificationHelper } from '@/services/notificationHelper';
+import { propertiesApi } from '@/services/api/properties.api';
+import { profileApi, ProfileResponse } from '@/services/api/profile.api';
+import { walletApi } from '@/services/api/wallet.api';
+import { transactionsApi } from '@/services/api/transactions.api';
+import { investmentsApi, InvestmentResponse } from '@/services/api/investments.api';
+import { useAuth } from './AuthContext';
 
 interface AppState {
   // Wallet State
@@ -36,15 +42,23 @@ interface AppContextType {
   // State
   state: AppState;
   
+  // Loading States
+  isLoadingProperties: boolean;
+  propertiesError: string | null;
+  
   // Wallet Actions
-  deposit: (amount: number, method: string) => Promise<void>;
+  loadWallet: () => Promise<void>;
+  loadTransactions: () => Promise<void>;
+  deposit: (amount: number, paymentMethodId?: string) => Promise<void>;
   withdraw: (amount: number) => Promise<void>;
   
   // Investment Actions
+  loadInvestments: () => Promise<void>;
   invest: (amount: number, propertyId: string, tokenCount: number) => Promise<void>;
   
   // Property Actions
   getProperty: (id: string) => Property | undefined;
+  refreshProperties: () => Promise<void>;
   
   // Portfolio Actions
   getInvestments: () => Investment[];
@@ -54,6 +68,7 @@ interface AppContextType {
   getMonthlyRentalIncome: () => number;
   
   // Profile Actions
+  loadProfile: () => Promise<void>;
   updateUserInfo: (updates: Partial<UserInfo>) => Promise<void>;
   updateSecuritySettings: (updates: Partial<SecuritySettings>) => Promise<void>;
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => Promise<void>;
@@ -72,17 +87,126 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const BOOKMARKS_STORAGE_KEY = 'bookmarked_property_ids';
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const currentUserIdRef = useRef<string | null>(null);
+  
   const [state, setState] = useState<AppState>({
     balance: { ...initialBalance },
     transactions: [...mockTransactions],
     investments: [...mockInvestments],
-    properties: [...mockProperties],
+    properties: [...mockProperties], // Start with mock data, will be replaced by API
     userInfo: { ...mockUserInfo },
     securitySettings: { ...mockSecuritySettings },
     notificationSettings: { ...mockNotificationSettings },
     bankAccounts: [...professionalBankAccounts],
     bookmarkedPropertyIds: [],
   });
+
+  const [isLoadingProperties, setIsLoadingProperties] = useState(false);
+  const [propertiesError, setPropertiesError] = useState<string | null>(null);
+
+  // Function to clear all user-specific data
+  const clearUserData = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      balance: { ...initialBalance },
+      transactions: [],
+      investments: [],
+      userInfo: { ...mockUserInfo },
+      securitySettings: { ...mockSecuritySettings },
+      notificationSettings: { ...mockNotificationSettings },
+      bankAccounts: [],
+      bookmarkedPropertyIds: [],
+    }));
+    currentUserIdRef.current = null;
+  }, []);
+
+  // Fetch properties from API
+  const fetchProperties = useCallback(async () => {
+    try {
+      setIsLoadingProperties(true);
+      setPropertiesError(null);
+      
+      // Fetch all properties (with pagination if needed)
+      let allProperties: Property[] = [];
+      let page = 1;
+      let hasMore = true;
+      const limit = 100; // Fetch 100 at a time
+      
+      while (hasMore) {
+        const response = await propertiesApi.getProperties({ page, limit });
+        allProperties = [...allProperties, ...response.data];
+        
+        if (page >= response.meta.totalPages) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+      
+      // Helper function to ensure documents have URLs with fallback
+      const ensureDocumentsWithUrls = (documents: Property['documents'] | null | undefined): Property['documents'] => {
+        // If documents is null, undefined, or empty array, return fallback documents
+        if (!documents || !Array.isArray(documents) || documents.length === 0) {
+          return [
+            { 
+              name: 'Property Deed', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Appraisal Report', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Legal Opinion', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+          ];
+        }
+        // Ensure all existing documents have URLs (fallback to placeholder if missing)
+        return documents.map(doc => ({
+          name: doc.name || 'Document',
+          type: doc.type || 'PDF',
+          verified: doc.verified !== undefined ? doc.verified : true,
+          url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        }));
+      };
+
+      // Transform API properties to match app structure
+      const transformedProperties: Property[] = allProperties.map(prop => ({
+        ...prop,
+        // Ensure completionDate is a string (can be null from API)
+        completionDate: prop.completionDate || '',
+        // Ensure documents have URLs (add default documents if none exist)
+        documents: ensureDocumentsWithUrls(prop.documents),
+        updates: prop.updates || [],
+        // Ensure rentalIncome exists for generating-income properties
+        rentalIncome: prop.rentalIncome || (prop.status === 'generating-income' ? undefined : undefined),
+      }));
+      
+      setState(prev => ({
+        ...prev,
+        properties: transformedProperties,
+      }));
+    } catch (error: any) {
+      console.error('Error fetching properties:', error);
+      setPropertiesError(error.message || 'Failed to load properties');
+      // Keep mock data on error for fallback
+    } finally {
+      setIsLoadingProperties(false);
+    }
+  }, []);
+
+  // Load properties on mount
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
 
   // Load bookmarks from secure storage on mount
   useEffect(() => {
@@ -104,41 +228,76 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Wallet Actions
-  const deposit = useCallback(async (amount: number, method: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    let notificationSettings: NotificationSettings | undefined;
-    
-    setState(prev => {
-      notificationSettings = prev.notificationSettings;
-      
-      const newTransaction: Transaction = {
-        id: `tx-${Date.now()}`,
-        type: 'deposit',
-        amount,
-        currency: 'USDC',
-        status: 'completed',
-        date: new Date().toISOString(),
-        description: `Deposit via ${method}`,
-      };
-
-      const newBalance: WalletBalance = {
-        ...prev.balance,
-        usdc: prev.balance.usdc + amount,
-        totalValue: (prev.balance.totalValue || prev.balance.usdc) + amount,
-      };
-
-      return {
+  const loadWallet = useCallback(async () => {
+    try {
+      const walletBalance = await walletApi.getWallet();
+      setState(prev => ({
         ...prev,
-        balance: newBalance,
-        transactions: [newTransaction, ...prev.transactions],
-      };
-    });
-
-    // Send notification after state update
-    await NotificationHelper.depositSuccess(amount, method, notificationSettings);
+        balance: {
+          usdc: walletBalance.usdc,
+          totalValue: walletBalance.totalValue,
+          totalInvested: walletBalance.totalInvested,
+          totalEarnings: walletBalance.totalEarnings,
+          pendingDeposits: walletBalance.pendingDeposits,
+        },
+      }));
+    } catch (error) {
+      console.error('Error loading wallet:', error);
+      // Keep existing state on error
+    }
   }, []);
+
+  const loadTransactions = useCallback(async () => {
+    try {
+      const response = await transactionsApi.getTransactions({
+        page: 1,
+        limit: 50, // Load more transactions for the wallet screen
+      });
+      setState(prev => ({
+        ...prev,
+        transactions: response.data,
+      }));
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      // Keep existing state on error
+    }
+  }, []);
+
+  const deposit = useCallback(async (amount: number, paymentMethodId?: string) => {
+    try {
+      // Call backend API to process deposit
+      const response = await walletApi.deposit({
+        amountUSDT: amount,
+        paymentMethodId: paymentMethodId,
+      });
+
+      // Update wallet balance with the response from backend
+      setState(prev => ({
+        ...prev,
+        balance: {
+          usdc: response.wallet.usdc,
+          totalValue: response.wallet.totalValue,
+          totalInvested: response.wallet.totalInvested,
+          totalEarnings: response.wallet.totalEarnings,
+          pendingDeposits: response.wallet.pendingDeposits,
+        },
+      }));
+
+      // Reload transactions to show the new deposit
+      await loadTransactions();
+
+      // Send notification after successful deposit
+      const notificationSettings = state.notificationSettings;
+      await NotificationHelper.depositSuccess(
+        amount,
+        'Card', // Using card as default method for now
+        notificationSettings,
+      );
+    } catch (error: any) {
+      console.error('Error processing deposit:', error);
+      throw error;
+    }
+  }, [state.notificationSettings, loadTransactions]);
 
   const withdraw = useCallback(async (amount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -180,7 +339,169 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Investment Actions
+  const loadInvestments = useCallback(async () => {
+    try {
+      const investments = await investmentsApi.getMyInvestments();
+      
+      // Debug: Log certificatePath from API
+      console.log('[AppContext] Investments loaded:', investments.length);
+      investments.forEach((inv, idx) => {
+        console.log(`[AppContext] Investment ${idx + 1}:`, {
+          id: inv.id,
+          propertyId: inv.property?.id,
+          certificatePath: inv.certificatePath,
+        });
+      });
+      
+      // Group investments by property ID
+      const investmentsByProperty = new Map<string, InvestmentResponse[]>();
+      
+      investments.forEach((inv) => {
+        const propertyId = inv.property.id;
+        if (!investmentsByProperty.has(propertyId)) {
+          investmentsByProperty.set(propertyId, []);
+        }
+        investmentsByProperty.get(propertyId)!.push(inv);
+      });
+      
+      // Merge investments for the same property
+      const mergedInvestments: Investment[] = Array.from(investmentsByProperty.entries()).map(([propertyId, propertyInvestments]) => {
+        // Sort by purchase date (earliest first) to keep the first investment's metadata
+        const sortedInvestments = [...propertyInvestments].sort((a, b) => {
+          const dateA = new Date(a.purchaseDate || a.createdAt).getTime();
+          const dateB = new Date(b.purchaseDate || b.createdAt).getTime();
+          return dateA - dateB;
+        });
+        
+        const firstInvestment = sortedInvestments[0];
+        
+        // Sum up all values
+        const totalTokens = sortedInvestments.reduce((sum, inv) => sum + inv.tokens, 0);
+        const totalInvestedAmount = sortedInvestments.reduce((sum, inv) => sum + inv.investedAmount, 0);
+        const totalCurrentValue = sortedInvestments.reduce((sum, inv) => sum + inv.currentValue, 0);
+        const totalMonthlyRentalIncome = sortedInvestments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
+        
+        // Recalculate ROI based on merged totals
+        const mergedROI = totalInvestedAmount > 0 
+          ? ((totalCurrentValue - totalInvestedAmount) / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Recalculate rental yield based on merged totals
+        const mergedRentalYield = totalInvestedAmount > 0 
+          ? (totalMonthlyRentalIncome * 12 / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Collect all certificate paths from all investments for this property
+        const certificates = sortedInvestments
+          .map((inv) => {
+            const certPath = inv.certificatePath || null;
+            if (certPath) {
+              console.log(`[AppContext] Found certificate for investment ${inv.id}: ${certPath}`);
+            }
+            return certPath;
+          })
+          .filter((path): path is string => {
+            return !!path && typeof path === 'string' && path.trim() !== '';
+          });
+        
+        console.log(`[AppContext] Property ${propertyId}: Collected ${certificates.length} certificate(s) from ${sortedInvestments.length} investment(s)`);
+        
+        // Find property from state - it should exist since properties are loaded first
+        const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
+        
+        if (!propertyData) {
+          console.warn(`Property ${firstInvestment.property.id} not found in state. Using minimal property data.`);
+          // If property not found, we'll need to fetch it or use a minimal version
+          // For now, we'll skip this investment or use a fallback
+          // This shouldn't happen in normal flow since properties are loaded first
+        }
+        
+        // Use property from state if available, otherwise create minimal fallback
+        const property: Property = propertyData || {
+          id: firstInvestment.property.id,
+          displayCode: firstInvestment.property.displayCode,
+          title: firstInvestment.property.title,
+          location: `${firstInvestment.property.city}, ${firstInvestment.property.country}`,
+          city: firstInvestment.property.city,
+          country: firstInvestment.property.country,
+          images: firstInvestment.property.images || [],
+          tokenPrice: firstInvestment.property.tokenPrice,
+          status: firstInvestment.property.status as any,
+          valuation: 0,
+          minInvestment: firstInvestment.property.tokenPrice,
+          totalTokens: 0,
+          soldTokens: 0,
+          estimatedROI: 0,
+          estimatedYield: 0,
+          completionDate: '',
+          description: '',
+          amenities: [],
+          builder: {
+            name: '',
+            rating: 0,
+            projectsCompleted: 0,
+          },
+          features: {},
+          documents: [],
+          updates: [],
+        } as Property;
+
+        return {
+          id: firstInvestment.id, // Use the first investment's ID
+          property: property,
+          tokens: totalTokens,
+          investedAmount: totalInvestedAmount,
+          currentValue: totalCurrentValue,
+          roi: mergedROI,
+          rentalYield: mergedRentalYield,
+          monthlyRentalIncome: totalMonthlyRentalIncome,
+          certificates: certificates, // Include all certificates from merged investments
+        };
+      });
+
+      setState(prev => ({
+        ...prev,
+        investments: mergedInvestments,
+      }));
+    } catch (error) {
+      console.error('Error loading investments:', error);
+      // Keep existing state on error
+    }
+  }, [state.properties]);
+
   const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
+    try {
+      // Call backend API to create investment
+      const investment = await investmentsApi.createInvestment({
+        propertyId,
+        tokenCount,
+      });
+
+      // Reload wallet balance and transactions after investment
+      await loadWallet();
+      await loadTransactions();
+      await loadInvestments();
+
+      // Send notification with correct parameters
+      const notificationSettings = state.notificationSettings;
+      const propertyTitle = investment.property?.title || 'Property';
+      const investedAmount = investment.investedAmount || amount;
+      
+      await NotificationHelper.investmentSuccess(
+        propertyTitle,
+        investedAmount,
+        tokenCount,
+        propertyId,
+        notificationSettings
+      );
+    } catch (error: any) {
+      console.error('Error creating investment:', error);
+      throw error;
+    }
+  }, [state.notificationSettings, loadWallet, loadTransactions, loadInvestments]);
+
+  // Legacy invest function for backward compatibility (not used anymore)
+  const investLegacy = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     let property: Property | undefined;
@@ -324,8 +645,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Property Actions
   const getProperty = useCallback((id: string) => {
-    return state.properties.find(p => p.id === id);
+    return state.properties.find(p => p.id === id || p.displayCode === id);
   }, [state.properties]);
+
+  const refreshProperties = useCallback(async () => {
+    await fetchProperties();
+  }, [fetchProperties]);
 
   // Portfolio Actions
   const getInvestments = useCallback(() => {
@@ -350,13 +675,85 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return state.investments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
   }, [state.investments]);
 
+  // Load profile from backend
+  const loadProfile = useCallback(async () => {
+    try {
+      const profile = await profileApi.getProfile();
+      const userId = profile.userInfo.id;
+      
+      // Check if this is a different user
+      if (userId && currentUserIdRef.current && currentUserIdRef.current !== userId) {
+        // Different user signed in - clear old data first
+        clearUserData();
+      }
+      
+      // Update user ID reference
+      currentUserIdRef.current = userId;
+      
+      setState(prev => ({
+        ...prev,
+        userInfo: profile.userInfo as UserInfo,
+        securitySettings: profile.securitySettings as SecuritySettings,
+        notificationSettings: profile.notificationSettings as NotificationSettings,
+      }));
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Keep existing state on error
+    }
+  }, [clearUserData]);
+
+  // Watch for authentication changes and clear/reload data accordingly
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // User signed out - clear all user data
+      clearUserData();
+      return;
+    }
+
+    // User is authenticated - load data
+    const loadUserData = async () => {
+      try {
+        // Load profile first to get user ID
+        await loadProfile();
+        
+        // Then load other user-specific data
+        await Promise.all([
+          loadWallet(),
+          loadTransactions(),
+          loadInvestments(),
+        ]);
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+
+    loadUserData();
+  }, [isAuthenticated, loadProfile, loadWallet, loadTransactions, loadInvestments, clearUserData]);
+
   // Profile Actions
   const updateUserInfo = useCallback(async (updates: Partial<UserInfo>) => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setState(prev => ({
-      ...prev,
-      userInfo: { ...prev.userInfo, ...updates },
-    }));
+    try {
+      // Update backend
+      const profile = await profileApi.updateProfile({
+        fullName: updates.fullName,
+        email: updates.email,
+        phone: updates.phone || undefined,
+        dob: updates.dob || undefined,
+        address: updates.address || undefined,
+        profileImage: updates.profileImage || undefined,
+      });
+      
+      // Update local state
+      setState(prev => ({
+        ...prev,
+        userInfo: profile.userInfo as UserInfo,
+        securitySettings: profile.securitySettings as SecuritySettings,
+        notificationSettings: profile.notificationSettings as NotificationSettings,
+      }));
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
   }, []);
 
   const updateSecuritySettings = useCallback(async (updates: Partial<SecuritySettings>) => {
@@ -442,15 +839,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         state,
+        isLoadingProperties,
+        propertiesError,
+        loadWallet,
+        loadTransactions,
         deposit,
         withdraw,
+        loadInvestments,
         invest,
         getProperty,
+        refreshProperties,
         getInvestments,
         getTotalValue,
         getTotalInvested,
         getTotalROI,
         getMonthlyRentalIncome,
+        loadProfile,
         updateUserInfo,
         updateSecuritySettings,
         updateNotificationSettings,

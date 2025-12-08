@@ -185,7 +185,7 @@ export default function KycScreen() {
                 className="overflow-hidden rounded-xl"
               >
                 {['front', 'back', 'selfie'].map((docType, index) => {
-                  const hasDoc = kycStatus.hasDocuments?.[docType as keyof typeof kycStatus.hasDocuments];
+                  const hasDoc = kycStatus.hasDocuments?.[docType as 'front' | 'back' | 'selfie'];
                   const isLast = index === ['front', 'back', 'selfie'].length - 1;
                   return (
                     <View key={docType}>

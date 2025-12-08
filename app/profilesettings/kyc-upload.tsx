@@ -111,7 +111,7 @@ export default function KycUploadScreen() {
         },
       }));
 
-      Alert.alert('Success', `${type.charAt(0).toUpperCase() + type.slice(1)} document uploaded successfully.`);
+      // No alert - visual feedback (checkmark) is sufficient
     } catch (error) {
       console.error('Error uploading document:', error);
       
@@ -137,8 +137,8 @@ export default function KycUploadScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!documents.front.uploaded) {
-      Alert.alert('Required', 'Please upload the front of your ID document.');
+    if (!documents.front.uploaded || !documents.selfie.uploaded) {
+      Alert.alert('Required', 'Please upload both the front of your ID document and a selfie photo.');
       return;
     }
 
@@ -152,9 +152,8 @@ export default function KycUploadScreen() {
       };
 
       await kycApi.submitKyc(submitData);
-      Alert.alert('Success', 'KYC verification submitted successfully. We will review your documents shortly.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      // Navigate back - user can see status in profile
+      router.back();
     } catch (error) {
       console.error('Error submitting KYC:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit KYC verification.');
@@ -178,12 +177,23 @@ export default function KycUploadScreen() {
           <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, flex: 1 }}>
             {label}
           </Text>
-          {required && (
-            <Text style={{ fontSize: 12, color: colors.destructive, fontWeight: '600' }}>Required</Text>
-          )}
-          {doc.uploaded && (
-            <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
-          )}
+          <View className="flex-row items-center gap-2">
+            {required && !doc.uploaded && (
+              <Text style={{ fontSize: 12, color: colors.destructive, fontWeight: '600' }}>Required</Text>
+            )}
+            {doc.uploaded && (
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '600' }}>Uploaded</Text>
+              </View>
+            )}
+            {doc.uploading && (
+              <View className="flex-row items-center gap-1">
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Uploading...</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {doc.uri ? (
@@ -214,7 +224,7 @@ export default function KycUploadScreen() {
                 <Ionicons name="camera" size={20} color={colors.textPrimary} />
                 <Text style={{ fontSize: 12, color: colors.textPrimary, marginTop: 4 }}>Retake</Text>
               </TouchableOpacity>
-              {!doc.uploaded && (
+              {!doc.uploaded ? (
                 <TouchableOpacity
                   onPress={() => uploadDocument(type)}
                   disabled={doc.uploading}
@@ -222,6 +232,7 @@ export default function KycUploadScreen() {
                     flex: 1,
                     padding: 12,
                     backgroundColor: doc.uploading ? colors.background : '#0da5a5',
+                    opacity: doc.uploading ? 0.6 : 1,
                   }}
                   className="rounded-lg items-center"
                 >
@@ -234,6 +245,24 @@ export default function KycUploadScreen() {
                     </>
                   )}
                 </TouchableOpacity>
+              ) : (
+                <View
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    backgroundColor: isDarkColorScheme 
+                      ? 'rgba(16, 185, 129, 0.15)' 
+                      : 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 1,
+                    borderColor: isDarkColorScheme 
+                      ? 'rgba(16, 185, 129, 0.3)' 
+                      : 'rgba(16, 185, 129, 0.2)',
+                  }}
+                  className="rounded-lg items-center"
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4, fontWeight: '600' }}>Uploaded</Text>
+                </View>
               )}
             </View>
           </View>
@@ -317,7 +346,7 @@ export default function KycUploadScreen() {
 
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={submitting || !documents.front.uploaded}
+            disabled={submitting || !documents.front.uploaded || !documents.selfie.uploaded}
             activeOpacity={0.8}
           >
             <LinearGradient

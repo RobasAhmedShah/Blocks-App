@@ -25,6 +25,7 @@ import * as WebBrowser from "expo-web-browser";
 import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
+import { useKycCheck } from "@/hooks/useKycCheck";
 
 // In the current backend, tokenPrice and minInvestment are already “real” prices.
 // No more /10 scaling.
@@ -48,6 +49,7 @@ export default function PropertyDetailScreen() {
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { isVerified, handleInvestPress } = useKycCheck();
 
   const bookmarked = id ? isBookmarked(id) : false;
 
@@ -141,7 +143,9 @@ export default function PropertyDetailScreen() {
       return;
     }
 
-    setShowInvestModal(true);
+    handleInvestPress(() => {
+      setShowInvestModal(true);
+    });
   };
 
   const handleBookmark = async () => {
@@ -1625,7 +1629,7 @@ export default function PropertyDetailScreen() {
               fontWeight: "bold",
             }}
           >
-            Invest
+            {isVerified ? 'Invest' : 'Submit KYC to Invest'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity

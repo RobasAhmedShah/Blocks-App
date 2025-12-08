@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Property } from '@/types/property';
 import { useApp } from '@/contexts/AppContext';
 import { propertiesApi } from '@/services/api/properties.api';
+import { normalizePropertyImages } from '@/utils/propertyUtils';
 
 export function useProperty(id: string) {
   const { getProperty } = useApp();
@@ -68,6 +69,8 @@ export function useProperty(id: string) {
         // Transform to match app structure
         const transformedProperty: Property = {
           ...apiProperty,
+          // Normalize images to handle both array and object formats
+          images: normalizePropertyImages(apiProperty.images) || [],
           completionDate: apiProperty.completionDate || '',
           documents: ensureDocumentsWithUrls(apiProperty.documents),
           updates: apiProperty.updates || [],

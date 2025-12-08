@@ -16,6 +16,7 @@ import { walletApi } from '@/services/api/wallet.api';
 import { transactionsApi } from '@/services/api/transactions.api';
 import { investmentsApi, InvestmentResponse } from '@/services/api/investments.api';
 import { useAuth } from './AuthContext';
+import { normalizePropertyImages } from '@/utils/propertyUtils';
 
 interface AppState {
   // Wallet State
@@ -181,6 +182,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Transform API properties to match app structure
       const transformedProperties: Property[] = allProperties.map(prop => ({
         ...prop,
+        // Normalize images to handle both array and object formats
+        images: normalizePropertyImages(prop.images) || [],
         // Ensure completionDate is a string (can be null from API)
         completionDate: prop.completionDate || '',
         // Ensure documents have URLs (add default documents if none exist)

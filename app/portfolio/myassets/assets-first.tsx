@@ -20,6 +20,7 @@ import { PropertyCard } from '@/components/assets/PropertyCard';
 import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
 import { ASSETS_CONSTANTS } from '@/components/assets/constants';
 import EmeraldLoader from '@/components/EmeraldLoader';
+import { useKycCheck } from '@/hooks/useKycCheck';
 
 const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
@@ -28,6 +29,7 @@ export default function AssetsFirstScreen() {
   const routeParams = useLocalSearchParams<{ id?: string; propertyId?: string }>();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { investments, loading } = usePortfolio();
+  const { isVerified, handleInvestPress } = useKycCheck();
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasScrolledToProperty, setHasScrolledToProperty] = useState(false);
@@ -443,10 +445,12 @@ export default function AssetsFirstScreen() {
               style={{ backgroundColor: colors.primary }}
             onPress={() => {
               if (currentInvestment) {
-                router.push({
-                  pathname: '/invest/[id]',
-                  params: { id: currentInvestment.property.id },
-                } as any);
+                handleInvestPress(() => {
+                  router.push({
+                    pathname: '/invest/[id]',
+                    params: { id: currentInvestment.property.id },
+                  } as any);
+                });
               }
             }}
               activeOpacity={0.8}
@@ -456,7 +460,7 @@ export default function AssetsFirstScreen() {
               className="text-[15px] font-semibold"
               style={{ color: colors.primaryForeground }}
             >
-                Invest More
+                {isVerified ? 'Invest More' : 'Submit KYC to Invest'}
               </Text>
             </TouchableOpacity>
 

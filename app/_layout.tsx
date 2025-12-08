@@ -80,71 +80,113 @@ export default function RootLayout() {
 function RootNavigation() {
   const { isLoading } = useAuth();
 
-  // Set up notification listeners for deep linking
-  useEffect(() => {
-    // Handle notification received while app is running
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-      // You can handle foreground notifications here
-    });
+  // Helper function to parse and navigate to URL from notification
+  const handleNotificationNavigation = (url: string | undefined) => {
+    if (!url || typeof url !== 'string') {
+      console.log('No URL found in notification data');
+      return;
+    }
 
-    // Handle notification tap/response
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const url = response.notification.request.content.data?.url;
-      if (typeof url === 'string') {
-        // Parse URL with query parameters
-        if (url.includes('?')) {
-          const [pathname, queryString] = url.split('?');
-          const params: Record<string, string> = {};
-          queryString.split('&').forEach(param => {
-            const [key, value] = param.split('=');
-            if (key && value) {
-              params[key] = decodeURIComponent(value);
-            }
-          });
+    try {
+      console.log('🔔 Navigating to notification URL:', url);
+      
+      // Remove leading slash if present for consistency
+      const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+      
+      // Parse URL with query parameters
+      if (cleanUrl.includes('?')) {
+        const [pathname, queryString] = cleanUrl.split('?');
+        const params: Record<string, string> = {};
+        
+        queryString.split('&').forEach(param => {
+          const [key, value] = param.split('=');
+          if (key && value) {
+            params[key] = decodeURIComponent(value);
+          }
+        });
+        
+        console.log('🔔 Parsed URL - pathname:', pathname, 'params:', params);
+        
+        // Handle special routes
+        if (pathname.startsWith('property/')) {
+          const propertyId = pathname.split('/')[1];
+          router.push(`/property/${propertyId}` as any);
+        } else if (pathname.startsWith('notifications')) {
+          router.push({
+            pathname: '/notifications' as any,
+            params,
+          } as any);
+        } else {
           router.push({
             pathname: pathname as any,
             params,
           } as any);
+        }
+      } else {
+        // Simple path without query params
+        console.log('🔔 Navigating to simple path:', cleanUrl);
+        
+        if (cleanUrl.startsWith('property/')) {
+          const propertyId = cleanUrl.split('/')[1];
+          router.push(`/property/${propertyId}` as any);
         } else {
-          router.push(url as any);
+          router.push(`/${cleanUrl}` as any);
         }
       }
+    } catch (error) {
+      console.error('❌ Error navigating from notification:', error);
+      // Fallback to notifications page
+      router.push('/notifications' as any);
+    }
+  };
+
+  // Set up notification listeners for deep linking
+  useEffect(() => {
+    // Handle notification received while app is running (foreground)
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Notification received (foreground):', {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data: notification.request.content.data,
+      });
     });
 
-    // Handle initial notification (app opened from notification)
-    // Note: getLastNotificationResponseAsync is iOS-only, so we check platform
-    if (Platform.OS === 'ios') {
-      Notifications.getLastNotificationResponseAsync()
-        .then(response => {
-          if (response?.notification) {
+    // Handle notification tap/response (when app is in background or foreground)
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('🔔 Notification tapped:', {
+        title: response.notification.request.content.title,
+        data: response.notification.request.content.data,
+      });
+      
+      const url = response.notification.request.content.data?.url;
+      handleNotificationNavigation(url);
+    });
+
+    // Handle initial notification (app opened from notification - COLD START)
+    // This works on both iOS and Android in standalone builds
+    const handleColdStart = async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response?.notification) {
+          console.log('🔔 App opened from notification (cold start):', {
+            title: response.notification.request.content.title,
+            data: response.notification.request.content.data,
+          });
+          
+          // Wait a bit for app to fully initialize before navigating
+          setTimeout(() => {
             const url = response.notification.request.content.data?.url;
-            if (typeof url === 'string') {
-              // Parse URL with query parameters
-              if (url.includes('?')) {
-                const [pathname, queryString] = url.split('?');
-                const params: Record<string, string> = {};
-                queryString.split('&').forEach(param => {
-                  const [key, value] = param.split('=');
-                  if (key && value) {
-                    params[key] = decodeURIComponent(value);
-                  }
-                });
-                router.push({
-                  pathname: pathname as any,
-                  params,
-                } as any);
-              } else {
-                router.push(url as any);
-              }
-            }
-          }
-        })
-        .catch(error => {
-          // Silently handle if method is not available
-          console.log('getLastNotificationResponseAsync not available:', error);
-        });
-    }
+            handleNotificationNavigation(url);
+          }, 1000);
+        }
+      } catch (error) {
+        // getLastNotificationResponseAsync might not be available in all scenarios
+        console.log('ℹ️ getLastNotificationResponseAsync:', error);
+      }
+    };
+
+    // Handle cold start for both platforms
+    handleColdStart();
 
     return () => {
       notificationListener.remove();

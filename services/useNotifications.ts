@@ -4,6 +4,8 @@ import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
 import Constants from 'expo-constants';
 import { NotificationSettings } from '@/types/profilesettings';
+import { useAuth } from '@/contexts/AuthContext';
+import { notificationsApi } from '@/services/api/notifications.api';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -28,13 +30,40 @@ const DND_START_HOUR = 22; // 10 PM
 const DND_END_HOUR = 8; // 8 AM
 
 export function useNotifications() {
+  const { isAuthenticated } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string>('');
   const [permissionStatus, setPermissionStatus] = useState<Notifications.NotificationPermissionsStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Register token with backend when it changes and user is authenticated
+  useEffect(() => {
+    if (expoPushToken && isAuthenticated) {
+      const registerToken = async () => {
+        try {
+          console.log('📤 Registering push token with backend...');
+          await notificationsApi.registerExpoToken(expoPushToken);
+          console.log('✅ Push token registered successfully');
+        } catch (error) {
+          console.error('❌ Failed to register push token:', error);
+        }
+      };
+      registerToken();
+    }
+  }, [expoPushToken, isAuthenticated]);
+
   // Initialize notification channels and permissions
   useEffect(() => {
     initializeNotifications();
+
+    // Listen for token changes (e.g., when app is reinstalled or token refreshes)
+    const tokenSubscription = Notifications.addPushTokenListener(async (tokenData) => {
+      console.log('🔄 Push token changed:', tokenData.data);
+      setExpoPushToken(tokenData.data);
+    });
+
+    return () => {
+      tokenSubscription.remove();
+    };
   }, []);
 
   const initializeNotifications = async () => {
@@ -55,14 +84,37 @@ export function useNotifications() {
         if (Device.isDevice) {
           try {
             const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+            console.log('📱 Getting push token - Device.isDevice:', Device.isDevice, 'ProjectId:', projectId);
+            
             if (projectId) {
               const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+              console.log('✅ Expo push token obtained:', tokenData.data);
               setExpoPushToken(tokenData.data);
+            } else {
+              console.warn('⚠️ No projectId found in Constants. Token generation may fail in standalone builds.');
+              // Try without projectId as fallback (works in Expo Go)
+              try {
+                const tokenData = await Notifications.getExpoPushTokenAsync();
+                console.log('✅ Expo push token obtained (fallback):', tokenData.data);
+                setExpoPushToken(tokenData.data);
+              } catch (fallbackError) {
+                console.error('❌ Error getting push token (fallback):', fallbackError);
+              }
             }
-          } catch (error) {
-            console.error('Error getting push token:', error);
+          } catch (error: any) {
+            console.error('❌ Error getting push token:', error);
+            if (error.message?.includes('FCM')) {
+              console.error('💡 FCM credentials may not be configured. For standalone APK builds, you need to:');
+              console.error('   1. Run: eas credentials');
+              console.error('   2. Select: Android > Push Notifications: Manage your FCM Api Key');
+              console.error('   3. Upload your FCM server key from Firebase Console');
+            }
           }
+        } else {
+          console.warn('⚠️ Not running on a physical device. Push tokens only work on real devices.');
         }
+      } else {
+        console.warn('⚠️ Notification permissions not granted:', permissions);
       }
     } catch (error) {
       console.error('Error initializing notifications:', error);
@@ -127,7 +179,6 @@ export function useNotifications() {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
-          allowAnnouncements: false,
         },
       });
       finalStatus = status;
@@ -166,6 +217,7 @@ export function useNotifications() {
           sound: false,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour: DND_START_HOUR,
           minute: 0,
           repeats: true,
@@ -181,6 +233,7 @@ export function useNotifications() {
           sound: false,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour: DND_END_HOUR,
           minute: 0,
           repeats: true,
@@ -210,6 +263,7 @@ export function useNotifications() {
           data: { type: 'test' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 1,
         },
       });
@@ -227,7 +281,7 @@ export function useNotifications() {
 
   const shouldShowNotification = useCallback((settings: NotificationSettings, type: keyof NotificationSettings): boolean => {
     // Always show security alerts
-    if (type === 'securityAlerts') {
+    if (type === 'securityAlerts' as keyof NotificationSettings) {
       return true;
     }
 
@@ -239,7 +293,7 @@ export function useNotifications() {
     // Check Do Not Disturb (if push notifications are enabled)
     if (settings.pushNotifications && isInDoNotDisturbWindow()) {
       // Still allow security alerts during DND
-      return type === 'securityAlerts';
+      return type === ('securityAlerts' as keyof NotificationSettings);
     }
 
     return true;

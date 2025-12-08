@@ -23,5 +23,12 @@ export const notificationsApi = {
     const response = await apiClient.get<NotificationsListResponse>('/api/notifications');
     return response.notifications;
   },
+
+  /**
+   * Register Expo push token with backend
+   */
+  registerExpoToken: async (token: string): Promise<void> => {
+    await apiClient.post('/api/notifications/register-expo-token', { token });
+  },
 };
 

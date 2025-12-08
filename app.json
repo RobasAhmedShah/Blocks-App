@@ -2,7 +2,6 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-<<<<<<< HEAD
     "version": "1.0.9",
     "scheme": "blocks",
     "platforms": [
@@ -69,7 +68,7 @@
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-      "apiUrl": "https://blocks-backend.vercel.app"
+      "apiUrl": "http://192.168.1.142:3000"
     },
     "owner": "robas",
     "runtimeVersion": {

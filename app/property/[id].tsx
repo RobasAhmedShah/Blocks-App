@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   ScrollView,
   Text,
@@ -44,10 +44,67 @@ export default function PropertyDetailScreen() {
   const [showChatbot, setShowChatbot] = useState(false);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [initialInvestmentAmount, setInitialInvestmentAmount] = useState<number | null>(null);
+  const [mapCoordinates, setMapCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
 
   const bookmarked = id ? isBookmarked(id) : false;
+
+  // Geocode property location to coordinates using OpenStreetMap Nominatim API
+  useEffect(() => {
+    const geocodeLocation = async () => {
+      if (!property || !property.location) return;
+
+      try {
+        const address = `${property.location}, ${property.city || ''}${property.country ? `, ${property.country}` : ''}`.trim();
+        
+        // Use OpenStreetMap Nominatim API (free, no API key required)
+        const encodedAddress = encodeURIComponent(address);
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+          {
+            headers: {
+              'User-Agent': 'Blocks-App/1.0', // Required by Nominatim
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error('Geocoding API request failed');
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          setMapCoordinates({
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon),
+          });
+          setGeocodingError(null);
+        } else {
+          // Fallback to default coordinates (London, UK based on image)
+          setMapCoordinates({
+            latitude: 51.5074,
+            longitude: -0.1278,
+          });
+          setGeocodingError("Exact location not found, showing approximate location");
+        }
+      } catch (error) {
+        console.error("Geocoding error:", error);
+        // Fallback to default coordinates
+        setMapCoordinates({
+          latitude: 51.5074,
+          longitude: -0.1278,
+        });
+        setGeocodingError("Unable to load map location");
+      }
+    };
+
+    if (property && activeTab === "Location") {
+      geocodeLocation();
+    }
+  }, [property, activeTab]);
 
   if (loading) {
     return (
@@ -1320,90 +1377,135 @@ export default function PropertyDetailScreen() {
       }}
     >
       {(property.city || property.location) ? (
-        <TouchableOpacity
-          onPress={() => {
-            const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
-            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
-          }}
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-          activeOpacity={0.7}
-        >
-          <View
-            style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              backgroundColor: isDarkColorScheme 
-                ? "rgba(59, 130, 246, 0.2)" 
-                : "rgba(59, 130, 246, 0.1)",
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-            }}
-          >
-            <Ionicons name="map" size={50} color={colors.primary} />
-          </View>
-          <Text 
-            style={{ 
-              color: colors.textPrimary, 
-              fontSize: 18,
-              fontWeight: '600',
-              textAlign: 'center',
-              marginBottom: 8,
-            }}
-          >
-            View Location on Map
-          </Text>
-          <Text 
-            style={{ 
-              color: colors.textSecondary, 
-              fontSize: 14,
-              textAlign: 'center',
-            }}
-          >
-            {property.location}
-          </Text>
-          {(property.city || property.country) && (
-            <Text 
-              style={{ 
-                color: colors.textMuted, 
-                fontSize: 12,
-                textAlign: 'center',
-                marginTop: 4,
+        mapCoordinates ? (
+          <View style={{ flex: 1, position: 'relative' }}>
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              style={{ flex: 1, borderRadius: 16 }}
+              initialRegion={{
+                latitude: mapCoordinates.latitude,
+                longitude: mapCoordinates.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
               }}
+              region={{
+                latitude: mapCoordinates.latitude,
+                longitude: mapCoordinates.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              mapType="standard"
+              showsUserLocation={false}
+              showsMyLocationButton={false}
+              toolbarEnabled={false}
             >
-              {property.city}{property.country ? `, ${property.country}` : ''}
-            </Text>
-          )}
+              <Marker
+                coordinate={{
+                  latitude: mapCoordinates.latitude,
+                  longitude: mapCoordinates.longitude,
+                }}
+                title={property.title}
+                description={property.location}
+              >
+                <View
+                  style={{
+                    backgroundColor: colors.primary,
+                    borderRadius: 20,
+                    padding: 8,
+                    borderWidth: 3,
+                    borderColor: colors.primaryForeground,
+                  }}
+                >
+                  <Ionicons name="location" size={24} color={colors.primaryForeground} />
+                </View>
+              </Marker>
+            </MapView>
+            
+            {/* Overlay button to open in external maps */}
+            <TouchableOpacity
+              onPress={() => {
+                const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
+                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+              }}
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                left: 16,
+                right: 16,
+                backgroundColor: colors.primary,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+                elevation: 5,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate" size={18} color={colors.primaryForeground} />
+              <Text
+                style={{
+                  color: colors.primaryForeground,
+                  fontSize: 14,
+                  fontWeight: '600',
+                  marginLeft: 8,
+                }}
+              >
+                Open in Maps
+              </Text>
+            </TouchableOpacity>
+
+            {geocodingError && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)',
+                  padding: 8,
+                  borderRadius: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    textAlign: 'center',
+                  }}
+                >
+                  {geocodingError}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
           <View
             style={{
-              marginTop: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingHorizontal: 20,
-              paddingVertical: 10,
-              borderRadius: 20,
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
             }}
           >
-            <Ionicons name="navigate" size={18} color={colors.primaryForeground} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text
               style={{
-                color: colors.primaryForeground,
+                color: colors.textSecondary,
+                marginTop: 12,
                 fontSize: 14,
-                fontWeight: '600',
-                marginLeft: 8,
+                textAlign: "center",
               }}
             >
-              Open in Maps
+              Loading map...
             </Text>
           </View>
-        </TouchableOpacity>
+        )
       ) : (
         <View
           style={{

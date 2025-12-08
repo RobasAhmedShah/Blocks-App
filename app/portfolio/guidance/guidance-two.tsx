@@ -23,6 +23,7 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { KeyboardDismissButton } from "@/components/common/KeyboardDismissButton";
 import { savedPlansService } from "@/services/savedPlans";
 import { Alert } from "react-native";
+import { useKycCheck } from "@/hooks/useKycCheck";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -42,6 +43,7 @@ export default function GuidedInvestmentScreen() {
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
   const { state, isLoadingProperties } = useApp();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { isVerified, handleInvestPress } = useKycCheck();
   const [investmentMode, setInvestmentMode] = useState<"amount" | "earning">("amount");
   const isGoalBased = investmentPlan.isGoalBased || false;
   const [investAmount, setInvestAmount] = useState(
@@ -188,10 +190,12 @@ export default function GuidedInvestmentScreen() {
     });
 
     console.log("Invest Now clicked - Amount:", amountToInvest, "Property:", selectedProp.title, "Monthly Return:", monthlyReturn);
-    router.push({
-      pathname: "/invest/[id]",
-      params: { id: selectedProp.id , tokenCount: (amountToInvest / getEffectiveTokenPrice(selectedProp.tokenPrice)).toFixed(2) },
-    })
+    handleInvestPress(() => {
+      router.push({
+        pathname: "/invest/[id]",
+        params: { id: selectedProp.id , tokenCount: (amountToInvest / getEffectiveTokenPrice(selectedProp.tokenPrice)).toFixed(2) },
+      });
+    });
   };
 
   const handleSavePlan = async () => {
@@ -608,7 +612,7 @@ export default function GuidedInvestmentScreen() {
             activeOpacity={0.8}
           >
             <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
-              Invest Now
+              {isVerified ? 'Invest Now' : 'Submit KYC to Invest'}
             </Text>
           </TouchableOpacity>
 

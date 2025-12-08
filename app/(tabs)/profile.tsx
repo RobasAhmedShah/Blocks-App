@@ -20,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTour } from "@/contexts/TourContext";
 import { useCopilot } from "react-native-copilot";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useKycCheck } from "@/hooks/useKycCheck";
+import { useFocusEffect } from "expo-router";
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -233,6 +235,7 @@ export default function BlocksProfileScreen() {
   const { state, getBookmarkedProperties } = useApp();
   const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
   const { resetAllTours, setShouldStartTour, setIsTourActive, resetTour } = useTour();
+  const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
 
@@ -244,6 +247,13 @@ export default function BlocksProfileScreen() {
     };
     loadDemoMode();
   }, []);
+
+  // Load KYC status when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadKycStatus();
+    }, [loadKycStatus])
+  );
 
   // Save demo mode state
   const handleDemoModeToggle = async (value: boolean) => {
@@ -380,13 +390,8 @@ export default function BlocksProfileScreen() {
       if (value) {
         // Enabling biometrics
         success = await enableBiometrics();
-        if (success) {
-          showAlert(
-            "Success",
-            "Biometric login has been enabled. You can now use Face ID or Touch ID to sign in.",
-            'success'
-          );
-        } else {
+        // No success alert - visual feedback (toggle state) is sufficient
+        if (!success) {
           showAlert(
             "Failed",
             "Could not enable biometric login. Please try again.",
@@ -396,13 +401,8 @@ export default function BlocksProfileScreen() {
       } else {
         // Disabling biometrics
         success = await disableBiometrics();
-        if (success) {
-          showAlert(
-            "Success",
-            "Biometric login has been disabled.",
-            'success'
-          );
-        } else {
+        // No success alert - visual feedback (toggle state) is sufficient
+        if (!success) {
           showAlert(
             "Failed",
             "Could not disable biometric login. Please try again.",
@@ -492,6 +492,138 @@ export default function BlocksProfileScreen() {
             {state.userInfo.email}
           </Text>
         </View>
+
+        {/* KYC Status Card */}
+        {!kycLoading && kycStatus && (
+          <View className="mb-6">
+            <TouchableOpacity
+              onPress={() => router.push('../profilesettings/kyc')}
+              style={{
+                backgroundColor: colors.card,
+                borderWidth: isDarkColorScheme ? 0 : 1,
+                borderColor: colors.border,
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+              activeOpacity={0.7}
+            >
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor:
+                    kycStatus.status === 'verified'
+                      ? isDarkColorScheme
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : 'rgba(16, 185, 129, 0.15)'
+                      : kycStatus.status === 'pending'
+                      ? isDarkColorScheme
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : 'rgba(245, 158, 11, 0.15)'
+                      : kycStatus.status === 'rejected'
+                      ? isDarkColorScheme
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : 'rgba(239, 68, 68, 0.15)'
+                      : isDarkColorScheme
+                      ? 'rgba(107, 114, 128, 0.2)'
+                      : 'rgba(107, 114, 128, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons
+                  name={
+                    kycStatus.status === 'verified'
+                      ? 'checkmark-circle'
+                      : kycStatus.status === 'pending'
+                      ? 'time-outline'
+                      : kycStatus.status === 'rejected'
+                      ? 'close-circle'
+                      : 'document-text-outline'
+                  }
+                  size={24}
+                  color={
+                    kycStatus.status === 'verified'
+                      ? '#10B981'
+                      : kycStatus.status === 'pending'
+                      ? '#F59E0B'
+                      : kycStatus.status === 'rejected'
+                      ? '#EF4444'
+                      : colors.textMuted
+                  }
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: '700',
+                    marginBottom: 4,
+                  }}
+                >
+                  KYC Verification
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                  }}
+                >
+                  {kycStatus.status === 'verified'
+                    ? 'Your identity has been verified'
+                    : kycStatus.status === 'pending'
+                    ? 'Your documents are under review'
+                    : kycStatus.status === 'rejected'
+                    ? kycStatus.rejectionReason
+                      ? `Rejected: ${kycStatus.rejectionReason}`
+                      : 'Your verification was rejected'
+                    : kycStatus.hasDocuments && (kycStatus.hasDocuments.front || kycStatus.hasDocuments.selfie)
+                    ? 'Documents uploaded. Submit for verification to complete KYC.'
+                    : 'Complete your identity verification to start investing'}
+                </Text>
+                {kycStatus.status === 'verified' && kycStatus.reviewedAt && (
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    Verified on {new Date(kycStatus.reviewedAt).toLocaleDateString()}
+                  </Text>
+                )}
+                {kycStatus.status === 'pending' && kycStatus.submittedAt && (
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    Submitted on {new Date(kycStatus.submittedAt).toLocaleDateString()}
+                  </Text>
+                )}
+                {kycStatus.status === 'not_submitted' && kycStatus.hasDocuments && (kycStatus.hasDocuments.front || kycStatus.hasDocuments.selfie) && (
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      marginTop: 4,
+                    }}
+                  >
+                    Tap to submit your documents
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* My Bookmarks Section */}
         {bookmarkedProperties.length > 0 && (

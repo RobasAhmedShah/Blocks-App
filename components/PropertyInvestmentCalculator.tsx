@@ -14,6 +14,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { Property } from '@/types/property';
 import { KeyboardDismissButton } from '@/components/common/KeyboardDismissButton';
+import { useKycCheck } from '@/hooks/useKycCheck';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ export function PropertyInvestmentCalculator({
   isDarkColorScheme,
   onInvest,
 }: PropertyInvestmentCalculatorProps) {
+  const { isVerified, handleInvestPress } = useKycCheck();
   const effectiveTokenPrice = getEffectiveTokenPrice(property.tokenPrice);
   const minimumInvestment = MINIMUM_TOKENS * effectiveTokenPrice;
   const initialInvestment = Math.max(property.minInvestment || 2000, minimumInvestment);
@@ -147,9 +149,11 @@ export function PropertyInvestmentCalculator({
 
   const handleInvest = useCallback(() => {
     if (onInvest) {
-      onInvest(investmentAmount);
+      handleInvestPress(() => {
+        onInvest(investmentAmount);
+      });
     }
-  }, [investmentAmount, onInvest]);
+  }, [investmentAmount, onInvest, handleInvestPress]);
 
   return (
     <KeyboardAvoidingView
@@ -418,7 +422,9 @@ export function PropertyInvestmentCalculator({
               }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-                Invest ${formatCurrency(investmentAmount)}
+                {isVerified 
+                  ? `Invest ${formatCurrency(investmentAmount)}`
+                  : 'Submit KYC to Invest'}
               </Text>
             </TouchableOpacity>
           )}

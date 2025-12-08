@@ -7,6 +7,7 @@ import { useWallet } from '@/services/useWallet';
 import { useApp } from '@/contexts/AppContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { KeyboardDismissButton } from '@/components/common/KeyboardDismissButton';
+import { useKycCheck } from '@/hooks/useKycCheck';
 
 // Epsilon tolerance for floating-point comparison (1 cent)
 const BALANCE_EPSILON = 0.01;
@@ -29,6 +30,14 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   const { property, loading } = useProperty(id);
   const { balance } = useWallet();
   const { invest } = useApp();
+  const { isVerified, kycLoading } = useKycCheck();
+  
+  // Redirect to KYC if not verified
+  useEffect(() => {
+    if (!kycLoading && !isVerified) {
+      router.replace('../profilesettings/kyc');
+    }
+  }, [isVerified, kycLoading, router]);
   
   // Calculate initial token count from initialInvestmentAmount if provided
   const getInitialTokenCount = () => {

@@ -16,14 +16,8 @@ import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Note: Notification handler is configured in services/useNotifications.ts
+// This prevents duplicate handler configuration
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();

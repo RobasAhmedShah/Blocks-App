@@ -31,6 +31,7 @@ import { CustomTooltip } from "@/components/tour/CustomTooltip";
 import { CopilotView, CopilotTouchableOpacity } from "@/components/tour/walkthroughable";
 import { useTour } from "@/contexts/TourContext";
 import { TOUR_STEPS } from "@/utils/tourHelpers";
+import { kycApi, KycStatus } from "@/services/api/kyc.api";
 
 const { width, height } = Dimensions.get("window");
 
@@ -96,6 +97,10 @@ function BlocksHomeScreen() {
     setScrollViewRef,
   } = useTour();
   
+  // KYC Status state
+  const [kycStatus, setKycStatus] = React.useState<KycStatus | null>(null);
+  const [kycLoading, setKycLoading] = React.useState(true);
+  
   // Create ref for ScrollView only
   // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
   const scrollViewRef = useRef<any>(null);
@@ -107,7 +112,22 @@ function BlocksHomeScreen() {
     }
   }, [setScrollViewRef]);
   
-  // Refresh wallet balance when screen comes into focus
+  // Load KYC status
+  const loadKycStatus = React.useCallback(async () => {
+    try {
+      setKycLoading(true);
+      const status = await kycApi.getStatus();
+      setKycStatus(status);
+    } catch (error) {
+      console.error('Error loading KYC status:', error);
+      // If error, assume not verified
+      setKycStatus({ status: 'not_submitted' });
+    } finally {
+      setKycLoading(false);
+    }
+  }, []);
+
+  // Refresh wallet balance and KYC status when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       // CRITICAL: Don't reload wallet during active tour!
@@ -117,7 +137,8 @@ function BlocksHomeScreen() {
       }
       
       loadWallet();
-    }, [loadWallet, isTourActive])
+      loadKycStatus();
+    }, [loadWallet, loadKycStatus, isTourActive])
   );
   
   // Check for shouldStartTour when screen comes into focus (for replay button)
@@ -509,6 +530,85 @@ function BlocksHomeScreen() {
             </CopilotView>
           </CopilotStep>
         </Animated.View>
+
+        {/* KYC Verification Alert */}
+        {!kycLoading && kycStatus && kycStatus.status !== 'verified' && (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginTop: 16,
+              marginBottom: 8,
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(245, 158, 11, 0.15)' 
+                : 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 1,
+              borderColor: isDarkColorScheme 
+                ? 'rgba(245, 158, 11, 0.3)' 
+                : 'rgba(245, 158, 11, 0.4)',
+              borderRadius: 16,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: isDarkColorScheme 
+                  ? 'rgba(245, 158, 11, 0.2)' 
+                  : 'rgba(245, 158, 11, 0.15)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="shield-checkmark" size={24} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginBottom: 4,
+                }}
+              >
+                Verify Your Identity
+              </Text>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 13,
+                  lineHeight: 18,
+                }}
+              >
+                Complete KYC verification to start investing and unlock all features
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('../profilesettings/kyc')}
+              style={{
+                backgroundColor: '#F59E0B',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 12,
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 14,
+                  fontWeight: '600',
+                }}
+              >
+                Verify Now
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Hero Section - Typography Focus with Parallax */}
         <Animated.View 

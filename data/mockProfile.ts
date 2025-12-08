@@ -554,7 +554,6 @@ export const profileSections: ProfileSection[] = [
       { icon: "shield-outline", label: "Security", action: 'security' },
       { icon: "card-outline", label: "Payment Methods", action: 'paymentmethods' },
       { icon: "card-outline", label: "Linked Bank Accounts", action: 'linkedbankaccounts' },
-      { icon: "document-text-outline", label: "KYC Verification", action: 'kyc' },
     ],
   },
   {

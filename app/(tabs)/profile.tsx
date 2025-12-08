@@ -338,9 +338,6 @@ export default function BlocksProfileScreen() {
       case 'termsofservice':
         router.push('../profilesettings/termsandcondition');
         break;
-      case 'kyc':
-        router.push('../profilesettings/kyc');
-        break;
       default:
         console.log('Unknown action:', action);
     }

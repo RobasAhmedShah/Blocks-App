@@ -31,7 +31,7 @@ import { CustomTooltip } from "@/components/tour/CustomTooltip";
 import { CopilotView, CopilotTouchableOpacity } from "@/components/tour/walkthroughable";
 import { useTour } from "@/contexts/TourContext";
 import { TOUR_STEPS } from "@/utils/tourHelpers";
-import { kycApi, KycStatus } from "@/services/api/kyc.api";
+import { useKycCheck } from "@/hooks/useKycCheck";
 
 const { width, height } = Dimensions.get("window");
 
@@ -97,9 +97,8 @@ function BlocksHomeScreen() {
     setScrollViewRef,
   } = useTour();
   
-  // KYC Status state
-  const [kycStatus, setKycStatus] = React.useState<KycStatus | null>(null);
-  const [kycLoading, setKycLoading] = React.useState(true);
+  // KYC Status using hook (with caching)
+  const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   
   // Create ref for ScrollView only
   // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
@@ -111,21 +110,6 @@ function BlocksHomeScreen() {
       setScrollViewRef(scrollViewRef);
     }
   }, [setScrollViewRef]);
-  
-  // Load KYC status
-  const loadKycStatus = React.useCallback(async () => {
-    try {
-      setKycLoading(true);
-      const status = await kycApi.getStatus();
-      setKycStatus(status);
-    } catch (error) {
-      console.error('Error loading KYC status:', error);
-      // If error, assume not verified
-      setKycStatus({ status: 'not_submitted' });
-    } finally {
-      setKycLoading(false);
-    }
-  }, []);
 
   // Refresh wallet balance and KYC status when screen comes into focus
   useFocusEffect(
@@ -137,7 +121,8 @@ function BlocksHomeScreen() {
       }
       
       loadWallet();
-      loadKycStatus();
+      // Refresh KYC in background (cached data shows immediately)
+      loadKycStatus(false);
     }, [loadWallet, loadKycStatus, isTourActive])
   );
   
@@ -531,8 +516,8 @@ function BlocksHomeScreen() {
           </CopilotStep>
         </Animated.View>
 
-        {/* KYC Verification Alert */}
-        {!kycLoading && kycStatus && kycStatus.status !== 'verified' && (
+        {/* KYC Verification Alert - only shows when not submitted, disappears after submission */}
+        {kycStatus && kycStatus.status === 'not_submitted' && (
           <View
             style={{
               marginHorizontal: 16,

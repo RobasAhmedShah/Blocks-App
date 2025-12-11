@@ -13,7 +13,7 @@ export function useKycCheck() {
   const [kycLoading, setKycLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const hasLoadedCache = useRef(false);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previousStatusRef = useRef<string | null>(null);
 
   const loadKycStatus = useCallback(async (showLoading = true, forceRefresh = false) => {

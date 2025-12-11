@@ -10,6 +10,7 @@ import {
   Pressable,
   Switch,
   Animated,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -238,6 +239,7 @@ export default function BlocksProfileScreen() {
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Load demo mode state
   useEffect(() => {
@@ -248,10 +250,10 @@ export default function BlocksProfileScreen() {
     loadDemoMode();
   }, []);
 
-  // Load KYC status when screen comes into focus
+  // Load KYC status when screen comes into focus (refresh in background, cached data shows immediately)
   useFocusEffect(
     React.useCallback(() => {
-      loadKycStatus();
+      loadKycStatus(false);
     }, [loadKycStatus])
   );
 
@@ -463,6 +465,17 @@ export default function BlocksProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         className="px-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await loadKycStatus(true);
+              setRefreshing(false);
+            }}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Profile Header */}
         <View className="items-center py-6">
@@ -493,8 +506,8 @@ export default function BlocksProfileScreen() {
           </Text>
         </View>
 
-        {/* KYC Status Card */}
-        {!kycLoading && kycStatus && (
+        {/* KYC Status Card - shows immediately if cached, updates in background */}
+        {kycStatus && (
           <View className="mb-6">
             <TouchableOpacity
               onPress={() => router.push('../profilesettings/kyc')}

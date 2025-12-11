@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi, KycStatus } from '@/services/api/kyc.api';
@@ -21,11 +21,7 @@ export default function KycScreen() {
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadKycStatus();
-  }, []);
-
-  const loadKycStatus = async () => {
+  const loadKycStatus = useCallback(async () => {
     try {
       setLoading(true);
       const status = await kycApi.getStatus();
@@ -36,7 +32,19 @@ export default function KycScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load on mount
+  useEffect(() => {
+    loadKycStatus();
+  }, [loadKycStatus]);
+
+  // Refresh when screen comes into focus (e.g., after submitting documents)
+  useFocusEffect(
+    useCallback(() => {
+      loadKycStatus();
+    }, [loadKycStatus])
+  );
 
   const handleStartVerification = () => {
     router.push('../profilesettings/kyc-upload');

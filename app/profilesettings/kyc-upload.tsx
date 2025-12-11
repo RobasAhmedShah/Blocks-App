@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi } from '@/services/api/kyc.api';
+import { useKycCheck } from '@/hooks/useKycCheck';
 
 type DocumentType = 'front' | 'back' | 'selfie';
 
@@ -29,6 +30,7 @@ interface DocumentState {
 export default function KycUploadScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { clearCache, loadKycStatus } = useKycCheck();
   const [documents, setDocuments] = useState<Record<DocumentType, DocumentState>>({
     front: { uri: null, uploading: false, uploaded: false },
     back: { uri: null, uploading: false, uploaded: false },
@@ -152,7 +154,17 @@ export default function KycUploadScreen() {
       };
 
       await kycApi.submitKyc(submitData);
-      // Navigate back - user can see status in profile
+      
+      // Clear cache to force fresh fetch on all screens
+      await clearCache();
+      
+      // Wait a moment for backend to process the submission
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Reload status to update hook state (for home/profile screens)
+      await loadKycStatus(false);
+      
+      // Navigate back - KYC screen will automatically refresh on focus via useFocusEffect
       router.back();
     } catch (error) {
       console.error('Error submitting KYC:', error);

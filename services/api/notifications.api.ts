@@ -8,6 +8,7 @@ export interface NotificationResponse {
   data?: any;
   platform: 'expo' | 'web';
   status: 'sent' | 'failed';
+  read: boolean;
   createdAt: string;
 }
 
@@ -29,6 +30,20 @@ export const notificationsApi = {
    */
   registerExpoToken: async (token: string): Promise<void> => {
     await apiClient.post('/api/notifications/register-expo-token', { token });
+  },
+
+  /**
+   * Mark a notification as read
+   */
+  markAsRead: async (notificationId: string, userId: string): Promise<void> => {
+    await apiClient.patch(`/api/notifications/mark-read/${notificationId}/user/${userId}`);
+  },
+
+  /**
+   * Mark all notifications as read
+   */
+  markAllAsRead: async (userId: string): Promise<void> => {
+    await apiClient.patch(`/api/notifications/mark-all-read/user/${userId}`);
   },
 };
 

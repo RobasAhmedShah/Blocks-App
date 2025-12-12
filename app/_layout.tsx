@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SplashScreen, Stack, router } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
@@ -84,6 +84,39 @@ function RootNavigation() {
     try {
       console.log('🔔 Navigating to notification URL:', url);
       
+      // Check if it's a custom URL (external website)
+      // First, check if it already has a protocol
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        console.log('🔔 Opening external URL in browser:', url);
+        Linking.openURL(url).catch(err => {
+          console.error('❌ Failed to open URL:', err);
+        });
+        return;
+      }
+      
+      // Check if it looks like an external website (domain-like)
+      // If it contains a dot and doesn't start with /, it's likely an external URL
+      // Also check if it doesn't match known internal routes
+      const knownInternalRoutes = ['properties', 'wallet', 'portfolio', 'notifications'];
+      const urlWithoutSlash = url.startsWith('/') ? url.slice(1) : url;
+      const firstPart = urlWithoutSlash.split('/')[0].split('?')[0];
+      
+      // If it looks like a domain (contains dot, has TLD-like pattern) and isn't a known internal route
+      if (
+        url.includes('.') && 
+        !url.startsWith('/') && 
+        !knownInternalRoutes.includes(firstPart) &&
+        !firstPart.startsWith('property') // Not /property/{id}
+      ) {
+        // It's likely an external URL without protocol - add https://
+        const externalUrl = url.startsWith('http') ? url : `https://${url}`;
+        console.log('🔔 Detected external URL, opening in browser:', externalUrl);
+        Linking.openURL(externalUrl).catch(err => {
+          console.error('❌ Failed to open URL:', err);
+        });
+        return;
+      }
+      
       // Remove leading slash if present for consistency
       const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
       
@@ -101,16 +134,28 @@ function RootNavigation() {
         
         console.log('🔔 Parsed URL - pathname:', pathname, 'params:', params);
         
-        // Handle special routes
-        if (pathname.startsWith('property/')) {
+        // Handle routes based on backend category mapping
+        if (pathname.startsWith('properties/')) {
+          // Property detail: /properties/{propertyId}
           const propertyId = pathname.split('/')[1];
           router.push(`/property/${propertyId}` as any);
+        } else if (pathname === 'properties') {
+          // Properties list
+          router.push('/(tabs)/property' as any);
         } else if (pathname.startsWith('notifications')) {
+          // Notifications page with context
           router.push({
             pathname: '/notifications' as any,
             params,
           } as any);
+        } else if (pathname === 'wallet' || pathname.startsWith('wallet')) {
+          // Wallet screen
+          router.push('/(tabs)/wallet' as any);
+        } else if (pathname === 'portfolio' || pathname.startsWith('portfolio')) {
+          // Portfolio screen
+          router.push('/(tabs)/portfolio' as any);
         } else {
+          // Try to navigate to the pathname
           router.push({
             pathname: pathname as any,
             params,
@@ -120,10 +165,24 @@ function RootNavigation() {
         // Simple path without query params
         console.log('🔔 Navigating to simple path:', cleanUrl);
         
-        if (cleanUrl.startsWith('property/')) {
+        if (cleanUrl.startsWith('properties/')) {
+          // Property detail: /properties/{propertyId}
           const propertyId = cleanUrl.split('/')[1];
           router.push(`/property/${propertyId}` as any);
+        } else if (cleanUrl === 'properties') {
+          // Properties list
+          router.push('/(tabs)/property' as any);
+        } else if (cleanUrl === 'wallet') {
+          // Wallet screen
+          router.push('/(tabs)/wallet' as any);
+        } else if (cleanUrl === 'portfolio') {
+          // Portfolio screen
+          router.push('/(tabs)/portfolio' as any);
+        } else if (cleanUrl === 'notifications') {
+          // Notifications page
+          router.push('/notifications' as any);
         } else {
+          // Try to navigate to the path
           router.push(`/${cleanUrl}` as any);
         }
       }
@@ -160,22 +219,40 @@ function RootNavigation() {
     // This works on both iOS and Android in standalone builds
     const handleColdStart = async () => {
       try {
-        const response = await Notifications.getLastNotificationResponseAsync();
-        if (response?.notification) {
-          console.log('🔔 App opened from notification (cold start):', {
-            title: response.notification.request.content.title,
-            data: response.notification.request.content.data,
-          });
-          
-          // Wait a bit for app to fully initialize before navigating
-          setTimeout(() => {
-            const url = response.notification.request.content.data?.url;
-            handleNotificationNavigation(url);
-          }, 1000);
+        // getLastNotificationResponseAsync is available on iOS and Android in standalone builds
+        // But may not be available in Expo Go or during development
+        if (Platform.OS === 'ios' || (Platform.OS === 'android' && __DEV__ === false)) {
+          // Only call on iOS or in production Android builds
+          // In development, this might not be available
+          try {
+            const response = await Notifications.getLastNotificationResponseAsync();
+            if (response?.notification) {
+              console.log('🔔 App opened from notification (cold start):', {
+                title: response.notification.request.content.title,
+                data: response.notification.request.content.data,
+              });
+              
+              // Wait a bit for app to fully initialize before navigating
+              setTimeout(() => {
+                const url = response.notification.request.content.data?.url;
+                handleNotificationNavigation(url);
+              }, 1000);
+            }
+          } catch (methodError: any) {
+            // Method might not be available in all scenarios (e.g., Expo Go, development)
+            if (methodError?.message?.includes('not available')) {
+              console.log('ℹ️ getLastNotificationResponseAsync not available (this is normal in Expo Go):', methodError.message);
+            } else {
+              console.log('ℹ️ getLastNotificationResponseAsync error:', methodError);
+            }
+          }
+        } else {
+          // In development Android, skip this method
+          console.log('ℹ️ Skipping getLastNotificationResponseAsync in development Android');
         }
       } catch (error) {
-        // getLastNotificationResponseAsync might not be available in all scenarios
-        console.log('ℹ️ getLastNotificationResponseAsync:', error);
+        // General error handling
+        console.log('ℹ️ Cold start notification handling error:', error);
       }
     };
 

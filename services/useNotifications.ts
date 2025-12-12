@@ -40,7 +40,16 @@ export function useNotifications() {
     if (expoPushToken && isAuthenticated) {
       const registerToken = async () => {
         try {
-          console.log('📤 Registering push token with backend...');
+          const isExpoToken = expoPushToken.startsWith('ExponentPushToken[');
+          // FCM registration tokens can include ':' (common) plus '.' '-' '_' chars
+          const isFCMToken = !isExpoToken && expoPushToken.length > 100 && /^[A-Za-z0-9:._-]+$/.test(expoPushToken);
+          
+          console.log('📤 Registering push token with backend...', {
+            tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
+            tokenLength: expoPushToken.length,
+            tokenPreview: expoPushToken.substring(0, 30) + '...',
+          });
+          
           await notificationsApi.registerExpoToken(expoPushToken);
           console.log('✅ Push token registered successfully');
         } catch (error) {
@@ -85,21 +94,50 @@ export function useNotifications() {
           try {
             const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
             console.log('📱 Getting push token - Device.isDevice:', Device.isDevice, 'ProjectId:', projectId);
-            
+
+            // In standalone Android builds, the most reliable approach is to use the device FCM token
+            // and send notifications via Firebase Admin SDK from the backend.
+            // Expo Go uses Expo push tokens, so we keep that path for dev.
+            const isExpoGo = (Constants as any)?.appOwnership === 'expo';
+
+            if (Platform.OS === 'android' && !isExpoGo) {
+              const deviceToken = await Notifications.getDevicePushTokenAsync();
+              const token = String(deviceToken.data);
+              const isExpoToken = token.startsWith('ExponentPushToken[');
+              const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
+
+              console.log('✅ Device push token obtained (standalone Android):', {
+                type: deviceToken.type,
+                tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
+                tokenLength: token.length,
+                tokenPreview: token.substring(0, 30) + '...',
+              });
+
+              // Store device token in expoToken field (backend treats it as FCM and sends via Firebase Admin)
+              setExpoPushToken(token);
+              return;
+            }
+
+            // Expo Go / iOS / fallback: use Expo push token
             if (projectId) {
               const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-              console.log('✅ Expo push token obtained:', tokenData.data);
-              setExpoPushToken(tokenData.data);
+              const token = tokenData.data;
+              const isExpoToken = token.startsWith('ExponentPushToken[');
+              const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
+
+              console.log('✅ Expo push token obtained:', {
+                tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
+                tokenLength: token.length,
+                tokenPreview: token.substring(0, 30) + '...',
+              });
+
+              setExpoPushToken(token);
             } else {
               console.warn('⚠️ No projectId found in Constants. Token generation may fail in standalone builds.');
               // Try without projectId as fallback (works in Expo Go)
-              try {
-                const tokenData = await Notifications.getExpoPushTokenAsync();
-                console.log('✅ Expo push token obtained (fallback):', tokenData.data);
-                setExpoPushToken(tokenData.data);
-              } catch (fallbackError) {
-                console.error('❌ Error getting push token (fallback):', fallbackError);
-              }
+              const tokenData = await Notifications.getExpoPushTokenAsync();
+              console.log('✅ Expo push token obtained (fallback):', tokenData.data);
+              setExpoPushToken(tokenData.data);
             }
           } catch (error: any) {
             console.error('❌ Error getting push token:', error);

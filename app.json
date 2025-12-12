@@ -62,6 +62,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.intelik.Blocks",
+      "googleServicesFile": "./google-services.json", 
       "versionCode": 112
     },
     "extra": {

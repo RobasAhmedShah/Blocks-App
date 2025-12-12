@@ -151,6 +151,9 @@ function RootNavigation() {
             pathname: '/notifications' as any,
             params,
           } as any);
+        } else if (pathname === 'profilesettings/kyc-approved' || pathname.startsWith('profilesettings/kyc-approved')) {
+          // KYC Approved success page
+          router.push('/profilesettings/kyc-approved' as any);
         } else if (pathname === 'wallet' || pathname.startsWith('wallet')) {
           // Wallet screen
           router.push('/(tabs)/wallet' as any);
@@ -184,6 +187,9 @@ function RootNavigation() {
         } else if (cleanUrl === 'notifications') {
           // Notifications page
           router.push('/notifications' as any);
+        } else if (cleanUrl === 'profilesettings/kyc-approved' || cleanUrl.startsWith('profilesettings/kyc-approved')) {
+          // KYC Approved success page
+          router.push('/profilesettings/kyc-approved' as any);
         } else {
           // Try to navigate to the path
           router.push(`/${cleanUrl}` as any);
@@ -332,6 +338,7 @@ function RootNavigation() {
       <Stack.Screen name="profilesettings/kyc" />
       <Stack.Screen name="profilesettings/kyc-upload" />
       <Stack.Screen name="profilesettings/kyc-details" />
+      <Stack.Screen name="profilesettings/kyc-approved" />
     </Stack>
   );
 }

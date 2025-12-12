@@ -13,10 +13,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi } from '@/services/api/kyc.api';
 import { useKycCheck } from '@/hooks/useKycCheck';
+import { useApp } from '@/contexts/AppContext';
 
 type DocumentType = 'front' | 'back' | 'selfie';
 
@@ -31,6 +33,7 @@ export default function KycUploadScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { clearCache, loadKycStatus } = useKycCheck();
+  const { state } = useApp();
   const [documents, setDocuments] = useState<Record<DocumentType, DocumentState>>({
     front: { uri: null, uploading: false, uploaded: false },
     back: { uri: null, uploading: false, uploaded: false },
@@ -163,6 +166,24 @@ export default function KycUploadScreen() {
       
       // Reload status to update hook state (for home/profile screens)
       await loadKycStatus(false);
+      
+      // Schedule local notification after 8 seconds
+      const userName = state.userInfo?.fullName || 'User';
+      await Notifications.scheduleNotificationAsync({
+        identifier: 'kyc-approved',
+        content: {
+          title: 'KYC Approved',
+          body: `${userName}, your KYC verification has been approved!`,
+          sound: true,
+          data: {
+            type: 'kyc_approved',
+            url: '/profilesettings/kyc-approved',
+          },
+        },
+        trigger: {
+          seconds: 8,
+        },
+      });
       
       // Navigate back - KYC screen will automatically refresh on focus via useFocusEffect
       router.back();

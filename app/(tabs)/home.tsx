@@ -13,6 +13,8 @@ import Animated, {
   useAnimatedStyle,
   interpolate,
   Extrapolate,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -99,6 +101,43 @@ function BlocksHomeScreen() {
   
   // KYC Status using hook (with caching)
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
+  
+  // Animation for KYC alert fade-in
+  const kycAlertOpacity = useSharedValue(0);
+  const kycAlertTranslateY = useSharedValue(20);
+  
+  // Trigger animation when KYC status becomes available and is not_submitted
+  useEffect(() => {
+    // Immediately hide if status is not 'not_submitted' (pending, verified, etc.)
+    // This prevents the alert from showing even briefly after KYC submission
+    if (!kycStatus || kycStatus.status !== 'not_submitted') {
+      // Immediately set to hidden (no animation delay)
+      kycAlertOpacity.value = 0;
+      kycAlertTranslateY.value = 20;
+      return;
+    }
+    
+    // Only animate in if status is 'not_submitted'
+    if (kycStatus.status === 'not_submitted') {
+      // Animate in with fade and slide up
+      kycAlertOpacity.value = withTiming(1, {
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+      });
+      kycAlertTranslateY.value = withTiming(0, {
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+      });
+    }
+  }, [kycStatus]);
+  
+  // Animated style for KYC alert
+  const kycAlertAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: kycAlertOpacity.value,
+      transform: [{ translateY: kycAlertTranslateY.value }],
+    };
+  });
   
   // Create ref for ScrollView only
   // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
@@ -518,24 +557,27 @@ function BlocksHomeScreen() {
 
         {/* KYC Verification Alert - only shows when not submitted, disappears after submission */}
         {kycStatus && kycStatus.status === 'not_submitted' && (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginTop: 16,
-              marginBottom: 8,
-              backgroundColor: isDarkColorScheme 
-                ? 'rgba(245, 158, 11, 0.15)' 
-                : 'rgba(245, 158, 11, 0.1)',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme 
-                ? 'rgba(245, 158, 11, 0.3)' 
-                : 'rgba(245, 158, 11, 0.4)',
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
+          <Animated.View
+            style={[
+              {
+                marginHorizontal: 16,
+                marginTop: 16,
+                marginBottom: 8,
+                backgroundColor: isDarkColorScheme 
+                  ? 'rgba(245, 158, 11, 0.15)' 
+                  : 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 1,
+                borderColor: isDarkColorScheme 
+                  ? 'rgba(245, 158, 11, 0.3)' 
+                  : 'rgba(245, 158, 11, 0.4)',
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              },
+              kycAlertAnimatedStyle,
+            ]}
           >
             <View
               style={{
@@ -592,7 +634,7 @@ function BlocksHomeScreen() {
                 Verify Now
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
 
         {/* Hero Section - Typography Focus with Parallax */}

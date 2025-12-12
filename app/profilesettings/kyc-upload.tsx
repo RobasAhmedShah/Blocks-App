@@ -30,7 +30,7 @@ interface DocumentState {
 export default function KycUploadScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { clearCache, loadKycStatus } = useKycCheck();
+  const { clearCache, loadKycStatus, setKycStatusOptimistic } = useKycCheck();
   const [documents, setDocuments] = useState<Record<DocumentType, DocumentState>>({
     front: { uri: null, uploading: false, uploaded: false },
     back: { uri: null, uploading: false, uploaded: false },
@@ -75,62 +75,56 @@ export default function KycUploadScreen() {
       }
 
       if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        
+        // Set the URI first (for immediate preview)
         setDocuments(prev => ({
           ...prev,
-          [type]: { ...prev[type], uri: result.assets[0].uri, uploaded: false },
+          [type]: { ...prev[type], uri: imageUri, uploading: true, uploaded: false },
         }));
+
+        // Automatically upload the document
+        try {
+          console.log('Auto-uploading document for:', type, 'URI:', imageUri.substring(0, 50));
+          const response = await kycApi.uploadDocument(imageUri, type);
+          console.log('Auto-upload response:', response);
+          
+          setDocuments(prev => ({
+            ...prev,
+            [type]: {
+              ...prev[type],
+              uploading: false,
+              uploaded: true,
+              url: response.url,
+            },
+          }));
+        } catch (uploadError) {
+          console.error('Error auto-uploading document:', uploadError);
+          
+          let errorMessage = 'Failed to upload document. Please try again.';
+          if (uploadError instanceof Error) {
+            errorMessage = uploadError.message;
+            if (uploadError.message.includes('Network request failed') || uploadError.message.includes('Failed to fetch')) {
+              errorMessage = 
+                'Cannot connect to server.\n\n' +
+                'Please check:\n' +
+                '1. Backend is running on port 3000\n' +
+                '2. Your device can reach the server\n' +
+                '3. Your internet connection is working';
+            }
+          }
+          
+          Alert.alert('Upload Failed', errorMessage);
+          setDocuments(prev => ({
+            ...prev,
+            [type]: { ...prev[type], uploading: false, uploaded: false },
+          }));
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
-
-  const uploadDocument = async (type: DocumentType) => {
-    const doc = documents[type];
-    if (!doc.uri) {
-      Alert.alert('Error', 'Please select an image first.');
-      return;
-    }
-
-    try {
-      setDocuments(prev => ({
-        ...prev,
-        [type]: { ...prev[type], uploading: true },
-      }));
-
-      console.log('Starting upload for:', type, 'URI:', doc.uri.substring(0, 50));
-      const response = await kycApi.uploadDocument(doc.uri, type);
-      console.log('Upload response:', response);
-      
-      setDocuments(prev => ({
-        ...prev,
-        [type]: {
-          ...prev[type],
-          uploading: false,
-          uploaded: true,
-          url: response.url,
-        },
-      }));
-
-      // No alert - visual feedback (checkmark) is sufficient
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      
-      let errorMessage = 'Failed to upload document. Please try again.';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        if (error.message.includes('Network request failed') || error.message.includes('Failed to fetch')) {
-          errorMessage = 
-            'Cannot connect to server.\n\n' +
-            'Please check:\n' +
-            '1. Backend is running on port 3000\n' +
-            '2. Your device can reach the server\n' +
-            '3. Your internet connection is working';
-        }
-      }
-      
-      Alert.alert('Upload Failed', errorMessage);
+      // Reset uploading state if error occurs
       setDocuments(prev => ({
         ...prev,
         [type]: { ...prev[type], uploading: false },
@@ -155,17 +149,23 @@ export default function KycUploadScreen() {
 
       await kycApi.submitKyc(submitData);
       
-      // Clear cache to force fresh fetch on all screens
+      // CRITICAL: Immediately set status to 'pending' to hide alert instantly on home screen
+      // This optimistic update prevents the alert from showing for 1-2 seconds
+      setKycStatusOptimistic({
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+      });
+      
+      // Clear old cache
       await clearCache();
       
-      // Wait a moment for backend to process the submission
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Reload status to update hook state (for home/profile screens)
-      await loadKycStatus(false);
-      
-      // Navigate back - KYC screen will automatically refresh on focus via useFocusEffect
+      // Navigate back immediately - status is already updated, alert won't show
       router.back();
+      
+      // Refresh status in background after navigation to get latest from backend
+      setTimeout(() => {
+        loadKycStatus(false);
+      }, 500);
     } catch (error) {
       console.error('Error submitting KYC:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit KYC verification.');
@@ -224,40 +224,39 @@ export default function KycUploadScreen() {
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => pickImage(type, 'camera')}
+                disabled={doc.uploading}
                 style={{
                   flex: 1,
                   padding: 12,
                   backgroundColor: colors.background,
                   borderWidth: 1,
                   borderColor: colors.border,
+                  opacity: doc.uploading ? 0.6 : 1,
                 }}
                 className="rounded-lg items-center"
               >
                 <Ionicons name="camera" size={20} color={colors.textPrimary} />
                 <Text style={{ fontSize: 12, color: colors.textPrimary, marginTop: 4 }}>Retake</Text>
               </TouchableOpacity>
-              {!doc.uploaded ? (
-                <TouchableOpacity
-                  onPress={() => uploadDocument(type)}
-                  disabled={doc.uploading}
+              {doc.uploading ? (
+                <View
                   style={{
                     flex: 1,
                     padding: 12,
-                    backgroundColor: doc.uploading ? colors.background : '#0da5a5',
-                    opacity: doc.uploading ? 0.6 : 1,
+                    backgroundColor: isDarkColorScheme 
+                      ? 'rgba(13, 165, 165, 0.15)' 
+                      : 'rgba(13, 165, 165, 0.1)',
+                    borderWidth: 1,
+                    borderColor: isDarkColorScheme 
+                      ? 'rgba(13, 165, 165, 0.3)' 
+                      : 'rgba(13, 165, 165, 0.2)',
                   }}
                   className="rounded-lg items-center"
                 >
-                  {doc.uploading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
-                      <Text style={{ fontSize: 12, color: '#FFFFFF', marginTop: 4 }}>Upload</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ fontSize: 12, color: colors.primary, marginTop: 4, fontWeight: '600' }}>Uploading...</Text>
+                </View>
+              ) : doc.uploaded ? (
                 <View
                   style={{
                     flex: 1,
@@ -274,6 +273,20 @@ export default function KycUploadScreen() {
                 >
                   <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                   <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4, fontWeight: '600' }}>Uploaded</Text>
+                </View>
+              ) : (
+                <View
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    backgroundColor: colors.background,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                  className="rounded-lg items-center"
+                >
+                  <Ionicons name="alert-circle" size={20} color={colors.destructive} />
+                  <Text style={{ fontSize: 12, color: colors.destructive, marginTop: 4, fontWeight: '600' }}>Upload Failed</Text>
                 </View>
               )}
             </View>

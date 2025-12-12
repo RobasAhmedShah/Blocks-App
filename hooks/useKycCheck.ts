@@ -144,6 +144,21 @@ export function useKycCheck() {
     }
   }, []);
 
+  // Optimistically update KYC status (for immediate UI updates after submission)
+  const setKycStatusOptimistic = useCallback((status: KycStatus) => {
+    setKycStatus(status);
+    setIsVerified(status.status === 'verified');
+    previousStatusRef.current = status.status;
+    // Also update cache immediately
+    AsyncStorage.setItem(KYC_CACHE_KEY, JSON.stringify({
+      status,
+      timestamp: Date.now(),
+    })).catch((error) => {
+      console.error('Error caching optimistic KYC status:', error);
+    });
+    hasLoadedCache.current = true;
+  }, []);
+
   return {
     kycStatus,
     kycLoading,
@@ -151,6 +166,7 @@ export function useKycCheck() {
     loadKycStatus,
     handleInvestPress,
     clearCache,
+    setKycStatusOptimistic,
   };
 }
 

@@ -1,0 +1,52 @@
+================================================================================
+  UPLOAD FCM KEY NOW - Quick Steps
+================================================================================
+
+✅ All files are ready!
+✅ Local build is configured!
+
+⚠️ ONE STEP LEFT: Upload to EAS
+
+
+STEP 1: Run this command
+-------------------------
+cd Blocks-App
+eas credentials
+
+
+STEP 2: Navigate these menus (use arrow keys)
+----------------------------------------------
+1. Select: Android
+2. Select: production
+3. Select: Google Service Account
+4. Select: Manage your Google Service Account Key for Push Notifications (FCM V1)
+5. Select: Upload a Google Service Account Key
+
+
+STEP 3: When prompted for file path, type:
+-------------------------------------------
+blocks-1b5ba-firebase-adminsdk-fbsvc-9decb41279.json
+
+(Press Enter)
+
+
+STEP 4: Verify
+--------------
+Should see: "Successfully uploaded" or "Configured"
+
+
+STEP 5: Test
+------------
+1. Send notification from admin panel
+2. Check Vercel logs - should see "Expo notification sent" (not FCM error)
+3. Notification appears on APK device
+
+
+================================================================================
+
+THAT'S IT! Notifications will work immediately after upload (no rebuild needed)
+
+Time required: 5 minutes
+
+================================================================================
+

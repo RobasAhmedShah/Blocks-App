@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SplashScreen, Stack, router } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppProvider } from '@/contexts/AppContext';
 import { GuidanceProvider } from '@/contexts/GuidanceContext';
@@ -15,15 +15,12 @@ import { CopilotProvider } from 'react-native-copilot';
 import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
+
+// Note: Notification handler is configured in services/useNotifications.ts
+// This prevents duplicate handler configuration
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -80,71 +77,206 @@ export default function RootLayout() {
 function RootNavigation() {
   const { isLoading } = useAuth();
 
-  // Set up notification listeners for deep linking
-  useEffect(() => {
-    // Handle notification received while app is running
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
-      // You can handle foreground notifications here
-    });
+  // Helper function to parse and navigate to URL from notification
+  const handleNotificationNavigation = (url: string | undefined) => {
+    if (!url || typeof url !== 'string') {
+      console.log('No URL found in notification data');
+      return;
+    }
 
-    // Handle notification tap/response
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const url = response.notification.request.content.data?.url;
-      if (typeof url === 'string') {
-        // Parse URL with query parameters
-        if (url.includes('?')) {
-          const [pathname, queryString] = url.split('?');
-          const params: Record<string, string> = {};
-          queryString.split('&').forEach(param => {
-            const [key, value] = param.split('=');
-            if (key && value) {
-              params[key] = decodeURIComponent(value);
-            }
-          });
+    try {
+      console.log('🔔 Navigating to notification URL:', url);
+      
+      // Check if it's a custom URL (external website)
+      // First, check if it already has a protocol
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        console.log('🔔 Opening external URL in browser:', url);
+        Linking.openURL(url).catch(err => {
+          console.error('❌ Failed to open URL:', err);
+        });
+        return;
+      }
+      
+      // Check if it looks like an external website (domain-like)
+      // If it contains a dot and doesn't start with /, it's likely an external URL
+      // Also check if it doesn't match known internal routes
+      const knownInternalRoutes = ['properties', 'wallet', 'portfolio', 'notifications'];
+      const urlWithoutSlash = url.startsWith('/') ? url.slice(1) : url;
+      const firstPart = urlWithoutSlash.split('/')[0].split('?')[0];
+      
+      // If it looks like a domain (contains dot, has TLD-like pattern) and isn't a known internal route
+      if (
+        url.includes('.') && 
+        !url.startsWith('/') && 
+        !knownInternalRoutes.includes(firstPart) &&
+        !firstPart.startsWith('property') // Not /property/{id}
+      ) {
+        // It's likely an external URL without protocol - add https://
+        const externalUrl = url.startsWith('http') ? url : `https://${url}`;
+        console.log('🔔 Detected external URL, opening in browser:', externalUrl);
+        Linking.openURL(externalUrl).catch(err => {
+          console.error('❌ Failed to open URL:', err);
+        });
+        return;
+      }
+      
+      // Remove leading slash if present for consistency
+      const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+      
+      // Parse URL with query parameters
+      if (cleanUrl.includes('?')) {
+        const [pathname, queryString] = cleanUrl.split('?');
+        const params: Record<string, string> = {};
+        
+        queryString.split('&').forEach(param => {
+          const [key, value] = param.split('=');
+          if (key && value) {
+            params[key] = decodeURIComponent(value);
+          }
+        });
+        
+        console.log('🔔 Parsed URL - pathname:', pathname, 'params:', params);
+        
+        // Handle routes based on backend category mapping
+        if (pathname.startsWith('properties/')) {
+          // Property detail: /properties/{propertyId}
+          const propertyId = pathname.split('/')[1];
+          router.push(`/property/${propertyId}` as any);
+        } else if (pathname === 'properties') {
+          // Properties list
+          router.push('/(tabs)/property' as any);
+        } else if (pathname.startsWith('notifications')) {
+          // Notifications page with context
+          router.push({
+            pathname: '/notifications' as any,
+            params,
+          } as any);
+        } else if (pathname === 'wallet' || pathname.startsWith('wallet')) {
+          // Wallet screen
+          router.push('/(tabs)/wallet' as any);
+        } else if (pathname === 'portfolio' || pathname.startsWith('portfolio')) {
+          // Portfolio screen
+          router.push('/(tabs)/portfolio' as any);
+        } else {
+          // Try to navigate to the pathname
           router.push({
             pathname: pathname as any,
             params,
           } as any);
-        } else {
-          router.push(url as any);
         }
+      } else {
+        // Simple path without query params
+        console.log('🔔 Navigating to simple path:', cleanUrl);
+        
+        if (cleanUrl.startsWith('properties/')) {
+          // Property detail: /properties/{propertyId}
+          const propertyId = cleanUrl.split('/')[1];
+          router.push(`/property/${propertyId}` as any);
+        } else if (cleanUrl === 'properties') {
+          // Properties list
+          router.push('/(tabs)/property' as any);
+        } else if (cleanUrl === 'wallet') {
+          // Wallet screen
+          router.push('/(tabs)/wallet' as any);
+        } else if (cleanUrl === 'portfolio') {
+          // Portfolio screen
+          router.push('/(tabs)/portfolio' as any);
+        } else if (cleanUrl === 'notifications') {
+          // Notifications page
+          router.push('/notifications' as any);
+        } else {
+          // Try to navigate to the path
+          router.push(`/${cleanUrl}` as any);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error navigating from notification:', error);
+      // Fallback to notifications page
+      router.push('/notifications' as any);
+    }
+  };
+
+  // Set up notification listeners for deep linking
+  useEffect(() => {
+    // Handle notification received while app is running (foreground)
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Notification received (foreground):', {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data: notification.request.content.data,
+      });
+    });
+
+    // Handle notification tap/response (when app is in background or foreground)
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('🔔 Notification tapped:', {
+        title: response.notification.request.content.title,
+        data: response.notification.request.content.data,
+      });
+      
+      const url = response.notification.request.content.data?.url;
+      if (url) {
+        // Store for potential cold start scenario
+        SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+          console.error('Failed to store pending notification URL:', err);
+        });
+        handleNotificationNavigation(url);
       }
     });
 
-    // Handle initial notification (app opened from notification)
-    // Note: getLastNotificationResponseAsync is iOS-only, so we check platform
-    if (Platform.OS === 'ios') {
-      Notifications.getLastNotificationResponseAsync()
-        .then(response => {
-          if (response?.notification) {
-            const url = response.notification.request.content.data?.url;
-            if (typeof url === 'string') {
-              // Parse URL with query parameters
-              if (url.includes('?')) {
-                const [pathname, queryString] = url.split('?');
-                const params: Record<string, string> = {};
-                queryString.split('&').forEach(param => {
-                  const [key, value] = param.split('=');
-                  if (key && value) {
-                    params[key] = decodeURIComponent(value);
-                  }
+    // Handle initial notification (app opened from notification - COLD START)
+    // This works on both iOS and Android in standalone builds
+    const handleColdStart = async () => {
+      try {
+        // getLastNotificationResponseAsync is available on iOS and Android in standalone builds
+        // But may not be available in Expo Go or during development
+        if (Platform.OS === 'ios' || (Platform.OS === 'android' && __DEV__ === false)) {
+          // Only call on iOS or in production Android builds
+          // In development, this might not be available
+          try {
+            const response = await Notifications.getLastNotificationResponseAsync();
+            if (response?.notification) {
+              console.log('🔔 App opened from notification (cold start):', {
+                title: response.notification.request.content.title,
+                data: response.notification.request.content.data,
+              });
+              
+              // Store the notification URL for navigation after biometric auth
+              const url = response.notification.request.content.data?.url;
+              if (url) {
+                console.log('🔔 Storing pending notification URL for post-auth navigation:', url);
+                // Store in SecureStore so it persists through auth flow
+                SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+                  console.error('Failed to store pending notification URL:', err);
                 });
-                router.push({
-                  pathname: pathname as any,
-                  params,
-                } as any);
-              } else {
-                router.push(url as any);
+                
+                // Try to navigate immediately if already authenticated
+                // If not authenticated, it will be handled after biometric auth
+                setTimeout(() => {
+                  handleNotificationNavigation(url);
+                }, 1000);
               }
             }
+          } catch (methodError: any) {
+            // Method might not be available in all scenarios (e.g., Expo Go, development)
+            if (methodError?.message?.includes('not available')) {
+              console.log('ℹ️ getLastNotificationResponseAsync not available (this is normal in Expo Go):', methodError.message);
+            } else {
+              console.log('ℹ️ getLastNotificationResponseAsync error:', methodError);
+            }
           }
-        })
-        .catch(error => {
-          // Silently handle if method is not available
-          console.log('getLastNotificationResponseAsync not available:', error);
-        });
-    }
+        } else {
+          // In development Android, skip this method
+          console.log('ℹ️ Skipping getLastNotificationResponseAsync in development Android');
+        }
+      } catch (error) {
+        // General error handling
+        console.log('ℹ️ Cold start notification handling error:', error);
+      }
+    };
+
+    // Handle cold start for both platforms
+    handleColdStart();
 
     return () => {
       notificationListener.remove();

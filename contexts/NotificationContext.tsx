@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppState } from 'react-native';
+import { useApp } from './AppContext';
 
 export type NotificationType = 
   | 'investment_success'
@@ -49,79 +50,11 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 const STORAGE_KEY = '@blocks_notifications';
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  // Initialize with sample notifications
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    // Initialize with some sample notifications
-    const sampleNotifications: Notification[] = [
-          {
-            id: '1',
-            type: 'rental_payment',
-            context: 'portfolio',
-            title: 'Rental Payment Received',
-            message: 'You received $125.50 from Downtown Apartment Complex',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-            read: false,
-            data: { amount: 125.50, propertyId: '1' },
-            url: '/portfolio',
-          },
-          {
-            id: '2',
-            type: 'property_value_increase',
-            context: 'portfolio',
-            title: 'Property Value Increased',
-            message: 'Luxury Condo value increased by 2.5%',
-            timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-            read: false,
-            data: { propertyId: '2', increase: 2.5 },
-            url: '/portfolio',
-          },
-          {
-            id: '3',
-            type: 'deposit_success',
-            context: 'wallet',
-            title: 'Deposit Successful',
-            message: '$500.00 has been added to your wallet via Card',
-            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-            read: false,
-            data: { amount: 500, method: 'Card' },
-            url: '/wallet',
-          },
-          {
-            id: '4',
-            type: 'investment_success',
-            context: 'portfolio',
-            title: 'Investment Successful',
-            message: 'You invested $1,000.00 in Beachfront Villa. 50.00 tokens purchased.',
-            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-            read: true,
-            data: { amount: 1000, tokenCount: 50, propertyId: '3' },
-            url: '/portfolio',
-          },
-          {
-            id: '5',
-            type: 'transaction_complete',
-            context: 'wallet',
-            title: 'Transaction Complete',
-            message: 'Your withdrawal of $200.00 has been processed',
-            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-            read: true,
-            data: { amount: 200, type: 'withdrawal' },
-            url: '/wallet',
-          },
-          {
-            id: '6',
-            type: 'portfolio_milestone',
-            context: 'portfolio',
-            title: 'Portfolio Milestone',
-            message: 'Your portfolio is now worth $10,000.00',
-            timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
-            read: true,
-            data: { value: 10000 },
-          url: '/portfolio',
-        },
-      ];
-    return sampleNotifications;
-  });
+  const { state } = useApp();
+  const userId = state.userInfo.id;
+  
+  // Initialize with empty array - backend is source of truth
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Load notifications from backend API
   const loadNotifications = useCallback(async () => {
@@ -129,13 +62,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const { notificationsApi } = await import('@/services/api/notifications.api');
       const backendNotifications = await notificationsApi.getMyNotifications();
       
+      console.log(`📬 Loaded ${backendNotifications.length} notifications from backend`);
+      
       // Convert backend notifications to app format
       const convertedNotifications: Notification[] = backendNotifications.map((n) => {
-        // Determine notification type from data
+        // Determine notification type from data.category or data.type
         let type: NotificationType = 'transaction_complete';
         let context: NotificationContext = 'all';
         
-        if (n.data?.type === 'reward') {
+        // Check category first (from admin panel)
+        const category = n.data?.type || n.data?.category;
+        if (category === 'properties' || category === 'property-detail') {
+          type = 'property_milestone';
+          context = 'all';
+        } else if (category === 'portfolio') {
+          type = 'portfolio_milestone';
+          context = 'portfolio';
+        } else if (category === 'wallet') {
+          type = 'transaction_complete';
+          context = 'wallet';
+        } else if (category === 'notifications') {
+          type = 'feature_announcement';
+          context = 'all';
+        } else if (category === 'custom') {
+          type = 'feature_announcement';
+          context = 'all';
+        } else if (n.data?.type === 'reward') {
           type = 'reward';
           context = 'portfolio';
         } else if (n.data?.type === 'investment') {
@@ -156,16 +108,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           title: n.title,
           message: n.message,
           timestamp: new Date(n.createdAt),
-          read: false, // Start as unread - user can mark as read
+          read: n.read || false, // Use actual read status from backend
           data: n.data,
-          url: n.data?.url || (context === 'portfolio' ? '/notifications?context=portfolio' : '/notifications?context=wallet'),
+          url: n.data?.url || (context === 'portfolio' ? '/notifications?context=portfolio' : context === 'wallet' ? '/notifications?context=wallet' : '/notifications'),
         };
       });
+      
+      console.log(`✅ Converted ${convertedNotifications.length} notifications to app format`);
       
       // Replace all notifications with backend data (backend is source of truth)
       setNotifications(convertedNotifications);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('❌ Error loading notifications:', error);
       // Don't throw - allow app to continue with existing notifications
     }
   }, []);
@@ -223,16 +177,34 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [notifications, saveNotifications]);
 
   // Mark as read
-  const markAsRead = useCallback((id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
+    // Optimistically update UI
     const updated = notifications.map(n => 
       n.id === id ? { ...n, read: true } : n
     );
     setNotifications(updated);
     saveNotifications(updated);
-  }, [notifications, saveNotifications]);
+    
+    // Sync with backend
+    if (userId) {
+      try {
+        const { notificationsApi } = await import('@/services/api/notifications.api');
+        await notificationsApi.markAsRead(id, userId);
+      } catch (error) {
+        console.error('Failed to mark notification as read on backend:', error);
+        // Revert on error
+        const reverted = notifications.map(n => 
+          n.id === id ? { ...n, read: false } : n
+        );
+        setNotifications(reverted);
+        saveNotifications(reverted);
+      }
+    }
+  }, [notifications, saveNotifications, userId]);
 
   // Mark all as read
-  const markAllAsRead = useCallback((context?: NotificationContext) => {
+  const markAllAsRead = useCallback(async (context?: NotificationContext) => {
+    // Optimistically update UI
     const updated = notifications.map(n => {
       if (context && context !== 'all') {
         return n.context === context ? { ...n, read: true } : n;
@@ -241,7 +213,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     });
     setNotifications(updated);
     saveNotifications(updated);
-  }, [notifications, saveNotifications]);
+    
+    // Sync with backend
+    if (userId) {
+      try {
+        const { notificationsApi } = await import('@/services/api/notifications.api');
+        await notificationsApi.markAllAsRead(userId);
+      } catch (error) {
+        console.error('Failed to mark all notifications as read on backend:', error);
+        // Revert on error - reload from backend
+        loadNotifications();
+      }
+    }
+  }, [notifications, saveNotifications, userId, loadNotifications]);
 
   // Delete notification
   const deleteNotification = useCallback((id: string) => {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.0.7",
+    "version": "1.1.2",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -61,14 +61,16 @@
         "foregroundImage": "./assets/blocks-icon-128px.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.intelik.Blocks"
+      "package": "com.intelik.Blocks",
+      "googleServicesFile": "./google-services.json", 
+      "versionCode": 112
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-      "apiUrl": "http://192.168.1.116:3000"
+      "apiUrl": "https://blocks-backend.vercel.app"
     },
     "owner": "robas",
     "runtimeVersion": {

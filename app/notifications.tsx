@@ -110,18 +110,28 @@ export default function NotificationsScreen() {
   ).current;
 
   // Get notifications based on context
+  // For "All" tab, show all notifications regardless of context
+  // For "Recent" tab, filter by context
   const contextNotifications = useMemo(() => {
-    if (context === 'portfolio') {
-      return portfolioNotifications;
-    } else if (context === 'wallet') {
-      return walletNotifications;
-    }
+    // Always use all notifications - context filtering happens in the tab logic
     return notifications;
-  }, [context, notifications, portfolioNotifications, walletNotifications]);
+  }, [notifications]);
 
   // Filter and organize notifications
   const processedNotifications = useMemo(() => {
     let filtered = contextNotifications;
+
+    // Apply context filter for "Recent" tab only
+    // "All" tab shows everything regardless of context
+    if (context === 'portfolio') {
+      // For portfolio context, filter by portfolio context in Recent tab
+      // But show all in All tab
+      filtered = filtered; // Keep all for now, will filter in return
+    } else if (context === 'wallet') {
+      // For wallet context, filter by wallet context in Recent tab
+      // But show all in All tab
+      filtered = filtered; // Keep all for now, will filter in return
+    }
 
     // Apply search filter
     if (searchQuery) {
@@ -134,17 +144,34 @@ export default function NotificationsScreen() {
     // Sort by timestamp
     const sorted = filtered.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
+    // Apply context filter only to "Recent" tab
+    // "All" tab shows everything
+    let recentFiltered = sorted.filter(n => !n.read);
+    if (context === 'portfolio') {
+      recentFiltered = recentFiltered.filter(n => n.context === 'portfolio');
+    } else if (context === 'wallet') {
+      recentFiltered = recentFiltered.filter(n => n.context === 'wallet');
+    }
+
     return {
-      recent: sorted.filter(n => !n.read), // Unread notifications
-      all: sorted, // All notifications (both read and unread)
+      recent: recentFiltered, // Unread notifications filtered by context
+      all: sorted, // All notifications (both read and unread, no context filter)
     };
-  }, [contextNotifications, searchQuery]);
+  }, [contextNotifications, searchQuery, context]);
 
   const displayedNotifications = activeTab === 'recent' 
     ? processedNotifications.recent 
     : processedNotifications.all;
 
-  const unreadCount = contextNotifications.filter(n => !n.read).length;
+  // Calculate unread count based on context for the header
+  const unreadCount = useMemo(() => {
+    if (context === 'portfolio') {
+      return portfolioNotifications.filter(n => !n.read).length;
+    } else if (context === 'wallet') {
+      return walletNotifications.filter(n => !n.read).length;
+    }
+    return notifications.filter(n => !n.read).length;
+  }, [context, notifications, portfolioNotifications, walletNotifications]);
 
   const onRefresh = async () => {
     setRefreshing(true);

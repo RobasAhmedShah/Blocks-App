@@ -47,6 +47,7 @@ export default function PropertyDetailScreen() {
   const [initialInvestmentAmount, setInitialInvestmentAmount] = useState<number | null>(null);
   const [mapCoordinates, setMapCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
@@ -1383,26 +1384,30 @@ export default function PropertyDetailScreen() {
       {(property.city || property.location) ? (
         mapCoordinates ? (
           <View style={{ flex: 1, position: 'relative' }}>
-            <MapView
-              provider={PROVIDER_GOOGLE}
-              style={{ flex: 1, borderRadius: 16 }}
-              initialRegion={{
-                latitude: mapCoordinates.latitude,
-                longitude: mapCoordinates.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              region={{
-                latitude: mapCoordinates.latitude,
-                longitude: mapCoordinates.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              mapType="standard"
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-              toolbarEnabled={false}
-            >
+            {!mapError ? (
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={{ flex: 1, borderRadius: 16 }}
+                initialRegion={{
+                  latitude: mapCoordinates.latitude,
+                  longitude: mapCoordinates.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                region={{
+                  latitude: mapCoordinates.latitude,
+                  longitude: mapCoordinates.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                mapType="standard"
+                showsUserLocation={false}
+                showsMyLocationButton={false}
+                toolbarEnabled={false}
+                onMapReady={() => {
+                  setMapError(null);
+                }}
+              >
               <Marker
                 coordinate={{
                   latitude: mapCoordinates.latitude,
@@ -1424,8 +1429,48 @@ export default function PropertyDetailScreen() {
                 </View>
               </Marker>
             </MapView>
+            ) : (
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 20,
+                }}
+              >
+                <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    marginTop: 12,
+                    fontSize: 14,
+                    textAlign: "center",
+                  }}
+                >
+                  {mapError || "Map unavailable"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
+                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+                  }}
+                  style={{
+                    marginTop: 16,
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.primaryForeground, fontWeight: "600" }}>
+                    Open in Google Maps
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             
             {/* Overlay button to open in external maps */}
+            {!mapError && (
             <TouchableOpacity
               onPress={() => {
                 const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
@@ -1463,6 +1508,7 @@ export default function PropertyDetailScreen() {
                 Open in Maps
               </Text>
             </TouchableOpacity>
+            )}
 
             {geocodingError && (
               <View

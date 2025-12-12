@@ -15,6 +15,9 @@ import { CopilotProvider } from 'react-native-copilot';
 import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
+
+const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
 // Note: Notification handler is configured in services/useNotifications.ts
 // This prevents duplicate handler configuration
@@ -212,7 +215,13 @@ function RootNavigation() {
       });
       
       const url = response.notification.request.content.data?.url;
-      handleNotificationNavigation(url);
+      if (url) {
+        // Store for potential cold start scenario
+        SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+          console.error('Failed to store pending notification URL:', err);
+        });
+        handleNotificationNavigation(url);
+      }
     });
 
     // Handle initial notification (app opened from notification - COLD START)
@@ -232,11 +241,21 @@ function RootNavigation() {
                 data: response.notification.request.content.data,
               });
               
-              // Wait a bit for app to fully initialize before navigating
-              setTimeout(() => {
-                const url = response.notification.request.content.data?.url;
-                handleNotificationNavigation(url);
-              }, 1000);
+              // Store the notification URL for navigation after biometric auth
+              const url = response.notification.request.content.data?.url;
+              if (url) {
+                console.log('🔔 Storing pending notification URL for post-auth navigation:', url);
+                // Store in SecureStore so it persists through auth flow
+                SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+                  console.error('Failed to store pending notification URL:', err);
+                });
+                
+                // Try to navigate immediately if already authenticated
+                // If not authenticated, it will be handled after biometric auth
+                setTimeout(() => {
+                  handleNotificationNavigation(url);
+                }, 1000);
+              }
             }
           } catch (methodError: any) {
             // Method might not be available in all scenarios (e.g., Expo Go, development)

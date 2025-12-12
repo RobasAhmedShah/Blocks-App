@@ -10,6 +10,7 @@ const TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 const BIOMETRIC_TOKEN_KEY = 'biometric_auth_token';
 const BIOMETRIC_REFRESH_TOKEN_KEY = 'biometric_refresh_token';
+const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
 // --- Define State and Context Shapes ---
 interface AuthState {
@@ -142,6 +143,105 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuthStatus();
   }, []);
   
+  // Helper function to navigate to pending notification URL
+  const navigateToPendingNotification = async (): Promise<boolean> => {
+    try {
+      const pendingUrl = await SecureStore.getItemAsync(PENDING_NOTIFICATION_URL_KEY);
+      if (!pendingUrl) {
+        return false; // No pending URL
+      }
+      
+      console.log('🔔 Found pending notification URL after auth, navigating to:', pendingUrl);
+      // Clear the pending URL immediately
+      await SecureStore.deleteItemAsync(PENDING_NOTIFICATION_URL_KEY);
+      
+      // Import Linking for external URLs
+      const { Linking } = require('react-native');
+      
+      // Check if it's an external URL
+      if (pendingUrl.startsWith('http://') || pendingUrl.startsWith('https://')) {
+        Linking.openURL(pendingUrl).catch(err => {
+          console.error('❌ Failed to open external URL:', err);
+        });
+        return true;
+      }
+      
+      // Check if it looks like an external website
+      const knownInternalRoutes = ['properties', 'wallet', 'portfolio', 'notifications'];
+      const urlWithoutSlash = pendingUrl.startsWith('/') ? pendingUrl.slice(1) : pendingUrl;
+      const firstPart = urlWithoutSlash.split('/')[0].split('?')[0];
+      
+      if (
+        pendingUrl.includes('.') && 
+        !pendingUrl.startsWith('/') && 
+        !knownInternalRoutes.includes(firstPart) &&
+        !firstPart.startsWith('property')
+      ) {
+        const externalUrl = pendingUrl.startsWith('http') ? pendingUrl : `https://${pendingUrl}`;
+        Linking.openURL(externalUrl).catch(err => {
+          console.error('❌ Failed to open external URL:', err);
+        });
+        return true;
+      }
+      
+      // Handle internal routes
+      const cleanUrl = pendingUrl.startsWith('/') ? pendingUrl.slice(1) : pendingUrl;
+      
+      if (cleanUrl.includes('?')) {
+        const [pathname, queryString] = cleanUrl.split('?');
+        const params: Record<string, string> = {};
+        
+        queryString.split('&').forEach(param => {
+          const [key, value] = param.split('=');
+          if (key && value) {
+            params[key] = decodeURIComponent(value);
+          }
+        });
+        
+        if (pathname.startsWith('properties/')) {
+          const propertyId = pathname.split('/')[1];
+          router.replace(`/property/${propertyId}` as any);
+        } else if (pathname === 'properties') {
+          router.replace('/(tabs)/property' as any);
+        } else if (pathname.startsWith('notifications')) {
+          router.replace({
+            pathname: '/notifications' as any,
+            params,
+          } as any);
+        } else if (pathname === 'wallet' || pathname.startsWith('wallet')) {
+          router.replace('/(tabs)/wallet' as any);
+        } else if (pathname === 'portfolio' || pathname.startsWith('portfolio')) {
+          router.replace('/(tabs)/portfolio' as any);
+        } else {
+          router.replace({
+            pathname: pathname as any,
+            params,
+          } as any);
+        }
+      } else {
+        if (cleanUrl.startsWith('properties/')) {
+          const propertyId = cleanUrl.split('/')[1];
+          router.replace(`/property/${propertyId}` as any);
+        } else if (cleanUrl === 'properties') {
+          router.replace('/(tabs)/property' as any);
+        } else if (cleanUrl === 'wallet') {
+          router.replace('/(tabs)/wallet' as any);
+        } else if (cleanUrl === 'portfolio') {
+          router.replace('/(tabs)/portfolio' as any);
+        } else if (cleanUrl === 'notifications') {
+          router.replace('/notifications' as any);
+        } else {
+          router.replace(`/${cleanUrl}` as any);
+        }
+      }
+      
+      return true; // Navigation attempted
+    } catch (error) {
+      console.error('Error navigating to pending notification:', error);
+      return false;
+    }
+  };
+
   // 3. Handle Protected Routes
   React.useEffect(() => {
     if (authState.isLoading) return; 
@@ -152,8 +252,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Not authenticated and NOT in onboarding, redirect to signin
       router.replace('/onboarding/signin');
     } else if (authState.isAuthenticated && inOnboardingGroup) {
-      // Authenticated and in onboarding, redirect to app home
-      router.replace('/(tabs)/home'); 
+      // Authenticated and in onboarding - check for pending notification route first
+      navigateToPendingNotification().then((navigated) => {
+        // If no pending notification or navigation failed, go to default home
+        if (!navigated) {
+          router.replace('/(tabs)/home');
+        }
+      });
     }
   }, [authState.isAuthenticated, authState.isLoading, segments, router]);
 
@@ -243,6 +348,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               token: token,
               isAuthenticated: true,
             }));
+            // Navigation will be handled by the route protection effect
             return true;
           } catch (error) {
             // Token expired, try to refresh
@@ -256,6 +362,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   token: refreshed.token,
                   isAuthenticated: true,
                 }));
+                // Navigation will be handled by the route protection effect
                 return true;
               } catch (refreshError) {
                 // Refresh failed, clear tokens

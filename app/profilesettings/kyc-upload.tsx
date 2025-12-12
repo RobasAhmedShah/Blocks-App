@@ -167,31 +167,55 @@ export default function KycUploadScreen() {
       // Reload status to update hook state (for home/profile screens)
       await loadKycStatus(false);
       
-      // Schedule local notification after 8 seconds
-      const userName = state.userInfo?.fullName || 'User';
-      await Notifications.scheduleNotificationAsync({
-        identifier: 'kyc-approved',
-        content: {
-          title: 'KYC Approved',
-          body: `${userName}, your KYC verification has been approved!`,
-          sound: true,
-          data: {
-            type: 'kyc_approved',
-            url: '/profilesettings/kyc-approved',
+      // Schedule local notification after 8 seconds (with error handling)
+      try {
+        const userName = state.userInfo?.fullName || 'User';
+        await Notifications.scheduleNotificationAsync({
+          identifier: 'kyc-approved',
+          content: {
+            title: 'KYC Approved',
+            body: `${userName}, your KYC verification has been approved!`,
+            sound: true,
+            data: {
+              type: 'kyc_approved',
+              url: '/profilesettings/kyc-approved',
+            },
           },
-        },
-        trigger: {
-          seconds: 8,
-        },
-      });
+          trigger: {
+            seconds: 8,
+          },
+        });
+      } catch (notificationError) {
+        // Don't block navigation if notification scheduling fails
+        console.error('Error scheduling notification:', notificationError);
+      }
       
-      // Navigate back - KYC screen will automatically refresh on focus via useFocusEffect
-      router.back();
+      // Reset submitting state
+      setSubmitting(false);
+      
+      // Show success message before navigating
+      Alert.alert(
+        'Success',
+        'Your KYC documents have been submitted successfully. You will receive a notification once verification is complete.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to KYC screen - it will automatically refresh on focus via useFocusEffect
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                // Fallback if can't go back
+                router.replace('../profilesettings/kyc' as any);
+              }
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error submitting KYC:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit KYC verification.');
-    } finally {
       setSubmitting(false);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit KYC verification.');
     }
   };
 

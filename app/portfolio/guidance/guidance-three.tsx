@@ -13,6 +13,10 @@ import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useColorScheme } from "@/lib/useColorScheme";
 
+// In the current backend, tokenPrice and minInvestment are already "real" prices.
+// No more /10 scaling.
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
+
 export default function ConfirmInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();

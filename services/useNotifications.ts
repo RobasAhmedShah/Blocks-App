@@ -115,43 +115,58 @@ export function useNotifications() {
             const isExpoGo = (Constants as any)?.appOwnership === 'expo';
 
             if (Platform.OS === 'android' && !isExpoGo) {
-              const deviceToken = await Notifications.getDevicePushTokenAsync();
-              const token = String(deviceToken.data);
-              const isExpoToken = token.startsWith('ExponentPushToken[');
-              const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
+              // Prefer device push token in standalone Android builds (FCM). If it fails,
+              // fall back to Expo push token so we still store something usable.
+              try {
+                const deviceToken = await Notifications.getDevicePushTokenAsync();
+                const token = String(deviceToken.data);
+                const isExpoToken = token.startsWith('ExponentPushToken[');
+                const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
 
-              console.log('✅ Device push token obtained (standalone Android):', {
-                type: deviceToken.type,
-                tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
-                tokenLength: token.length,
-                tokenPreview: token.substring(0, 30) + '...',
-              });
+                console.log('✅ Device push token obtained (standalone Android):', {
+                  type: deviceToken.type,
+                  tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
+                  tokenLength: token.length,
+                  tokenPreview: token.substring(0, 30) + '...',
+                });
 
-              // Store device token in expoToken field (backend treats it as FCM and sends via Firebase Admin)
-              setExpoPushToken(token);
-              return;
+                // Store device token in expoToken field (backend treats it as FCM and sends via Firebase Admin)
+                setExpoPushToken(token);
+                return;
+              } catch (error: any) {
+                console.error('❌ Failed to get device push token (standalone Android). Falling back to Expo token...', {
+                  message: error?.message || String(error),
+                });
+                // fall through to Expo token generation below
+              }
             }
 
             // Expo Go / iOS / fallback: use Expo push token
-            if (projectId) {
-              const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-              const token = tokenData.data;
-              const isExpoToken = token.startsWith('ExponentPushToken[');
-              const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
+            try {
+              if (projectId) {
+                const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+                const token = tokenData.data;
+                const isExpoToken = token.startsWith('ExponentPushToken[');
+                const isFCMToken = !isExpoToken && token.length > 100 && /^[A-Za-z0-9:._-]+$/.test(token);
 
-              console.log('✅ Expo push token obtained:', {
-                tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
-                tokenLength: token.length,
-                tokenPreview: token.substring(0, 30) + '...',
+                console.log('✅ Expo push token obtained:', {
+                  tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
+                  tokenLength: token.length,
+                  tokenPreview: token.substring(0, 30) + '...',
+                });
+
+                setExpoPushToken(token);
+              } else {
+                console.warn('⚠️ No projectId found in Constants. Trying getExpoPushTokenAsync() without projectId...');
+                const tokenData = await Notifications.getExpoPushTokenAsync();
+                console.log('✅ Expo push token obtained (no projectId):', tokenData.data);
+                setExpoPushToken(tokenData.data);
+              }
+            } catch (error: any) {
+              console.error('❌ Failed to get Expo push token:', {
+                message: error?.message || String(error),
               });
-
-              setExpoPushToken(token);
-            } else {
-              console.warn('⚠️ No projectId found in Constants. Token generation may fail in standalone builds.');
-              // Try without projectId as fallback (works in Expo Go)
-              const tokenData = await Notifications.getExpoPushTokenAsync();
-              console.log('✅ Expo push token obtained (fallback):', tokenData.data);
-              setExpoPushToken(tokenData.data);
+              throw error;
             }
           } catch (error: any) {
             console.error('❌ Error getting push token:', error);
@@ -163,7 +178,7 @@ export function useNotifications() {
             }
           }
         } else {
-          console.warn('⚠️ Not running on a physical device. Push tokens only work on real devices.');
+          console.warn('⚠️ Not running on a physical device. Push tokens only work on real devices (not emulators/simulators).');
         }
       } else {
         console.warn('⚠️ Notification permissions not granted:', permissions);

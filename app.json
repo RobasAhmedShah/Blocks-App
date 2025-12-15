@@ -31,6 +31,13 @@
           "color": "#ffffff",
           "sounds": []
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos so you can upload images.",
+          "cameraPermission": "The app needs access to your camera so you can take photos."
+        }
       ]
     ],
     "experiments": {

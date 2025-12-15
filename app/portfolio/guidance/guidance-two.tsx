@@ -33,8 +33,9 @@ import Animated, {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Effective token price (divided by 10 for fractional investments)
-const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice / 10;
+// In the current backend, tokenPrice and minInvestment are already "real" prices.
+// No more /10 scaling.
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 // Minimum investment: 0.1 tokens
 const MINIMUM_TOKENS = 0.1;
 

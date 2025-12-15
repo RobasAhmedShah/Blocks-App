@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.1.2",
+    "version": "1.1.8",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -63,7 +63,7 @@
       },
       "package": "com.intelik.Blocks",
       "googleServicesFile": "./google-services.json", 
-      "versionCode": 112
+      "versionCode": 117
     },
     "extra": {
       "router": {},

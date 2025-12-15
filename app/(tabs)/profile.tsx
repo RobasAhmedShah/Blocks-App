@@ -480,12 +480,22 @@ export default function BlocksProfileScreen() {
         {/* Profile Header */}
         <View className="items-center py-6">
           <View className="relative">
-            <Image
-              source={{
-                uri: state.userInfo.profileImage,
-              }}
-              className="h-28 w-28 rounded-full"
-            />
+            {state.userInfo.profileImage ? (
+              <Image
+                source={{ uri: state.userInfo.profileImage }}
+                className="h-28 w-28 rounded-full"
+                defaultSource={require('@/assets/blank.png')}
+              />
+            ) : (
+              <View 
+                style={{ 
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
+                }}
+                className="h-28 w-28 rounded-full items-center justify-center"
+              >
+                <Ionicons name="person" size={56} color={colors.primary} />
+              </View>
+            )}
             <TouchableOpacity
               onPress={() => router.push('../profilesettings/personalinfo')}
               style={{ 

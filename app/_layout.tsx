@@ -16,6 +16,7 @@ import { CustomTooltip } from '@/components/tour/CustomTooltip';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
+import { useNotifications } from '@/services/useNotifications';
 
 const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
@@ -76,6 +77,10 @@ export default function RootLayout() {
 // New component to handle navigation logic inside the AuthContext
 function RootNavigation() {
   const { isLoading } = useAuth();
+  
+  // Initialize push notifications - this will get the token and register it with backend
+  // This hook must be called here to ensure it runs when the app starts
+  useNotifications();
 
   // Helper function to parse and navigate to URL from notification
   const handleNotificationNavigation = (url: string | undefined) => {

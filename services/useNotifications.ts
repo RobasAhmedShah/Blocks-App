@@ -48,15 +48,29 @@ export function useNotifications() {
             tokenType: isExpoToken ? 'Expo' : isFCMToken ? 'FCM' : 'Unknown',
             tokenLength: expoPushToken.length,
             tokenPreview: expoPushToken.substring(0, 30) + '...',
+            fullToken: expoPushToken, // Log full token for debugging
+            isAuthenticated,
           });
           
           await notificationsApi.registerExpoToken(expoPushToken);
-          console.log('✅ Push token registered successfully');
-        } catch (error) {
-          console.error('❌ Failed to register push token:', error);
+          console.log('✅ Push token registered successfully with backend');
+        } catch (error: any) {
+          console.error('❌ Failed to register push token:', {
+            error: error?.message || error,
+            stack: error?.stack,
+            tokenLength: expoPushToken.length,
+            tokenPreview: expoPushToken.substring(0, 30) + '...',
+          });
         }
       };
       registerToken();
+    } else {
+      if (!expoPushToken) {
+        console.log('⏳ Waiting for push token to be generated...');
+      }
+      if (!isAuthenticated) {
+        console.log('⏳ Waiting for user authentication before registering token...');
+      }
     }
   }, [expoPushToken, isAuthenticated]);
 

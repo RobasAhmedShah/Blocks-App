@@ -9,6 +9,7 @@ import { mockInvestments } from '@/data/mockPortfolio';
 import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@/data/mockProfile';
 import { professionalBankAccounts } from '@/data/mockProfile';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationHelper } from '@/services/notificationHelper';
 import { propertiesApi } from '@/services/api/properties.api';
 import { profileApi, ProfileResponse } from '@/services/api/profile.api';
@@ -52,6 +53,7 @@ interface AppContextType {
   loadTransactions: () => Promise<void>;
   deposit: (amount: number, paymentMethodId?: string) => Promise<void>;
   withdraw: (amount: number) => Promise<void>;
+  addBankTransferDeposit: (amount: number, proofUrl: string) => Promise<void>;
   
   // Investment Actions
   loadInvestments: () => Promise<void>;
@@ -86,6 +88,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const BOOKMARKS_STORAGE_KEY = 'bookmarked_property_ids';
+const BANK_TRANSFER_DEPOSITS_KEY = 'bank_transfer_deposits';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -231,42 +234,199 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadBookmarks();
   }, []);
 
+  // Load bank transfer deposits from AsyncStorage on mount
+  useEffect(() => {
+    const loadBankTransferDeposits = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedDeposits: Transaction[] = JSON.parse(stored);
+          
+          setState(prev => {
+            // Merge persisted deposits with existing transactions
+            // Avoid duplicates by checking transaction IDs
+            const existingIds = new Set(prev.transactions.map(tx => tx.id));
+            const newDeposits = persistedDeposits.filter(tx => !existingIds.has(tx.id));
+            
+            // Calculate pending amount only from NEW deposits (not duplicates)
+            const newPendingAmount = newDeposits.reduce((sum, tx) => {
+              return sum + (tx.status === 'pending' ? tx.amount : 0);
+            }, 0);
+            
+            return {
+              ...prev,
+              transactions: [...newDeposits, ...prev.transactions],
+              balance: {
+                ...prev.balance,
+                pendingDeposits: (prev.balance.pendingDeposits || 0) + newPendingAmount,
+              },
+            };
+          });
+        }
+      } catch (error) {
+        console.error('Error loading bank transfer deposits:', error);
+      }
+    };
+    loadBankTransferDeposits();
+  }, []);
+
   // Wallet Actions
   const loadWallet = useCallback(async () => {
     if(isGuest){
       return;
     }
     try {
+      // FIRST: Load bank transfer deposits from AsyncStorage to ensure we have the latest
+      let persistedDeposits: Transaction[] = [];
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          persistedDeposits = JSON.parse(stored);
+        }
+      } catch (storageError) {
+        console.error('Error loading bank deposits in loadWallet:', storageError);
+      }
+      
+      // THEN: Load backend wallet balance
       const walletBalance = await walletApi.getWallet();
-      setState(prev => ({
-        ...prev,
-        balance: {
-          usdc: walletBalance.usdc,
-          totalValue: walletBalance.totalValue,
-          totalInvested: walletBalance.totalInvested,
-          totalEarnings: walletBalance.totalEarnings,
-          pendingDeposits: walletBalance.pendingDeposits,
-        },
-      }));
+      
+      // Calculate pending deposits from AsyncStorage (source of truth for bank transfers)
+      const bankTransferPendingDeposits = persistedDeposits
+        .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Also check current transactions for any other pending deposits
+      setState(prev => {
+        const otherPendingDeposits = prev.transactions
+          .filter(tx => 
+            tx.type === 'deposit' && 
+            tx.status === 'pending' && 
+            !tx.id.startsWith('tx-bank-') // Exclude bank transfers (already counted)
+          )
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        
+        // Merge backend pending deposits with bank transfer pending deposits
+        const totalPendingDeposits = (walletBalance.pendingDeposits || 0) + bankTransferPendingDeposits + otherPendingDeposits;
+        
+        return {
+          ...prev,
+          balance: {
+            usdc: walletBalance.usdc,
+            totalValue: walletBalance.totalValue,
+            totalInvested: walletBalance.totalInvested,
+            totalEarnings: walletBalance.totalEarnings,
+            pendingDeposits: totalPendingDeposits,
+          },
+        };
+      });
     } catch (error) {
       console.error('Error loading wallet:', error);
-      // Keep existing state on error
+      // On error, calculate pending deposits from AsyncStorage
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedDeposits: Transaction[] = JSON.parse(stored);
+          const bankTransferPendingDeposits = persistedDeposits
+            .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+          
+          setState(prev => {
+            const otherPendingDeposits = prev.transactions
+              .filter(tx => 
+                tx.type === 'deposit' && 
+                tx.status === 'pending' && 
+                !tx.id.startsWith('tx-bank-')
+              )
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            
+            return {
+              ...prev,
+              balance: {
+                ...prev.balance,
+                pendingDeposits: bankTransferPendingDeposits + otherPendingDeposits,
+              },
+            };
+          });
+        } else {
+          // No stored deposits, calculate from transactions only
+          setState(prev => {
+            const frontendPendingDeposits = prev.transactions
+              .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            
+            return {
+              ...prev,
+              balance: {
+                ...prev.balance,
+                pendingDeposits: frontendPendingDeposits,
+              },
+            };
+          });
+        }
+      } catch (storageError) {
+        console.error('Error loading bank deposits on wallet error:', storageError);
+      }
     }
   }, [isGuest]);
 
   const loadTransactions = useCallback(async () => {
     try {
+      // FIRST: Load bank transfer deposits from AsyncStorage (always do this first)
+      let persistedDeposits: Transaction[] = [];
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          persistedDeposits = JSON.parse(stored);
+        }
+      } catch (storageError) {
+        console.error('Error loading bank transfer deposits from storage:', storageError);
+      }
+      
+      // THEN: Load backend transactions
       const response = await transactionsApi.getTransactions({
         page: 1,
         limit: 50, // Load more transactions for the wallet screen
       });
-      setState(prev => ({
-        ...prev,
-        transactions: response.data,
-      }));
+      
+      // FINALLY: Merge bank deposits with backend transactions
+      setState(prev => {
+        // Get all bank deposit IDs from AsyncStorage (source of truth)
+        const bankDepositIds = new Set(persistedDeposits.map(tx => tx.id));
+        
+        // Remove any bank deposits from backend response (to avoid duplicates)
+        const backendTransactionsWithoutBankDeposits = response.data.filter(
+          tx => !bankDepositIds.has(tx.id)
+        );
+        
+        // Merge: bank deposits first, then backend transactions
+        const mergedTransactions = [...persistedDeposits, ...backendTransactionsWithoutBankDeposits];
+        
+        return {
+          ...prev,
+          transactions: mergedTransactions,
+        };
+      });
     } catch (error) {
       console.error('Error loading transactions:', error);
-      // Keep existing state on error
+      // On error, still try to preserve bank deposits from AsyncStorage
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedDeposits: Transaction[] = JSON.parse(stored);
+          setState(prev => {
+            // Keep existing transactions but ensure bank deposits are included
+            const existingIds = new Set(prev.transactions.map(tx => tx.id));
+            const newDeposits = persistedDeposits.filter(tx => !existingIds.has(tx.id));
+            
+            return {
+              ...prev,
+              transactions: [...newDeposits, ...prev.transactions],
+            };
+          });
+        }
+      } catch (storageError) {
+        console.error('Error loading bank deposits on transaction error:', storageError);
+      }
     }
   }, []);
 
@@ -345,11 +505,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await NotificationHelper.withdrawalSuccess(amount, notificationSettings);
   }, []);
 
+  const addBankTransferDeposit = useCallback(async (amount: number, proofUrl: string) => {
+    // Create pending deposit transaction (frontend-only)
+    const newTransaction: Transaction = {
+      id: `tx-bank-${Date.now()}`,
+      type: 'deposit',
+      amount: amount,
+      currency: 'USDC',
+      status: 'pending',
+      date: new Date().toISOString(),
+      description: 'Bank Transfer Deposit (Pending Verification)',
+      proofUrl: proofUrl, // Store proof URL in transaction
+    };
+
+    setState(prev => {
+      const currentPending = prev.balance.pendingDeposits || 0;
+      const newBalance: WalletBalance = {
+        ...prev.balance,
+        pendingDeposits: currentPending + amount,
+      };
+
+      // Get all bank transfer deposits (including the new one)
+      const allBankDeposits = [
+        ...prev.transactions.filter(tx => tx.id.startsWith('tx-bank-')),
+        newTransaction,
+      ];
+
+      // Save to AsyncStorage
+      AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankDeposits)).catch(error => {
+        console.error('Error saving bank transfer deposits to storage:', error);
+      });
+
+      return {
+        ...prev,
+        balance: newBalance,
+        transactions: [newTransaction, ...prev.transactions],
+      };
+    });
+  }, []);
+
   // Investment Actions
   const loadInvestments = useCallback(async () => {
     if(isGuest){
       return;
-    }
+               }
     try {
       const investments = await investmentsApi.getMyInvestments();
       
@@ -855,6 +1054,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loadTransactions,
         deposit,
         withdraw,
+        addBankTransferDeposit,
         loadInvestments,
         invest,
         getProperty,

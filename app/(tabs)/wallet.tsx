@@ -202,6 +202,42 @@ export default function WalletScreen() {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Pending Deposits Notification */}
+        {(() => {
+          // Calculate pending deposits from transactions to ensure it's always accurate
+          // This includes both backend and frontend-only pending deposits
+          const pendingDepositsFromTransactions = transactions
+            .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+          
+          // Use balance.pendingDeposits if available, otherwise calculate from transactions
+          const totalPending = balance.pendingDeposits || pendingDepositsFromTransactions;
+          
+          return totalPending > 0 ? (
+            <View className="px-4 mb-4 mt-4">
+              <View style={{
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: isDarkColorScheme ? 'rgba(234, 179, 8, 0.2)' : 'rgba(234, 179, 8, 0.15)',
+                borderWidth: 1.5,
+                borderColor: isDarkColorScheme ? 'rgba(234, 179, 8, 0.5)' : 'rgba(234, 179, 8, 0.3)',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <MaterialIcons name="pending" size={24} color={colors.warning} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>
+                      Pending Deposit Verification
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
+                      ${totalPending.toFixed(2)} is pending verification. This may take up to 24 hours.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : null;
+        })()}
+
         {/* Quick Actions */}
         <View className="px-4 mb-6">
           <Text style={{ color: colors.textPrimary }} className="text-base font-bold mb-4">

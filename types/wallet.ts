@@ -16,6 +16,7 @@ export interface Transaction {
   currency?: 'USDC' | 'PKR';
   propertyId?: string;
   propertyTitle?: string;
+  proofUrl?: string; // For bank transfer deposits (frontend-only)
 }
 
 export interface DepositMethod {

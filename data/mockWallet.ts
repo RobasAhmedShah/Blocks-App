@@ -67,6 +67,14 @@ export const depositMethods: DepositMethod[] = [
     color: '#F0B90B',
     route: '/wallet/deposit/binance',
   },
+  {
+    id: 'bank-transfer',
+    title: 'Bank Transfer',
+    description: 'Manual deposit via bank transfer',
+    icon: 'account-balance',
+    color: '#0fa0bd',
+    route: '/wallet/deposit/bank-transfer',
+  },
 ];
 
 export const quickAmounts: number[] = [100, 250, 500, 1000];

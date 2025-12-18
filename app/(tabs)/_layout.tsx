@@ -18,7 +18,7 @@ export default function TabsLayout() {
           textTransform: "uppercase",
         },
         tabBarItemStyle: {
-          justifyContent: "center",
+          justifyContent: "space-between",
           alignItems: "center",
           paddingVertical: 0,
           height: "80%",

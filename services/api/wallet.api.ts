@@ -13,6 +13,11 @@ export interface DepositRequest {
   paymentMethodId?: string; // Optional - will use default if not provided
 }
 
+export interface BankTransferDepositRequest {
+  amountUSDT: number;
+  proofUrl: string; // URL of uploaded proof document
+}
+
 export interface DepositResponse {
   success: boolean;
   transaction: {
@@ -40,6 +45,14 @@ export const walletApi = {
    */
   deposit: async (dto: DepositRequest): Promise<DepositResponse> => {
     return apiClient.post<DepositResponse>('/api/mobile/wallet/deposit', dto);
+  },
+
+  /**
+   * Submit bank transfer deposit request (manual deposit with proof)
+   * Creates a PENDING_VERIFICATION transaction
+   */
+  depositBankTransfer: async (dto: BankTransferDepositRequest): Promise<DepositResponse> => {
+    return apiClient.post<DepositResponse>('/api/mobile/wallet/deposit/bank-transfer', dto);
   },
 };
 

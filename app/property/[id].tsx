@@ -26,6 +26,7 @@ import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 import { useKycCheck } from "@/hooks/useKycCheck";
+import { useAuth } from "@/contexts/AuthContext";
 
 // In the current backend, tokenPrice and minInvestment are already “real” prices.
 // No more /10 scaling.
@@ -51,6 +52,7 @@ export default function PropertyDetailScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
+  const { isGuest, exitGuestMode} = useAuth();
 
   const bookmarked = id ? isBookmarked(id) : false;
 
@@ -139,6 +141,10 @@ export default function PropertyDetailScreen() {
   }
 
   const handleInvest = () => {
+    if(isGuest){
+      exitGuestMode();
+      return;
+    }
     if (!property || !id) {
       Alert.alert("Error", "Property information not available");
       return;
@@ -1675,7 +1681,7 @@ export default function PropertyDetailScreen() {
               fontWeight: "bold",
             }}
           >
-            {isVerified ? 'Invest' : 'Submit KYC to Invest'}
+            {isVerified ? 'Invest' : isGuest ? 'Sign In to Invest' : 'Submit KYC to Invest'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity

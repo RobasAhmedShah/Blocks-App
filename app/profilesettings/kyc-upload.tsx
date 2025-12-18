@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Alert,
   Image,
   ActivityIndicator,
   StatusBar,
@@ -19,6 +18,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi } from '@/services/api/kyc.api';
 import { useKycCheck } from '@/hooks/useKycCheck';
 import { useApp } from '@/contexts/AppContext';
+import { AppAlert } from '@/components/AppAlert';
 
 type DocumentType = 'front' | 'back' | 'selfie';
 
@@ -40,16 +40,35 @@ export default function KycUploadScreen() {
     selfie: { uri: null, uploading: false, uploaded: false },
   });
   const [submitting, setSubmitting] = useState(false);
+  
+  // Alert state
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
 
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (cameraStatus !== 'granted' || mediaStatus !== 'granted') {
-      Alert.alert(
-        'Permissions Required',
-        'Camera and photo library access is required to upload documents.'
-      );
+      setAlertState({
+        visible: true,
+        title: 'Permissions Required',
+        message: 'Camera and photo library access is required to upload documents.',
+        type: 'warning',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       return false;
     }
     return true;
@@ -85,14 +104,30 @@ export default function KycUploadScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to pick image. Please try again.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
     }
   };
 
   const uploadDocument = async (type: DocumentType) => {
     const doc = documents[type];
     if (!doc.uri) {
-      Alert.alert('Error', 'Please select an image first.');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Please select an image first.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       return;
     }
 
@@ -133,7 +168,15 @@ export default function KycUploadScreen() {
         }
       }
       
-      Alert.alert('Upload Failed', errorMessage);
+      setAlertState({
+        visible: true,
+        title: 'Upload Failed',
+        message: errorMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       setDocuments(prev => ({
         ...prev,
         [type]: { ...prev[type], uploading: false },
@@ -142,12 +185,29 @@ export default function KycUploadScreen() {
   };
 
   const handleSubmit = async () => {
+    console.log('[KYC Upload] Submit button clicked');
+    console.log('[KYC Upload] Documents state:', {
+      front: { uploaded: documents.front.uploaded, url: documents.front.url },
+      selfie: { uploaded: documents.selfie.uploaded, url: documents.selfie.url },
+      submitting,
+    });
+    
     if (!documents.front.uploaded || !documents.selfie.uploaded) {
-      Alert.alert('Required', 'Please upload both the front of your ID document and a selfie photo.');
+      console.log('[KYC Upload] Missing required documents');
+      setAlertState({
+        visible: true,
+        title: 'Required',
+        message: 'Please upload both the front of your ID document and a selfie photo.',
+        type: 'warning',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       return;
     }
 
     try {
+      console.log('[KYC Upload] Starting submission...');
       setSubmitting(true);
       const submitData = {
         type: 'cnic' as const,
@@ -190,32 +250,37 @@ export default function KycUploadScreen() {
         console.error('Error scheduling notification:', notificationError);
       }
       
-      // Reset submitting state
-      setSubmitting(false);
-      
       // Show success message before navigating
-      Alert.alert(
-        'Success',
-        'Your KYC documents have been submitted successfully. You will receive a notification once verification is complete.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate back to KYC screen - it will automatically refresh on focus via useFocusEffect
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                // Fallback if can't go back
-                router.replace('../profilesettings/kyc' as any);
-              }
-            },
-          },
-        ]
-      );
+      setAlertState({
+        visible: true,
+        title: 'Success',
+        message: 'Your KYC documents have been submitted successfully. You will receive a notification once verification is complete.',
+        type: 'success',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+          // Reset submitting state after alert is confirmed
+          setSubmitting(false);
+          // Navigate back to KYC screen - it will automatically refresh on focus via useFocusEffect
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            // Fallback if can't go back
+            router.replace('../profilesettings/kyc' as any);
+          }
+        },
+      });
     } catch (error) {
       console.error('Error submitting KYC:', error);
       setSubmitting(false);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to submit KYC verification.');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to submit KYC verification.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
     }
   };
 
@@ -224,8 +289,8 @@ export default function KycUploadScreen() {
     return (
       <View
         style={{
-          backgroundColor: colors.card,
-          borderWidth: isDarkColorScheme ? 0 : 1,
+          // backgroundColor: colors.background,
+          borderWidth: isDarkColorScheme ? 2 : 1,
           borderColor: colors.border,
         }}
         className="rounded-xl p-5 mb-4"
@@ -288,7 +353,7 @@ export default function KycUploadScreen() {
                   style={{
                     flex: 1,
                     padding: 12,
-                    backgroundColor: doc.uploading ? colors.background : '#0da5a5',
+                    backgroundColor: doc.uploading ? colors.background : 'rgba(139, 92, 246, 0.1)',
                     opacity: doc.uploading ? 0.6 : 1,
                   }}
                   className="rounded-lg items-center"
@@ -330,7 +395,7 @@ export default function KycUploadScreen() {
               style={{
                 flex: 1,
                 padding: 16,
-                backgroundColor: colors.background,
+                backgroundColor: colors.card,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
@@ -344,7 +409,7 @@ export default function KycUploadScreen() {
               style={{
                 flex: 1,
                 padding: 16,
-                backgroundColor: colors.background,
+                backgroundColor: colors.card,
                 borderWidth: 1,
                 borderColor: colors.border,
               }}
@@ -362,6 +427,17 @@ export default function KycUploadScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+      
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
       
       {/* Header */}
       <View 
@@ -402,29 +478,33 @@ export default function KycUploadScreen() {
         {renderDocumentSection('selfie', 'Selfie Photo', true)}
 
           <TouchableOpacity
-            onPress={handleSubmit}
+            style={{
+              backgroundColor: submitting || !documents.front.uploaded || !documents.selfie.uploaded 
+                ? colors.border 
+                : colors.primary,
+              opacity: submitting || !documents.front.uploaded || !documents.selfie.uploaded ? 0.6 : 1,
+            }}
+            className="rounded-xl p-4 items-center"
+            onPress={() => {
+              console.log('[KYC Upload] Button pressed, calling handleSubmit');
+              handleSubmit();
+            }}
             disabled={submitting || !documents.front.uploaded || !documents.selfie.uploaded}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#0da5a5', '#0a8a8a']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                borderRadius: 12,
-                padding: 16,
-                alignItems: 'center',
-                opacity: submitting || !documents.front.uploaded ? 0.5 : 1,
-              }}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
-                  Submit for Verification
-                </Text>
-              )}
-            </LinearGradient>
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={{ 
+                fontSize: 16, 
+                fontWeight: '600', 
+                color: submitting || !documents.front.uploaded || !documents.selfie.uploaded
+                  ? colors.textMuted
+                  : '#FFFFFF'
+              }}>
+                Submit for Verification
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

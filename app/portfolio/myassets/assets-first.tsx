@@ -11,6 +11,7 @@ import {
   BackHandler,
   Share,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,6 +22,7 @@ import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
 import { ASSETS_CONSTANTS } from '@/components/assets/constants';
 import EmeraldLoader from '@/components/EmeraldLoader';
 import { useKycCheck } from '@/hooks/useKycCheck';
+import InvestScreen from '@/app/invest/[id]';
 
 const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
@@ -37,6 +39,8 @@ export default function AssetsFirstScreen() {
   const [selectedInvestment, setSelectedInvestment] = useState<any>(null);
   const [isModalAtTop, setIsModalAtTop] = useState(true);
   const [selectedRange, setSelectedRange] = useState('6M');
+  const [showInvestModal, setShowInvestModal] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   // Modal animations
   const modalTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -351,6 +355,8 @@ export default function AssetsFirstScreen() {
 
   const currentInvestment = investments[activeIndex];
 
+ 
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <SafeAreaView className="flex-1">
@@ -446,10 +452,8 @@ export default function AssetsFirstScreen() {
             onPress={() => {
               if (currentInvestment) {
                 handleInvestPress(() => {
-                  router.push({
-                    pathname: '/invest/[id]',
-                    params: { id: currentInvestment.property.id },
-                  } as any);
+                  setSelectedPropertyId(currentInvestment.property.id);
+                  setShowInvestModal(true);
                 });
               }
             }}
@@ -460,7 +464,7 @@ export default function AssetsFirstScreen() {
               className="text-[15px] font-semibold"
               style={{ color: colors.primaryForeground }}
             >
-                {isVerified ? 'Invest More' : 'Submit KYC to Invest'}
+                {isVerified ? 'Invest More':'Submit KYC to Invest More'}
               </Text>
             </TouchableOpacity>
 
@@ -516,6 +520,18 @@ export default function AssetsFirstScreen() {
         onRangeChange={setSelectedRange}
         modalPanResponder={modalPanResponder}
       />
+
+      {/* Investment Modal */}
+      {showInvestModal && selectedPropertyId && (
+          <InvestScreen
+            propertyId={selectedPropertyId}
+            onClose={() => {
+              setShowInvestModal(false);
+              setSelectedPropertyId(null);
+            }}
+          /> 
+      )}
+      
     </View>
   );
 }

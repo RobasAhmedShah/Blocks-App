@@ -32,6 +32,7 @@ import { CopilotView, CopilotTouchableOpacity } from "@/components/tour/walkthro
 import { useTour } from "@/contexts/TourContext";
 import { TOUR_STEPS } from "@/utils/tourHelpers";
 import { useKycCheck } from "@/hooks/useKycCheck";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -99,6 +100,8 @@ function BlocksHomeScreen() {
   
   // KYC Status using hook (with caching)
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
+  const { isGuest, isAuthenticated } = useAuth();
+  
   
   // Create ref for ScrollView only
   // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
@@ -119,10 +122,11 @@ function BlocksHomeScreen() {
         console.log('[HomeScreen] Skipping wallet reload - tour is active');
         return;
       }
-      
-      loadWallet();
-      // Refresh KYC in background (cached data shows immediately)
-      loadKycStatus(false);
+      if (!isGuest && isAuthenticated) {
+        loadWallet();
+        // Refresh KYC in background (cached data shows immediately)
+        loadKycStatus(false);
+      }
     }, [loadWallet, loadKycStatus, isTourActive])
   );
   
@@ -596,6 +600,7 @@ function BlocksHomeScreen() {
         )}
 
         {/* Hero Section - Typography Focus with Parallax */}
+        {isGuest? null:
         <Animated.View 
           style={[
             heroParallaxStyle,
@@ -751,10 +756,12 @@ function BlocksHomeScreen() {
             </CopilotStep>
           </View>
         </Animated.View>
+        }
 
         {/* Content sections with smooth entrance */}
         <Animated.View style={[contentParallaxStyle]}>
           {/* Guidance Card - Step 4 - Must be rendered AFTER Property Cards for correct order */}
+          {isGuest? null:
           <CopilotStep
             text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
             order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
@@ -764,31 +771,44 @@ function BlocksHomeScreen() {
               <GuidanceCard />
             </CopilotView>
           </CopilotStep>
+          }
           
           {/* Property Cards - Step 3 - Must be rendered BEFORE Guidance Card for correct order */}
           {/* Property Cards - Always render CopilotStep even if no featured properties */}
-          <CopilotStep
-            text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
-            order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
-            name={TOUR_STEPS.HOME.PROPERTY_CARD.name}
-          >
-            <CopilotView>
-              {featured.length > 0 ? (
-                <FeaturedSection featured={featured} />
-              ) : (
-                <View style={{ minHeight: 200, padding: 20 }}>
-                  <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                    No featured properties available
-                  </Text>
-                </View>
-              )}
-            </CopilotView>
-          </CopilotStep>
-          
-          
-          
-          
+          <View style={{marginTop: isGuest? -60: 0}}>
+            <CopilotStep
+              text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
+              order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
+              name={TOUR_STEPS.HOME.PROPERTY_CARD.name}
+            >
+              <CopilotView>
+                {featured.length > 0 ? (
+                  <FeaturedSection featured={featured} />
+                ) : (
+                  <View style={{ minHeight: 200, padding: 20 }}>
+                    <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                      No featured properties available
+                    </Text>
+                  </View>
+                )}
+              </CopilotView>
+            </CopilotStep>
+          </View>
+
           {affordable.length > 0 && <AffordableSection affordable={affordable} />}
+          {!isGuest? null:
+          <View style={{marginBottom: -20, marginTop: 26}}>
+            <CopilotStep
+              text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
+              order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
+              name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}
+            >
+              <CopilotView>
+                <GuidanceCard />
+              </CopilotView>
+            </CopilotStep>
+          </View>
+          }
           {midRange.length > 0 && <InvestmentSection title="Mid-Range Investments" data={midRange} />}
           <CTAButton />
         </Animated.View>

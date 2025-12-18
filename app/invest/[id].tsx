@@ -254,10 +254,9 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
       <TouchableOpacity 
         style={{ 
           flex: 1, 
-          backgroundColor: 'rgba(255, 255, 255, 0)', 
+          backgroundColor: 'rgba(0, 0, 0, 0.51)', 
           justifyContent: 'flex-end',
-          // paddingBottom: 50
-          
+          // paddingBottom: -100
         }}
         activeOpacity={1}
         onPress={handleClose}
@@ -326,7 +325,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
               flexDirection: 'row', 
               alignItems: 'center', 
               gap: 16, 
-              backgroundColor: colors.muted, 
+              backgroundColor: colors.border,
               paddingHorizontal: 16, 
               minHeight: 56, 
               justifyContent: 'space-between', 
@@ -348,7 +347,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                     alignItems: 'center', 
                     justifyContent: 'center', 
                     borderRadius: 9999, 
-                    backgroundColor: colors.secondary 
+                    backgroundColor: colors.card
                   }}
                 >
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
@@ -471,7 +470,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                     alignItems: 'center', 
                     justifyContent: 'center', 
                     borderRadius: 9999, 
-                    backgroundColor: colors.secondary 
+                    backgroundColor: colors.card
                   }}
                 >
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>+</Text>
@@ -484,7 +483,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
               flexDirection: 'row', 
               alignItems: 'center', 
               gap: 16, 
-              backgroundColor: colors.muted, 
+              backgroundColor: colors.border,
               paddingHorizontal: 16, 
               minHeight: 56, 
               justifyContent: 'space-between', 
@@ -506,7 +505,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                     alignItems: 'center', 
                     justifyContent: 'center', 
                     borderRadius: 9999, 
-                    backgroundColor: colors.secondary 
+                    backgroundColor: colors.card
                   }}
                 >
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
@@ -631,7 +630,7 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
                     alignItems: 'center', 
                     justifyContent: 'center', 
                     borderRadius: 9999, 
-                    backgroundColor: colors.secondary 
+                    backgroundColor: colors.card
                   }}
                 >
                   <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>+</Text>

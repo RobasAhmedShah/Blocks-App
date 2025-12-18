@@ -19,6 +19,7 @@ interface AuthState {
   isLoading: boolean;
   isBiometricSupported: boolean;
   isBiometricEnrolled: boolean;
+  isGuest: boolean;
 }
 
 interface AuthContextProps extends Omit<AuthState, 'token'> {
@@ -27,6 +28,9 @@ interface AuthContextProps extends Omit<AuthState, 'token'> {
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<boolean>;
   loginWithBiometrics: () => Promise<boolean>;
+  enterGuestMode: () => void;
+  exitGuestMode: () => void;
+  setInitialGuestMode: () => void;
 }
 
 const AuthContext = React.createContext<AuthContextProps | undefined>(undefined);
@@ -39,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
     isBiometricSupported: false,
     isBiometricEnrolled: false,
+    isGuest: false,
   });
   
   const router = useRouter();
@@ -90,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               token: token,
               isAuthenticated: true,
               isLoading: false,
+              isGuest: false, // Clear guest mode if valid token exists
             }));
             // Profile will be loaded by AppContext's useEffect when it detects the token
           } catch (error) {
@@ -104,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   token: refreshed.token,
                   isAuthenticated: true,
                   isLoading: false,
+                  isGuest: false, // Clear guest mode if token refreshed
                 }));
                 // Profile will be loaded by AppContext's useEffect when it detects the token
               } catch (refreshError) {
@@ -160,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Check if it's an external URL
       if (pendingUrl.startsWith('http://') || pendingUrl.startsWith('https://')) {
-        Linking.openURL(pendingUrl).catch(err => {
+        Linking.openURL(pendingUrl).catch((err: any)=> {
           console.error('❌ Failed to open external URL:', err);
         });
         return true;
@@ -178,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         !firstPart.startsWith('property')
       ) {
         const externalUrl = pendingUrl.startsWith('http') ? pendingUrl : `https://${pendingUrl}`;
-        Linking.openURL(externalUrl).catch(err => {
+        Linking.openURL(externalUrl).catch((err: any) => {
           console.error('❌ Failed to open external URL:', err);
         });
         return true;
@@ -248,8 +255,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const inOnboardingGroup = segments[0] === 'onboarding';
 
-    if (!authState.isAuthenticated && !inOnboardingGroup) {
-      // Not authenticated and NOT in onboarding, redirect to signin
+    // Allow guest mode to access non-onboarding routes
+    if (!authState.isAuthenticated && !authState.isGuest && !inOnboardingGroup) {
+      // Not authenticated, not guest, and NOT in onboarding, redirect to signin
       router.replace('/onboarding/signin');
     } else if (authState.isAuthenticated && inOnboardingGroup) {
       // Authenticated and in onboarding - check for pending notification route first
@@ -260,7 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
     }
-  }, [authState.isAuthenticated, authState.isLoading, segments, router]);
+  }, [authState.isAuthenticated, authState.isGuest, authState.isLoading, segments, router]);
 
   // --- Auth Actions ---
   const signIn = async (token: string, refreshToken: string, enableBiometrics: boolean = false) => {
@@ -280,6 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: true,
         isLoading: false,
         isBiometricEnrolled: enableBiometrics,
+        isGuest: false, // Clear guest mode on sign in
       }));
       
       // Profile will be loaded by AppContext's useEffect when it detects the token
@@ -311,15 +320,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
       await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY).catch(() => {});
       
+      // Use functional update to ensure state is updated correctly
       setAuthState(prev => ({
         ...prev,
         token: null,
         isAuthenticated: false,
         isBiometricEnrolled: false,
+        isLoading: false, // Ensure loading is false after logout
       }));
     } catch (e) {
       console.error('Error removing token:', e);
+      // Even on error, clear the auth state
+      setAuthState(prev => ({
+        ...prev,
+        token: null,
+        isAuthenticated: false,
+        isBiometricEnrolled: false,
+        isGuest: false,
+        isLoading: false,
+      }));
     }
+  };
+
+  const enterGuestMode = () => {
+    setAuthState(prev => ({
+      ...prev,
+      isGuest: true,
+      isLoading: false,
+    }));
+  };
+
+  const setInitialGuestMode = () => {
+    setAuthState(prev => ({
+      ...prev,
+      isGuest: false
+    }));
+  };
+  const exitGuestMode = () => {
+    // setAuthState(prev => ({
+    //   ...prev,
+    //   isGuest: false,
+    // }));
+    router.replace('/onboarding/signin');
   };
 
   const loginWithBiometrics = async (): Promise<boolean> => {
@@ -347,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...prev,
               token: token,
               isAuthenticated: true,
+              isGuest: false, // Clear guest mode on biometric login
             }));
             // Navigation will be handled by the route protection effect
             return true;
@@ -361,6 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ...prev,
                   token: refreshed.token,
                   isAuthenticated: true,
+                  isGuest: false, // Clear guest mode on biometric login
                 }));
                 // Navigation will be handled by the route protection effect
                 return true;
@@ -453,10 +497,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     enableBiometrics,
     disableBiometrics,
     loginWithBiometrics,
+    enterGuestMode,
+    exitGuestMode,
+    setInitialGuestMode,
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     isBiometricSupported: authState.isBiometricSupported,
     isBiometricEnrolled: authState.isBiometricEnrolled,
+    isGuest: authState.isGuest,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

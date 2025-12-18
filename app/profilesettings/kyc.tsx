@@ -14,14 +14,19 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi, KycStatus } from '@/services/api/kyc.api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function KycScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isGuest } = useAuth();
 
   const loadKycStatus = useCallback(async () => {
+    if(isGuest){
+      return;
+    }
     try {
       setLoading(true);
       const status = await kycApi.getStatus();
@@ -32,7 +37,7 @@ export default function KycScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isGuest]);
 
   // Load on mount
   useEffect(() => {
@@ -75,7 +80,7 @@ export default function KycScreen() {
       case 'rejected':
         return colors.destructive; // Use theme destructive (red)
       default:
-        return colors.textMuted; // Use theme muted
+         return colors.textSecondary // Use theme muted
     }
   };
 
@@ -215,14 +220,14 @@ export default function KycScreen() {
                               color={colors.primary} 
                             />
                           </View>
-                          <Text style={{ color: colors.textPrimary }} className="flex-1 text-base font-medium">
+                          <Text style={{ color: colors.textPrimary }} className="flex-1 font-medium">
                             {docType === 'front' ? 'Front of ID' : docType === 'back' ? 'Back of ID' : 'Selfie Photo'}
                           </Text>
                         </View>
                         {hasDoc ? (
                           <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                         ) : (
-                          <Ionicons name="close-circle" size={24} color={colors.destructive} />
+                          <Ionicons name="alert-circle-outline" size={24} color={colors.warning} />
                         )}
                       </View>
                       {!isLast && (
@@ -250,13 +255,12 @@ export default function KycScreen() {
             </TouchableOpacity>
           ) : (
             <View className="gap-3">
-              <TouchableOpacity onPress={handleStartVerification} activeOpacity={0.8}>
-                <LinearGradient
-                  colors={['#0da5a5', '#0a8a8a']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+              <TouchableOpacity
+              style={{
+                backgroundColor: colors.primary}}
                   className="rounded-xl p-4 items-center"
-                >
+               onPress={handleStartVerification} activeOpacity={0.8}>
+              
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
                     {status === 'rejected'
                       ? 'Resubmit Documents'
@@ -264,7 +268,7 @@ export default function KycScreen() {
                       ? 'Upload/Update Documents'
                       : 'Start Verification'}
                   </Text>
-                </LinearGradient>
+         
               </TouchableOpacity>
 
               {status === 'pending' && (

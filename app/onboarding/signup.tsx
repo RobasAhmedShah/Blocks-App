@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -18,6 +17,7 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth.api";
 import { useNotifications } from "@/services/useNotifications";
+import { AppAlert } from "@/components/AppAlert";
 import * as Notifications from "expo-notifications";
 import Animated, {
   useSharedValue,
@@ -128,6 +128,99 @@ const validateConfirmPassword = (password: string, confirmPassword: string): { i
   return { isValid: true };
 };
 
+// Helper function to convert error messages to user-friendly messages for signup
+const getFriendlyErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const errorMessage = error.message.toLowerCase();
+  const errorString = error.message;
+
+  // Network/Connection errors
+  if (
+    errorMessage.includes('network request failed') ||
+    errorMessage.includes('failed to fetch') ||
+    errorMessage.includes('networkerror') ||
+    errorMessage.includes('connection')
+  ) {
+    return 'Unable to connect to the server. Please check your internet connection and try again.';
+  }
+
+  // HTTP Status Code errors
+  if (errorString.includes('HTTP 409') || errorMessage.includes('conflict') || errorMessage.includes('already exists') || errorMessage.includes('already registered') || errorMessage.includes('email taken')) {
+    return 'This email is already registered. Please sign in or use a different email address.';
+  }
+
+  if (errorString.includes('HTTP 400') || errorMessage.includes('bad request')) {
+    // Check for specific 400 error messages
+    if (errorMessage.includes('email') && (errorMessage.includes('exist') || errorMessage.includes('already') || errorMessage.includes('taken') || errorMessage.includes('registered'))) {
+      return 'This email is already registered. Please sign in or use a different email address.';
+    }
+    if (errorMessage.includes('invalid email')) {
+      return 'Please enter a valid email address.';
+    }
+    if (errorMessage.includes('password')) {
+      return 'Password does not meet requirements. Please ensure it has at least 8 characters with uppercase, lowercase, number, and special character.';
+    }
+    return 'Invalid information provided. Please check your details and try again.';
+  }
+
+  if (errorString.includes('HTTP 422') || errorMessage.includes('unprocessable entity') || errorMessage.includes('validation')) {
+    return 'Please check your information and ensure all fields are filled correctly.';
+  }
+
+  if (errorString.includes('HTTP 500') || errorMessage.includes('internal server error')) {
+    return 'Our servers are experiencing issues. Please try again in a few moments.';
+  }
+
+  if (errorString.includes('HTTP 401') || errorMessage.includes('unauthorized')) {
+    return 'Authentication failed. Please try again.';
+  }
+
+  if (errorString.includes('HTTP 403') || errorMessage.includes('forbidden')) {
+    return 'Access denied. Please contact support if you believe this is an error.';
+  }
+
+  if (errorString.includes('HTTP 429') || errorMessage.includes('too many requests')) {
+    return 'Too many sign-up attempts. Please wait a moment before trying again.';
+  }
+
+  // Specific error messages from backend
+  if (errorMessage.includes('email') && (errorMessage.includes('exist') || errorMessage.includes('already') || errorMessage.includes('taken') || errorMessage.includes('registered'))) {
+    return 'This email is already registered. Please sign in or use a different email address.';
+  }
+
+  if (errorMessage.includes('invalid email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (errorMessage.includes('password') && (errorMessage.includes('weak') || errorMessage.includes('requirement'))) {
+    return 'Password does not meet requirements. Please ensure it has at least 8 characters with uppercase, lowercase, number, and special character.';
+  }
+
+  if (errorMessage.includes('full name') || errorMessage.includes('name')) {
+    return 'Please enter a valid full name.';
+  }
+
+  // If error message is already user-friendly, use it
+  if (
+    !errorString.includes('HTTP') &&
+    !errorString.includes('404') &&
+    !errorString.includes('401') &&
+    !errorString.includes('500') &&
+    !errorString.includes('409') &&
+    !errorString.includes('400') &&
+    !errorString.includes('422') &&
+    errorString.length < 100
+  ) {
+    return error.message;
+  }
+
+  // Default fallback
+  return 'Unable to create account. Please check your information and try again.';
+};
+
 export default function SignUpScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
@@ -158,6 +251,22 @@ export default function SignUpScreen() {
   
   const [apiError, setApiError] = useState<string | null>(null);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  
+  // Alert state
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    confirmText?: string;
+    onConfirm?: () => void;
+    onClose?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
   const fullNameOpacity = useSharedValue(0);
   const emailOpacity = useSharedValue(0);
@@ -301,73 +410,20 @@ export default function SignUpScreen() {
       // After successful signup, request permissions
       await requestPermissionsOnSignup();
     } catch (error) {
-      console.error('Sign up error:', error);
-      
-      // Handle specific error cases
-      let errorMessage = 'Failed to create account. Please try again.';
-      
-      // Extract status code from various possible locations
-      const statusCode = error?.response?.status || error?.status || error?.statusCode;
-      
-      // Extract error message from various possible locations
-      const responseMessage = error?.response?.data?.message || 
-                             error?.response?.data?.error || 
-                             error?.data?.message || 
-                             error?.message || 
-                             '';
-      
-      // Check if error message contains HTTP status code pattern
-      const errorString = String(responseMessage || error || '');
-      const containsHTTP409 = errorString.includes('HTTP 409') || 
-                             errorString.includes('409') || 
-                             statusCode === 409;
-      const containsHTTP400 = errorString.includes('HTTP 400') || 
-                             errorString.includes('400') || 
-                             statusCode === 400;
-      const containsHTTP422 = errorString.includes('HTTP 422') || 
-                             errorString.includes('422') || 
-                             statusCode === 422;
-      
-      if (containsHTTP409 || statusCode === 409) {
-        // HTTP 409 Conflict - Email already exists
-        errorMessage = 'This email is already registered. Please sign in or use a different email.';
-      } else if (containsHTTP400 || statusCode === 400) {
-        // HTTP 400 Bad Request - Check for specific messages
-        const msg = responseMessage.toLowerCase();
-        
-        if (msg.includes('email') && 
-            (msg.includes('exist') || 
-             msg.includes('already') ||
-             msg.includes('taken') ||
-             msg.includes('registered'))) {
-          errorMessage = 'This email is already registered. Please sign in or use a different email.';
-        } else if (msg.includes('invalid email')) {
-          errorMessage = 'Please enter a valid email address.';
-        } else if (msg.includes('password')) {
-          errorMessage = 'Password does not meet requirements. Please try a stronger password.';
-        } else if (responseMessage && !msg.includes('http')) {
-          // Use the response message if it doesn't contain HTTP status codes
-          errorMessage = responseMessage;
-        } else {
-          errorMessage = 'Invalid information provided. Please check your details and try again.';
-        }
-      } else if (containsHTTP422 || statusCode === 422) {
-        // HTTP 422 Unprocessable Entity - Validation errors
-        errorMessage = 'Please check your information and try again.';
-      } else if (responseMessage) {
-        // Use error message if available and doesn't contain HTTP codes
-        const msg = responseMessage.toLowerCase();
-        if (msg.includes('email') && (msg.includes('exist') || msg.includes('already') || msg.includes('taken'))) {
-          errorMessage = 'This email is already registered. Please sign in or use a different email.';
-        } else if (msg.includes('network') || msg.includes('connection')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else if (!msg.includes('http') && !msg.includes('40') && !msg.includes('50')) {
-          // Only use the message if it doesn't look like an HTTP error code
-          errorMessage = responseMessage;
-        }
-      }
-      
-      setApiError(errorMessage);
+      // console.error('Sign up error:', error);
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Sign Up Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+          setApiError(null);
+        },
+      });
+      // Also set apiError for inline display (optional, can be removed if using only alerts)
+      setApiError(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -379,42 +435,43 @@ export default function SignUpScreen() {
 
     // Request Biometric Permission
     if (isBiometricSupported) {
-      Alert.alert(
-        "Enable Biometric Login",
-        "Would you like to enable Face ID or Touch ID for faster and more secure login?",
-        [
-          {
-            text: "Not Now",
-            style: "cancel",
-            onPress: () => {
-              // Continue to notification permission
-              requestNotificationPermission();
-            },
-          },
-          {
-            text: "Enable",
-            onPress: async () => {
-              try {
-                const success = await enableBiometrics();
-                if (success) {
-                  Alert.alert(
-                    "Success",
-                    "Biometric login has been enabled!",
-                    [{ text: "OK", onPress: () => requestNotificationPermission() }]
-                  );
-                } else {
-                  // User cancelled or failed, continue anyway
+      setAlertState({
+        visible: true,
+        title: 'Enable Biometric Login',
+        message: 'Would you like to enable Face ID or Touch ID for faster and more secure login? You can enable this later in settings.',
+        type: 'info',
+        confirmText: 'Enable',
+        onConfirm: async () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+          try {
+            const success = await enableBiometrics();
+            if (success) {
+              setAlertState({
+                visible: true,
+                title: 'Success',
+                message: 'Biometric login has been enabled!',
+                type: 'success',
+                onConfirm: () => {
+                  setAlertState(prev => ({ ...prev, visible: false }));
                   requestNotificationPermission();
-                }
-              } catch (error) {
-                console.error('Error enabling biometrics:', error);
-                // Continue to notification permission even if biometric fails
-                requestNotificationPermission();
-              }
-            },
-          },
-        ]
-      );
+                },
+              });
+            } else {
+              // User cancelled or failed, continue anyway
+              requestNotificationPermission();
+            }
+          } catch (error) {
+            console.error('Error enabling biometrics:', error);
+            // Continue to notification permission even if biometric fails
+            requestNotificationPermission();
+          }
+        },
+        onClose: () => {
+          // User closed without enabling, skip biometric and go to notifications
+          setAlertState(prev => ({ ...prev, visible: false }));
+          requestNotificationPermission();
+        },
+      });
     } else {
       // Skip biometric if not supported, go straight to notifications
       requestNotificationPermission();
@@ -427,27 +484,26 @@ export default function SignUpScreen() {
       
       // Only ask if not already granted
       if (!currentPermissions.granted && currentPermissions.ios?.status !== Notifications.IosAuthorizationStatus.AUTHORIZED) {
-        Alert.alert(
-          "Enable Notifications",
-          "Stay updated with investment opportunities, property updates, and important account alerts. Enable notifications?",
-          [
-            {
-              text: "Not Now",
-              style: "cancel",
-            },
-            {
-              text: "Enable",
-              onPress: async () => {
-                try {
-                  await requestNotificationPermissions();
-                  // Permission request completed, user can continue
-                } catch (error) {
-                  console.error('Error requesting notification permissions:', error);
-                }
-              },
-            },
-          ]
-        );
+        setAlertState({
+          visible: true,
+          title: 'Enable Notifications',
+          message: 'Stay updated with investment opportunities, property updates, and important account alerts. You can enable this later in settings.',
+          type: 'info',
+          confirmText: 'Enable',
+          onConfirm: async () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            try {
+              await requestNotificationPermissions();
+              // Permission request completed, user can continue
+            } catch (error) {
+              console.error('Error requesting notification permissions:', error);
+            }
+          },
+          onClose: () => {
+            // User closed without enabling, that's fine
+            setAlertState(prev => ({ ...prev, visible: false }));
+          },
+        });
       }
     } catch (error) {
       console.error('Error checking notification permissions:', error);
@@ -489,6 +545,19 @@ export default function SignUpScreen() {
       style={{ flex: 1 }}
     >
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+      
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        confirmText={alertState.confirmText}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+        onClose={alertState.onClose}
+      />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}

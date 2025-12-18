@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { kycApi, KycStatus } from '@/services/api/kyc.api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const KYC_CACHE_KEY = '@kyc_status_cache';
 const CACHE_DURATION = 30 * 1000; // 30 seconds (reduced for faster updates)
@@ -15,8 +16,12 @@ export function useKycCheck() {
   const hasLoadedCache = useRef(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previousStatusRef = useRef<string | null>(null);
+  const { isGuest } = useAuth();
 
   const loadKycStatus = useCallback(async (showLoading = true, forceRefresh = false) => {
+    if(isGuest){
+      return;
+    }
     try {
       // Only show loading spinner if we don't have cached data
       if (showLoading && !hasLoadedCache.current) {
@@ -66,7 +71,7 @@ export function useKycCheck() {
     } finally {
       setKycLoading(false);
     }
-  }, []);
+  }, [isGuest]);
 
   // Load cached status on mount (immediate display), then fetch fresh data
   useEffect(() => {

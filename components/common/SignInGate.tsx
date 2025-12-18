@@ -12,7 +12,6 @@ export const SignInGate: React.FC = () => {
 
   const handleSignIn = () => {
     exitGuestMode();
-    router.push('/onboarding/signin' as any);
   };
 
   return (

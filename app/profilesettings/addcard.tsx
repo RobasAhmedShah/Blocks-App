@@ -857,14 +857,14 @@ export default function AddCardScreen() {
         {/* Submit Button */}
         <View 
           style={{ 
-            backgroundColor: isDarkColorScheme ? 'rgba(9, 156, 107, 0.75)' : 'rgba(255, 255, 255, 0.95)',
+            // backgroundColor: isDarkColorScheme ? 'rgba(9, 156, 107, 0.75)' : 'rgba(255, 255, 255, 0.95)',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: -4 },
             shadowOpacity: 0.2,
             shadowRadius: 8,
             elevation: 8,
-            borderTopWidth: 1,
-            borderTopColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+            // borderTopWidth: 1,
+            // borderTopColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
           }}
           className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-4"
         >

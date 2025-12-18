@@ -13,10 +13,13 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useNotificationContext } from "@/contexts/NotificationContext";
 import ArcLoader from "@/components/EmeraldLoader";
 import { SavedPlansSection } from "@/components/portfolio/SavedPlansSection";
+import { useAuth } from "@/contexts/AuthContext";
+import { SignInGate } from "@/components/common/SignInGate";
 
 export default function PortfolioScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { isAuthenticated, isGuest } = useAuth();
   const {
     investments,
     totalValue,
@@ -30,13 +33,18 @@ export default function PortfolioScreen() {
   // Refresh investments when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (loadInvestments) {
+      if (loadInvestments && !isGuest && isAuthenticated) {
         loadInvestments();
       }
-    }, [loadInvestments])
+    }, [loadInvestments, isGuest, isAuthenticated])
   );
 
-  // Loading state
+  // Show SignInGate if in guest mode - render conditionally but call all hooks first
+  if (isGuest || !isAuthenticated) {
+    return <SignInGate />;
+  }
+
+  // Loading state - must be after all hooks
   if (loading || !investments) {
     return (
       <View className="flex-1 items-center justify-center"
@@ -147,7 +155,7 @@ export default function PortfolioScreen() {
             style={{
               flex: 1,
               minWidth: '47%',
-              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.08)',
+              backgroundColor: colors.card,
               borderRadius: 16,
               padding: 16,
               borderWidth: 1,
@@ -225,7 +233,7 @@ export default function PortfolioScreen() {
             }}
           >
             <View className="flex-row items-center justify-between mb-2">
-              <Ionicons name="wallet" size={20} color="#3B82F6" />
+              <Ionicons name="wallet" size={20} color={colors.primary} />
             </View>
             <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
               Total Invested
@@ -270,15 +278,15 @@ export default function PortfolioScreen() {
         </Text>
         <View
           style={{
-            backgroundColor: isDarkColorScheme ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.05)',
+            backgroundColor: colors.card ,
             borderRadius: 16,
             padding: 16,
-            borderWidth: 1,
-            borderColor: isDarkColorScheme ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+            borderWidth: 0.5,
+            borderColor: isDarkColorScheme ? 'rgba(189, 189, 189, 0.3)' : 'rgba(139, 92, 246, 0.2)',
           }}
         >
           <View className="flex-row items-center mb-3">
-            <Ionicons name="trending-up" size={20} color="#8B5CF6" />
+            <Ionicons name="trending-up" size={20} color={colors.primary} />
             <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
               Monthly Highlights
             </Text>

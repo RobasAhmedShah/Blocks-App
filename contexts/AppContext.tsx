@@ -105,6 +105,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
+  const { isGuest } = useAuth();
 
   // Function to clear all user-specific data
   const clearUserData = useCallback(() => {
@@ -232,6 +233,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Wallet Actions
   const loadWallet = useCallback(async () => {
+    if(isGuest){
+      return;
+    }
     try {
       const walletBalance = await walletApi.getWallet();
       setState(prev => ({
@@ -248,7 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Error loading wallet:', error);
       // Keep existing state on error
     }
-  }, []);
+  }, [isGuest]);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -343,6 +347,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Investment Actions
   const loadInvestments = useCallback(async () => {
+    if(isGuest){
+      return;
+    }
     try {
       const investments = await investmentsApi.getMyInvestments();
       
@@ -470,7 +477,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Error loading investments:', error);
       // Keep existing state on error
     }
-  }, [state.properties]);
+  }, [state.properties, isGuest]);
 
   const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
     try {

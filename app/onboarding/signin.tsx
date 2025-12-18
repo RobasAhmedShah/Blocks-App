@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   Keyboard,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -18,6 +17,7 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/services/api/auth.api";
 import { useNotifications } from "@/services/useNotifications";
+import { AppAlert } from "@/components/AppAlert";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -70,10 +70,86 @@ const validatePassword = (value: string): { isValid: boolean; error?: string } =
   return { isValid: true };
 };
 
+// Helper function to convert error messages to user-friendly messages
+const getFriendlyErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const errorMessage = error.message.toLowerCase();
+  const errorString = error.message;
+
+  // Network/Connection errors
+  if (
+    errorMessage.includes('network request failed') ||
+    errorMessage.includes('failed to fetch') ||
+    errorMessage.includes('networkerror') ||
+    errorMessage.includes('connection')
+  ) {
+    return 'Unable to connect to the server. Please check your internet connection and try again.';
+  }
+
+  // HTTP Status Code errors
+  if (errorString.includes('HTTP 401') || errorMessage.includes('unauthorized') || errorMessage.includes('invalid credentials')) {
+    return 'Invalid email or password. Please check your credentials and try again.';
+  }
+
+  if (errorString.includes('HTTP 404') || errorMessage.includes('not found')) {
+    return 'Account not found. Please check your email address or sign up for a new account.';
+  }
+
+  if (errorString.includes('HTTP 500') || errorMessage.includes('internal server error')) {
+    return 'Our servers are experiencing issues. Please try again in a few moments.';
+  }
+
+  if (errorString.includes('HTTP 400') || errorMessage.includes('bad request')) {
+    return 'Invalid request. Please check your information and try again.';
+  }
+
+  if (errorString.includes('HTTP 403') || errorMessage.includes('forbidden')) {
+    return 'Access denied. Please contact support if you believe this is an error.';
+  }
+
+  if (errorString.includes('HTTP 429') || errorMessage.includes('too many requests')) {
+    return 'Too many sign-in attempts. Please wait a moment before trying again.';
+  }
+
+  // Specific error messages from backend
+  if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (errorMessage.includes('password') && errorMessage.includes('incorrect')) {
+    return 'Incorrect password. Please try again or use "Forgot Password" to reset it.';
+  }
+
+  if (errorMessage.includes('user not found') || errorMessage.includes('account')) {
+    return 'No account found with this email. Please sign up or check your email address.';
+  }
+
+  if (errorMessage.includes('account locked') || errorMessage.includes('suspended')) {
+    return 'Your account has been temporarily locked. Please contact support for assistance.';
+  }
+
+  // If error message is already user-friendly, use it
+  if (
+    !errorString.includes('HTTP') &&
+    !errorString.includes('404') &&
+    !errorString.includes('401') &&
+    !errorString.includes('500') &&
+    errorString.length < 100
+  ) {
+    return error.message;
+  }
+
+  // Default fallback
+  return 'Unable to sign in. Please check your credentials and try again.';
+};
+
 export default function SignInScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn, loginWithBiometrics, isBiometricEnrolled, isBiometricSupported, isAuthenticated } = useAuth();
+  const { signIn, loginWithBiometrics, isBiometricEnrolled, isBiometricSupported, isAuthenticated, enterGuestMode, isGuest, setInitialGuestMode } = useAuth();
   const { expoPushToken } = useNotifications();
   
   const [email, setEmail] = useState("");
@@ -90,6 +166,20 @@ export default function SignInScreen() {
   
   const [apiError, setApiError] = useState<string | null>(null);
   const hasAttemptedAutoLogin = useRef(false);
+  
+  // Alert state
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
   const emailOpacity = useSharedValue(0);
   const passwordOpacity = useSharedValue(0);
@@ -98,8 +188,8 @@ export default function SignInScreen() {
   useEffect(() => {
     emailOpacity.value = withTiming(1, { duration: 400 });
     passwordOpacity.value = withTiming(1, { duration: 600 });
+    setInitialGuestMode();
   }, []);
-
   // Real-time validation
   useEffect(() => {
     if (touched.email) {
@@ -211,12 +301,20 @@ export default function SignInScreen() {
       
       await signIn(response.token, response.refreshToken);
     } catch (error) {
-      console.error('Sign in error:', error);
-      setApiError(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to sign in. Please check your credentials and try again.'
-      );
+      // console.error('Sign in error:', error);
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Sign In Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+          setApiError(null);
+        },
+      });
+      // Also set apiError for inline display (optional, can be removed if using only alerts)
+      setApiError(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -227,11 +325,15 @@ export default function SignInScreen() {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      "Forgot Password",
-      "Password reset functionality will be available soon.",
-      [{ text: "OK" }]
-    );
+    setAlertState({
+      visible: true,
+      title: 'Forgot Password',
+      message: 'Password reset functionality will be available soon. Please contact support if you need assistance.',
+      type: 'info',
+      onConfirm: () => {
+        setAlertState(prev => ({ ...prev, visible: false }));
+      },
+    });
   };
 
   const handleBiometricLogin = async () => {
@@ -240,11 +342,27 @@ export default function SignInScreen() {
     try {
       const success = await loginWithBiometrics();
       if (!success) {
-        setApiError('Biometric authentication failed. Please try again or use your password.');
+        setAlertState({
+          visible: true,
+          title: 'Biometric Authentication Failed',
+          message: 'Unable to verify your identity. Please try again or use your password to sign in.',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+          },
+        });
       }
     } catch (error) {
       console.error('Biometric login error:', error);
-      setApiError('Failed to authenticate with biometrics. Please try again.');
+      setAlertState({
+        visible: true,
+        title: 'Authentication Error',
+        message: 'Failed to authenticate with biometrics. Please try again or use your password.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
     } finally {
       setIsBiometricLoading(false);
     }
@@ -264,6 +382,17 @@ export default function SignInScreen() {
       style={{ flex: 1 }}
     >
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
+      
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -553,6 +682,36 @@ export default function SignInScreen() {
                   )}
                 </TouchableOpacity>
               </Animated.View>
+
+              {/* Continue as Guest Button */}
+              <TouchableOpacity
+                onPress={() => {
+                  enterGuestMode();
+                  router.replace('/(tabs)/home' as any);
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  height: 56,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  marginTop: 12,
+                }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: "600",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Continue as Guest
+                </Text>
+              </TouchableOpacity>
 
               {/* API Error Message */}
               {apiError && (

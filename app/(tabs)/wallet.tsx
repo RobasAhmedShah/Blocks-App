@@ -13,23 +13,31 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNotificationContext } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { SignInGate } from '@/components/common/SignInGate';
 
 export default function WalletScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { balance, transactions, loading, loadWallet, loadTransactions } = useWallet();
   const { walletUnreadCount } = useNotificationContext();
+  const { isAuthenticated, isGuest } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
 
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (loadWallet && loadTransactions) {
+      if (loadWallet && loadTransactions && !isGuest && isAuthenticated) {
         loadWallet();
         loadTransactions();
       }
-    }, [loadWallet, loadTransactions])
+    }, [loadWallet, loadTransactions, isGuest, isAuthenticated])
   );
+
+  // Show SignInGate if in guest mode (after all hooks)
+  if (isGuest || !isAuthenticated) {
+    return <SignInGate />;
+  }
 
   const filteredTransactions = transactions.filter((tx) => {
     if (activeTab === 'all') return true;

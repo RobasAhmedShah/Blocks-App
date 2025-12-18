@@ -19,6 +19,7 @@ import { profileSections } from "@/data/mockProfile";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTour } from "@/contexts/TourContext";
+import { SignInGate } from "@/components/common/SignInGate";
 import { useCopilot } from "react-native-copilot";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useKycCheck } from "@/hooks/useKycCheck";
@@ -234,36 +235,14 @@ export default function BlocksProfileScreen() {
   const router = useRouter();
   const { themePreference, setThemePreference, toggleColorScheme, colors, isDarkColorScheme } = useColorScheme();
   const { state, getBookmarkedProperties } = useApp();
-  const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
+  const { signOut, enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled, isAuthenticated, isGuest } = useAuth();
   const { resetAllTours, setShouldStartTour, setIsTourActive, resetTour } = useTour();
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Load demo mode state
-  useEffect(() => {
-    const loadDemoMode = async () => {
-      const value = await AsyncStorage.getItem('@demo_mode');
-      setDemoMode(value === 'true');
-    };
-    loadDemoMode();
-  }, []);
-
-  // Load KYC status when screen comes into focus (refresh in background, cached data shows immediately)
-  useFocusEffect(
-    React.useCallback(() => {
-      loadKycStatus(false);
-    }, [loadKycStatus])
-  );
-
-  // Save demo mode state
-  const handleDemoModeToggle = async (value: boolean) => {
-    setDemoMode(value);
-    await AsyncStorage.setItem('@demo_mode', value ? 'true' : 'false');
-  };
   
-  // Custom Alert States
+  // Custom Alert States - MUST be declared before any early returns
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -281,6 +260,35 @@ export default function BlocksProfileScreen() {
     type: 'default',
     buttons: [],
   });
+
+  // Load demo mode state
+  useEffect(() => {
+    const loadDemoMode = async () => {
+      const value = await AsyncStorage.getItem('@demo_mode');
+      setDemoMode(value === 'true');
+    };
+    loadDemoMode();
+  }, []);
+
+  // Load KYC status when screen comes into focus (refresh in background, cached data shows immediately)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isGuest && isAuthenticated) {
+        loadKycStatus(false);
+      }
+    }, [loadKycStatus, isGuest, isAuthenticated])
+  );
+
+  // Show SignInGate if in guest mode (after ALL hooks are called)
+  if (isGuest && !isAuthenticated) {
+    return <SignInGate />;
+  }
+
+  // Save demo mode state
+  const handleDemoModeToggle = async (value: boolean) => {
+    setDemoMode(value);
+    await AsyncStorage.setItem('@demo_mode', value ? 'true' : 'false');
+  };
 
   const showAlert = (
     title: string,
@@ -571,11 +579,11 @@ export default function BlocksProfileScreen() {
                   size={24}
                   color={
                     kycStatus.status === 'verified'
-                      ? '#10B981'
+                      ? colors.primary
                       : kycStatus.status === 'pending'
-                      ? '#F59E0B'
+                      ? colors.warning
                       : kycStatus.status === 'rejected'
-                      ? '#EF4444'
+                      ? colors.destructive
                       : colors.textMuted
                   }
                 />
@@ -739,7 +747,9 @@ export default function BlocksProfileScreen() {
                         )}
                       </View>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    <Ionicons 
+                    style={{ marginLeft: -20}}
+                    name="chevron-forward" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
                   {i < section.items.length - 1 && (
                     <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />

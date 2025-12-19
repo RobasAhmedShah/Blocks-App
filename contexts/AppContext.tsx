@@ -290,8 +290,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // THEN: Load backend wallet balance
       const walletBalance = await walletApi.getWallet();
       
-      // Calculate pending deposits from AsyncStorage (source of truth for bank transfers)
-      const bankTransferPendingDeposits = persistedDeposits
+      // Load backend transactions to check for approved bank transfers
+      let approvedBankTransfers: Transaction[] = [];
+      try {
+        const transactionsResponse = await transactionsApi.getTransactions({
+          page: 1,
+          limit: 50,
+        });
+        approvedBankTransfers = transactionsResponse.data.filter(tx => 
+          tx.type === 'deposit' && 
+          tx.status === 'completed' &&
+          (tx.description?.includes('Bank transfer deposit approved') || 
+           tx.description?.includes('bank transfer deposit approved'))
+        );
+      } catch (error) {
+        console.error('Error loading transactions in loadWallet:', error);
+      }
+      
+      // Remove local pending transactions that match approved backend transactions
+      let updatedPersistedDeposits = [...persistedDeposits];
+      approvedBankTransfers.forEach(approvedTx => {
+        const matchingPending = persistedDeposits.find(pendingTx => 
+          pendingTx.status === 'pending' &&
+          pendingTx.type === 'deposit' &&
+          Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
+        );
+        
+        if (matchingPending) {
+          updatedPersistedDeposits = updatedPersistedDeposits.filter(tx => tx.id !== matchingPending.id);
+        }
+      });
+      
+      // Update AsyncStorage if any deposits were removed
+      if (updatedPersistedDeposits.length !== persistedDeposits.length) {
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedDeposits));
+      }
+      
+      // Calculate pending deposits from updated AsyncStorage (source of truth for bank transfers)
+      const bankTransferPendingDeposits = updatedPersistedDeposits
         .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
         .reduce((sum, tx) => sum + tx.amount, 0);
       
@@ -388,10 +424,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
         limit: 50, // Load more transactions for the wallet screen
       });
       
+      // Check for approved bank transfer transactions and remove matching pending local transactions
+      const approvedBankTransfers = response.data.filter(tx => 
+        tx.type === 'deposit' && 
+        tx.status === 'completed' &&
+        (tx.description?.includes('Bank transfer deposit approved') || 
+         tx.description?.includes('bank transfer deposit approved'))
+      );
+      
+      // Remove local pending transactions that match approved backend transactions
+      let updatedPersistedDeposits = [...persistedDeposits];
+      const depositsToRemove: string[] = [];
+      
+      approvedBankTransfers.forEach(approvedTx => {
+        // Find matching pending local transaction by amount (within 0.01 tolerance)
+        const matchingPending = persistedDeposits.find(pendingTx => 
+          pendingTx.status === 'pending' &&
+          pendingTx.type === 'deposit' &&
+          Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
+        );
+        
+        if (matchingPending) {
+          depositsToRemove.push(matchingPending.id);
+          updatedPersistedDeposits = updatedPersistedDeposits.filter(tx => tx.id !== matchingPending.id);
+        }
+      });
+      
+      // Update AsyncStorage if any deposits were removed
+      if (depositsToRemove.length > 0) {
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedDeposits));
+        console.log(`[AppContext] Removed ${depositsToRemove.length} pending bank transfer deposit(s) that were approved`);
+      }
+      
       // FINALLY: Merge bank deposits with backend transactions
       setState(prev => {
-        // Get all bank deposit IDs from AsyncStorage (source of truth)
-        const bankDepositIds = new Set(persistedDeposits.map(tx => tx.id));
+        // Get all bank deposit IDs from updated AsyncStorage (source of truth)
+        const bankDepositIds = new Set(updatedPersistedDeposits.map(tx => tx.id));
         
         // Remove any bank deposits from backend response (to avoid duplicates)
         const backendTransactionsWithoutBankDeposits = response.data.filter(
@@ -399,7 +467,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         
         // Merge: bank deposits first, then backend transactions
-        const mergedTransactions = [...persistedDeposits, ...backendTransactionsWithoutBankDeposits];
+        const mergedTransactions = [...updatedPersistedDeposits, ...backendTransactionsWithoutBankDeposits];
         
         return {
           ...prev,

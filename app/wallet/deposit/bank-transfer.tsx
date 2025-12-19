@@ -21,6 +21,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
+import { bankTransfersAPI } from '@/services/api/bank-transfers.api';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -28,16 +29,6 @@ const VALIDATION_RULES = {
   MAX_AMOUNT: 100000,
   MAX_DECIMALS: 2,
   AMOUNT_REGEX: /^\d+\.?\d{0,2}$/,
-};
-
-// Bank details (static - should be configurable in production)
-const BANK_DETAILS = {
-  accountName: 'Blocks Investment Platform',
-  accountNumber: 'PK12BLOCKS0001234567890',
-  iban: 'PK12BLOCKS0001234567890',
-  bankName: 'Standard Chartered Bank',
-  swiftCode: 'SCBLPKKA',
-  branch: 'Main Branch, Karachi',
 };
 
 // Validation helper functions
@@ -94,6 +85,15 @@ export default function BankTransferDepositScreen() {
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [bankDetails, setBankDetails] = useState<{
+    accountName: string;
+    accountNumber: string;
+    iban: string;
+    bankName: string;
+    swiftCode: string;
+    branch: string;
+  } | null>(null);
+  const [loadingBankDetails, setLoadingBankDetails] = useState(false);
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -108,6 +108,31 @@ export default function BankTransferDepositScreen() {
     message: '',
     type: 'info',
   });
+
+  // Fetch bank details from backend
+  useEffect(() => {
+    const fetchBankDetails = async () => {
+      try {
+        setLoadingBankDetails(true);
+        const details = await bankTransfersAPI.getBankDetails();
+        setBankDetails(details);
+      } catch (error) {
+        console.error('Error fetching bank details:', error);
+        // Fallback to hardcoded details if API fails
+        setBankDetails({
+          accountName: 'Blocks Investment Platform',
+          accountNumber: 'PK12BLOCKS0001234567890',
+          iban: 'PK12BLOCKS0001234567890',
+          bankName: 'Standard Chartered Bank',
+          swiftCode: 'SCBLPKKA',
+          branch: 'Main Branch, Karachi',
+        });
+      } finally {
+        setLoadingBankDetails(false);
+      }
+    };
+    fetchBankDetails();
+  }, []);
 
   // Validate amount on change
   useEffect(() => {
@@ -248,9 +273,18 @@ export default function BankTransferDepositScreen() {
       setIsProcessing(true);
       const depositAmount = parseFloat(amount);
       
-      // Add pending deposit to AppContext (frontend-only)
-      // Store proof as base64 data URI for frontend storage
+      // Create base64 data URI for proof
       const proofDataUri = `data:image/jpeg;base64,${proof.base64}`;
+      
+      // Submit to backend API
+      const request = await bankTransfersAPI.createRequest({
+        amountUSDT: depositAmount,
+        proofImageUrl: proofDataUri, // Backend will handle base64 upload
+      });
+      
+      console.log('Bank transfer request created:', request);
+      
+      // Also add to local storage for pending deposits display (optional)
       if (addBankTransferDeposit) {
         await addBankTransferDeposit(depositAmount, proofDataUri);
       }
@@ -259,7 +293,7 @@ export default function BankTransferDepositScreen() {
       setAlertState({
         visible: true,
         title: 'Request Submitted',
-        message: 'Your bank transfer deposit request has been submitted. Verification may take up to 24 hours. You will be notified once it\'s processed.',
+        message: `Your bank transfer deposit request (${request.displayCode}) has been submitted. Verification may take up to 24 hours. You will be notified once it's processed.`,
         type: 'success',
         onConfirm: () => {
           setAlertState(prev => ({ ...prev, visible: false }));
@@ -272,7 +306,7 @@ export default function BankTransferDepositScreen() {
       setAlertState({
         visible: true,
         title: 'Error',
-        message: error.message || 'Failed to submit deposit request. Please try again.',
+        message: error.response?.data?.message || error.message || 'Failed to submit deposit request. Please try again.',
         type: 'error',
         onConfirm: () => {
           setAlertState(prev => ({ ...prev, visible: false }));
@@ -610,7 +644,7 @@ export default function BankTransferDepositScreen() {
                     flex: 1,
                     textAlign: 'right',
                   }}>
-                    {BANK_DETAILS.accountName}
+                    {bankDetails?.accountName || 'Loading...'}
                   </Text>
                 </View>
 
@@ -640,10 +674,10 @@ export default function BankTransferDepositScreen() {
                         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
                       }}
                     >
-                      {BANK_DETAILS.accountNumber}
+                      {bankDetails?.accountNumber || 'Loading...'}
                     </Text>
                     <TouchableOpacity
-                      onPress={() => handleCopy(BANK_DETAILS.accountNumber, 'accountNumber')}
+                      onPress={() => bankDetails && handleCopy(bankDetails.accountNumber, 'accountNumber')}
                       style={{
                         padding: 6,
                         borderRadius: 6,
@@ -685,10 +719,10 @@ export default function BankTransferDepositScreen() {
                         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
                       }}
                     >
-                      {BANK_DETAILS.iban}
+                      {bankDetails?.iban || 'Loading...'}
                     </Text>
                     <TouchableOpacity
-                      onPress={() => handleCopy(BANK_DETAILS.iban, 'iban')}
+                      onPress={() => bankDetails && handleCopy(bankDetails.iban, 'iban')}
                       style={{
                         padding: 6,
                         borderRadius: 6,
@@ -726,7 +760,7 @@ export default function BankTransferDepositScreen() {
                     flex: 1,
                     textAlign: 'right',
                   }}>
-                    {BANK_DETAILS.bankName}
+                    {bankDetails?.bankName || 'Loading...'}
                   </Text>
                 </View>
 
@@ -752,7 +786,7 @@ export default function BankTransferDepositScreen() {
                     flex: 1,
                     textAlign: 'right',
                   }}>
-                    {BANK_DETAILS.swiftCode}
+                    {bankDetails?.swiftCode || 'Loading...'}
                   </Text>
                 </View>
 
@@ -776,7 +810,7 @@ export default function BankTransferDepositScreen() {
                     flex: 1,
                     textAlign: 'right',
                   }}>
-                    {BANK_DETAILS.branch}
+                    {bankDetails?.branch || 'Loading...'}
                   </Text>
                 </View>
               </View>

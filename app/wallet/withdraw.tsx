@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,8 +55,9 @@ export default function WithdrawScreen() {
   const [amountError, setAmountError] = useState('');
   const [selectedQuickAmount, setSelectedQuickAmount] = useState<number | null>(null);
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false); // TODO: Check from actual payment methods API
-  const [showIbanInput, setShowIbanInput] = useState(false);
+  const [showIbanModal, setShowIbanModal] = useState(false);
   const [ibanNumber, setIbanNumber] = useState('');
+  const [savedIban, setSavedIban] = useState<string>('');
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -143,16 +145,9 @@ export default function WithdrawScreen() {
     }
     // Save IBAN and mark as having payment method
     setHasPaymentMethod(true);
-    setShowIbanInput(false);
-    setAlertState({
-      visible: true,
-      title: 'IBAN Added',
-      message: 'Your IBAN has been added successfully.',
-      type: 'success',
-      onConfirm: () => {
-        setAlertState(prev => ({ ...prev, visible: false }));
-      },
-    });
+    setSavedIban(ibanNumber.trim());
+    setShowIbanModal(false);
+    setIbanNumber(''); // Clear input for next time
   };
 
   const isFormValid = () => {
@@ -195,23 +190,21 @@ export default function WithdrawScreen() {
         accountHolderName: 'Saved Bank Account',
         accountNumber: '****1234',
         bankName: 'Standard Chartered Bank',
-        iban: '',
+        iban: savedIban || '',
         swiftCode: '',
       };
       
       await addBankTransferWithdrawal(withdrawAmount, bankDetails);
 
-      // Show success alert
-      setAlertState({
-        visible: true,
-        title: 'Withdrawal Request Submitted',
-        message: 'Your withdrawal request has been submitted successfully. Processing may take 1-3 business days. You will be notified once the funds are transferred.',
-        type: 'success',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-          router.push('/(tabs)/wallet');
+      // Navigate to success screen instead of showing alert
+      router.push({
+        pathname: '/wallet/withdraw-success',
+        params: {
+          amount: withdrawAmount.toString(),
+          method: 'Bank Transfer',
+          iban: savedIban || 'N/A',
         },
-      });
+      } as any);
     } catch (error) {
       console.error('Error submitting withdrawal:', error);
       setAlertState({
@@ -242,6 +235,100 @@ export default function WithdrawScreen() {
           setAlertState(prev => ({ ...prev, visible: false }));
         })}
       />
+
+      {/* IBAN Entry Modal */}
+      <Modal
+        visible={showIbanModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowIbanModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setShowIbanModal(false)}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+            }}
+          />
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                Add IBAN Number
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowIbanModal(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                }}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16 }}>
+              Enter your IBAN number to receive bank transfers
+            </Text>
+
+            <TextInput
+              value={ibanNumber}
+              onChangeText={setIbanNumber}
+              placeholder="Enter IBAN (e.g., GB29 NWBK 6016 1331 9268 19)"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="characters"
+              style={{
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                color: colors.textPrimary,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderRadius: 12,
+                fontSize: 16,
+                borderWidth: 1.5,
+                borderColor: ibanNumber.trim().length >= 15
+                  ? colors.primary
+                  : isDarkColorScheme
+                    ? 'rgba(255, 255, 255, 0.2)'
+                    : 'rgba(0, 0, 0, 0.1)',
+                marginBottom: 20,
+                fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+              }}
+            />
+
+            <TouchableOpacity
+              onPress={handleAddIban}
+              disabled={ibanNumber.trim().length < 15}
+              style={{
+                backgroundColor: ibanNumber.trim().length < 15 ? colors.border : colors.primary,
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center',
+                opacity: ibanNumber.trim().length < 15 ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
+                Add IBAN
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Linear Gradient Background */}
       {/* <LinearGradient
@@ -563,7 +650,13 @@ export default function WithdrawScreen() {
 
               {/* Bank Transfer Option */}
               <TouchableOpacity
-                onPress={() => setSelectedMethod('bank')}
+                onPress={() => {
+                  setSelectedMethod('bank');
+                  if (!hasPaymentMethod) {
+                    setIbanNumber(''); // Clear input for new IBAN entry
+                    setShowIbanModal(true);
+                  }
+                }}
                 style={{
                   padding: 16,
                   borderRadius: 16,
@@ -626,83 +719,31 @@ export default function WithdrawScreen() {
                   )}
                 </View>
 
-                {/* IBAN Input Section - Show when bank transfer is selected and no payment method exists */}
-                {selectedMethod === 'bank' && !hasPaymentMethod && (
+                {/* Display Saved IBAN */}
+                {selectedMethod === 'bank' && savedIban && (
                   <View
                     style={{
-                      marginTop: 16,
-                      paddingTop: 16,
+                      marginTop: 12,
+                      paddingTop: 12,
                       borderTopWidth: 1,
                       borderTopColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                     }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 12 }}>
-                      Please add your IBAN to continue
-                    </Text>
-
-                    {/* Add IBAN Option */}
-                    <TouchableOpacity
-                      onPress={() => setShowIbanInput(!showIbanInput)}
-                      style={{
-                        padding: 12,
-                        borderRadius: 12,
-                        backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.6)',
-                        borderWidth: 1,
-                        borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
-                        marginBottom: showIbanInput ? 12 : 0,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <Ionicons name="card-outline" size={20} color={colors.primary} />
-                        <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
-                          Add IBAN Number
+                        <Ionicons name="card" size={16} color={colors.primary} />
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 8 }}>
+                          IBAN: <Text style={{ color: colors.textPrimary, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>{savedIban}</Text>
                         </Text>
                       </View>
-                      <Ionicons 
-                        name={showIbanInput ? "chevron-up" : "chevron-down"} 
-                        size={20} 
-                        color={colors.textSecondary} 
-                      />
-                    </TouchableOpacity>
-
-                    {/* IBAN Input Field */}
-                    {showIbanInput && (
-                      <View style={{ paddingHorizontal: 8 }}>
-                        <TextInput
-                          value={ibanNumber}
-                          onChangeText={setIbanNumber}
-                          placeholder="Enter IBAN (e.g., GB29 NWBK 6016 1331 9268 19)"
-                          placeholderTextColor={colors.textMuted}
-                          autoCapitalize="characters"
-                          style={{
-                            backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)',
-                            color: colors.textPrimary,
-                            paddingHorizontal: 16,
-                            paddingVertical: 12,
-                            borderRadius: 12,
-                            fontSize: 14,
-                            borderWidth: 1.5,
-                            borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
-                            marginBottom: 8,
-                          }}
-                        />
-                        <TouchableOpacity
-                          onPress={handleAddIban}
-                          disabled={ibanNumber.trim().length < 15}
-                          style={{
-                            backgroundColor: ibanNumber.trim().length < 15 ? colors.border : colors.primary,
-                            paddingVertical: 10,
-                            borderRadius: 10,
-                            alignItems: 'center',
-                            opacity: ibanNumber.trim().length < 15 ? 0.6 : 1,
-                          }}>
-                          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
-                            Add IBAN
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setIbanNumber(savedIban); // Pre-fill with current IBAN for editing
+                          setShowIbanModal(true);
+                        }}
+                        style={{ padding: 4 }}>
+                        <Ionicons name="create-outline" size={16} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </TouchableOpacity>

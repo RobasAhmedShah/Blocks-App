@@ -58,8 +58,7 @@ export default function RootLayout() {
                   backdropColor="rgba(0, 0, 0, 0.85)"
                   arrowColor="#00C896"
                   verticalOffset={10}
-                  androidStatusBarVisible={true}
-                >
+                  androidStatusBarVisible={true}>
                   <GestureHandlerRootView style={{ flex: 1 }}>
                     <RootNavigation />
                     <StatusBar style="auto" />
@@ -77,7 +76,7 @@ export default function RootLayout() {
 // New component to handle navigation logic inside the AuthContext
 function RootNavigation() {
   const { isLoading } = useAuth();
-  
+
   // Initialize push notifications - this will get the token and register it with backend
   // This hook must be called here to ensure it runs when the app starts
   useNotifications();
@@ -91,57 +90,57 @@ function RootNavigation() {
 
     try {
       console.log('🔔 Navigating to notification URL:', url);
-      
+
       // Check if it's a custom URL (external website)
       // First, check if it already has a protocol
       if (url.startsWith('http://') || url.startsWith('https://')) {
         console.log('🔔 Opening external URL in browser:', url);
-        Linking.openURL(url).catch(err => {
+        Linking.openURL(url).catch((err) => {
           console.error('❌ Failed to open URL:', err);
         });
         return;
       }
-      
+
       // Check if it looks like an external website (domain-like)
       // If it contains a dot and doesn't start with /, it's likely an external URL
       // Also check if it doesn't match known internal routes
       const knownInternalRoutes = ['properties', 'wallet', 'portfolio', 'notifications'];
       const urlWithoutSlash = url.startsWith('/') ? url.slice(1) : url;
       const firstPart = urlWithoutSlash.split('/')[0].split('?')[0];
-      
+
       // If it looks like a domain (contains dot, has TLD-like pattern) and isn't a known internal route
       if (
-        url.includes('.') && 
-        !url.startsWith('/') && 
+        url.includes('.') &&
+        !url.startsWith('/') &&
         !knownInternalRoutes.includes(firstPart) &&
         !firstPart.startsWith('property') // Not /property/{id}
       ) {
         // It's likely an external URL without protocol - add https://
         const externalUrl = url.startsWith('http') ? url : `https://${url}`;
         console.log('🔔 Detected external URL, opening in browser:', externalUrl);
-        Linking.openURL(externalUrl).catch(err => {
+        Linking.openURL(externalUrl).catch((err) => {
           console.error('❌ Failed to open URL:', err);
         });
         return;
       }
-      
+
       // Remove leading slash if present for consistency
       const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
-      
+
       // Parse URL with query parameters
       if (cleanUrl.includes('?')) {
         const [pathname, queryString] = cleanUrl.split('?');
         const params: Record<string, string> = {};
-        
-        queryString.split('&').forEach(param => {
+
+        queryString.split('&').forEach((param) => {
           const [key, value] = param.split('=');
           if (key && value) {
             params[key] = decodeURIComponent(value);
           }
         });
-        
+
         console.log('🔔 Parsed URL - pathname:', pathname, 'params:', params);
-        
+
         // Handle routes based on backend category mapping
         if (pathname.startsWith('properties/')) {
           // Property detail: /properties/{propertyId}
@@ -156,7 +155,10 @@ function RootNavigation() {
             pathname: '/notifications' as any,
             params,
           } as any);
-        } else if (pathname === 'profilesettings/kyc-approved' || pathname.startsWith('profilesettings/kyc-approved')) {
+        } else if (
+          pathname === 'profilesettings/kyc-approved' ||
+          pathname.startsWith('profilesettings/kyc-approved')
+        ) {
           // KYC Approved success page
           router.push('/profilesettings/kyc-approved' as any);
         } else if (pathname === 'wallet' || pathname.startsWith('wallet')) {
@@ -175,7 +177,7 @@ function RootNavigation() {
       } else {
         // Simple path without query params
         console.log('🔔 Navigating to simple path:', cleanUrl);
-        
+
         if (cleanUrl.startsWith('properties/')) {
           // Property detail: /properties/{propertyId}
           const propertyId = cleanUrl.split('/')[1];
@@ -192,7 +194,10 @@ function RootNavigation() {
         } else if (cleanUrl === 'notifications') {
           // Notifications page
           router.push('/notifications' as any);
-        } else if (cleanUrl === 'profilesettings/kyc-approved' || cleanUrl.startsWith('profilesettings/kyc-approved')) {
+        } else if (
+          cleanUrl === 'profilesettings/kyc-approved' ||
+          cleanUrl.startsWith('profilesettings/kyc-approved')
+        ) {
           // KYC Approved success page
           router.push('/profilesettings/kyc-approved' as any);
         } else {
@@ -210,7 +215,7 @@ function RootNavigation() {
   // Set up notification listeners for deep linking
   useEffect(() => {
     // Handle notification received while app is running (foreground)
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+    const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       console.log('🔔 Notification received (foreground):', {
         title: notification.request.content.title,
         body: notification.request.content.body,
@@ -219,16 +224,16 @@ function RootNavigation() {
     });
 
     // Handle notification tap/response (when app is in background or foreground)
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
       console.log('🔔 Notification tapped:', {
         title: response.notification.request.content.title,
         data: response.notification.request.content.data,
       });
-      
+
       const url = response.notification.request.content.data?.url;
       if (url) {
         // Store for potential cold start scenario
-        SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+        SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch((err) => {
           console.error('Failed to store pending notification URL:', err);
         });
         handleNotificationNavigation(url);
@@ -251,16 +256,16 @@ function RootNavigation() {
                 title: response.notification.request.content.title,
                 data: response.notification.request.content.data,
               });
-              
+
               // Store the notification URL for navigation after biometric auth
               const url = response.notification.request.content.data?.url;
               if (url) {
                 console.log('🔔 Storing pending notification URL for post-auth navigation:', url);
                 // Store in SecureStore so it persists through auth flow
-                SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch(err => {
+                SecureStore.setItemAsync(PENDING_NOTIFICATION_URL_KEY, url).catch((err) => {
                   console.error('Failed to store pending notification URL:', err);
                 });
-                
+
                 // Try to navigate immediately if already authenticated
                 // If not authenticated, it will be handled after biometric auth
                 setTimeout(() => {
@@ -271,7 +276,10 @@ function RootNavigation() {
           } catch (methodError: any) {
             // Method might not be available in all scenarios (e.g., Expo Go, development)
             if (methodError?.message?.includes('not available')) {
-              console.log('ℹ️ getLastNotificationResponseAsync not available (this is normal in Expo Go):', methodError.message);
+              console.log(
+                'ℹ️ getLastNotificationResponseAsync not available (this is normal in Expo Go):',
+                methodError.message
+              );
             } else {
               console.log('ℹ️ getLastNotificationResponseAsync error:', methodError);
             }
@@ -307,8 +315,7 @@ function RootNavigation() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: 'transparent' },
-      }}
-    >
+      }}>
       {/* Define the granular onboarding screens as they exist */}
       <Stack.Screen name="onboarding/splash" />
       <Stack.Screen name="onboarding/onboard-one" />
@@ -327,7 +334,7 @@ function RootNavigation() {
       <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />
       <Stack.Screen name="invest/[id]" options={{ presentation: 'modal' }} />
       <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
-      
+
       {/* Profile Settings screens */}
       <Stack.Screen name="profilesettings/personalinfo" />
       <Stack.Screen name="profilesettings/security" />

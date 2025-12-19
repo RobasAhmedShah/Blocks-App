@@ -165,7 +165,7 @@ export default function PortfolioScreen() {
                 </Text>
               </View>
             </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
               Total Earnings
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
@@ -201,7 +201,7 @@ export default function PortfolioScreen() {
                 <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '600' }}>+12%</Text>
               </View>
             </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
               This Month
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
@@ -223,7 +223,7 @@ export default function PortfolioScreen() {
             <View className="mb-2 flex-row items-center justify-between">
               <Ionicons name="wallet" size={20} color={colors.card} />
             </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
               Total Invested
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
@@ -249,21 +249,77 @@ export default function PortfolioScreen() {
             <View className="mb-2 flex-row items-center justify-between">
               <Ionicons name="time" size={20} color={colors.card} />
             </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
               Next Payout
             </Text>
             <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
               {nextPayoutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 10, marginTop: 2 }}>
+            <Text style={{ color: colors.background, fontSize: 10, marginTop: 2 }}>
               ~${averageMonthly.toFixed(2)}
             </Text>
           </View>
         </View>
       </View>
 
+      {/*MY Asset Section*/}
+      <View className="left-0 right-0 z-10 mb-4 mt-6 px-4">
+        <View
+          style={{
+            backgroundColor: isDarkColorScheme ? colors.card : '#FFFFFF',
+            borderWidth: isDarkColorScheme ? 0 : 1,
+            borderColor: colors.border,
+            shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
+            shadowOffset: { width: 0, height: isDarkColorScheme ? 10 : 8 },
+            shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
+            shadowRadius: isDarkColorScheme ? 20 : 24,
+            elevation: isDarkColorScheme ? 20 : 8,
+          }}
+          className="flex-row items-center justify-around gap-2 rounded-2xl px-3 py-2">
+          <TouchableOpacity
+            onPress={() => router.push('../wallet')}
+            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
+            style={
+              {
+                // backgroundColor: colors.primary,
+              }
+            }>
+            <Ionicons name="add" size={24} color={colors.primary} />
+            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
+              Deposit
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/portfolio/myassets/assets-first')}
+            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
+            style={
+              {
+                // backgroundColor: colors.primary,
+              }
+            }>
+            <Ionicons name="cube" size={24} color={colors.primary} />
+            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
+              My Assets
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('../portfolio/guidance/guidance-one')}
+            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
+            style={
+              {
+                // backgroundColor: colors.primary,
+              }
+            }>
+            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
+              Guidance
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Performance Summary */}
-      <View className="mt-6 px-4">
+      <View className="mt-0 px-4">
         <Text style={{ color: colors.textPrimary }} className="mb-3 text-lg font-bold">
           Performance Summary
         </Text>
@@ -272,8 +328,8 @@ export default function PortfolioScreen() {
             backgroundColor: colors.card,
             borderRadius: 16,
             padding: 16,
-            borderWidth: 0.5,
-            borderColor: isDarkColorScheme ? 'rgba(189, 189, 189, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+            // borderWidth: 0.5,
+            // borderColor: isDarkColorScheme ? 'rgba(189, 189, 189, 0.3)' : 'rgba(139, 92, 246, 0.2)',
           }}>
           <View className="mb-3 flex-row items-center">
             <Ionicons name="trending-up" size={20} color={colors.primary} />
@@ -390,7 +446,7 @@ export default function PortfolioScreen() {
       />
 
       {/* Bottom Actions */}
-      <View className="left-0 right-0 z-10 mb-16 px-4 pb-6">
+      {/* <View className="left-0 right-0 z-10 mb-16 px-4 pb-6">
         <View
           style={{
             backgroundColor: isDarkColorScheme ? 'rgba(11, 61, 54, 0.95)' : '#FFFFFF',
@@ -428,7 +484,7 @@ export default function PortfolioScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </View> */}
     </View>
   );
 }

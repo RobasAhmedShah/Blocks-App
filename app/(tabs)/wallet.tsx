@@ -205,36 +205,41 @@ export default function WalletScreen() {
           </View>
 
           {/* Total Balance Label */}
-          <View style={{ 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            marginTop: 16,
-            marginBottom: 12,
-          }}>
-            <View style={{
-              flexDirection: 'row',
+          <View
+            style={{
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: isDarkColorScheme 
-                ? 'rgba(34, 197, 94, 0.2)' 
-                : 'rgba(34, 197, 94, 0.15)',
-              borderRadius: 20,
-              paddingHorizontal: 10,
-              paddingVertical: 5,
+              marginTop: 16,
+              marginBottom: 12,
             }}>
-              <View style={{
-                width: 5,
-                height: 5,
-                borderRadius: 2.5,
-                backgroundColor: colors.primary,
-                marginRight: 6,
-              }} />
-              <Text style={{ 
-                color: '#FFFFFF', 
-                fontSize: 11, 
-                fontWeight: '500',
-                opacity: 0.9,
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: isDarkColorScheme
+                  ? 'rgba(34, 197, 94, 0.2)'
+                  : 'rgba(34, 197, 94, 0.15)',
+                borderRadius: 20,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
               }}>
+              <View
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: 2.5,
+                  backgroundColor: colors.primary,
+                  marginRight: 6,
+                }}
+              />
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 11,
+                  fontWeight: '500',
+                  opacity: 0.9,
+                }}>
                 Total Balance
               </Text>
             </View>
@@ -542,7 +547,6 @@ export default function WalletScreen() {
                 // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
               }}
               className="mb-2 flex-row items-center rounded-2xl p-4">
-              
               <View
                 className="h-12 w-12 items-center justify-center rounded-full"
                 style={

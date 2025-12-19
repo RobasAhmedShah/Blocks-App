@@ -476,39 +476,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log(`[AppContext] Removed ${depositsToRemove.length} pending bank transfer deposit(s) that were approved`);
       }
       
-      // Check for approved bank transfer transactions and remove matching pending local transactions
-      const approvedBankTransfers = response.data.filter(tx => 
-        tx.type === 'deposit' && 
-        tx.status === 'completed' &&
-        (tx.description?.includes('Bank transfer deposit approved') || 
-         tx.description?.includes('bank transfer deposit approved'))
-      );
-      
-      // Remove local pending transactions that match approved backend transactions
-      let updatedPersistedDeposits = [...persistedDeposits];
-      const depositsToRemove: string[] = [];
-      
-      approvedBankTransfers.forEach(approvedTx => {
-        // Find matching pending local transaction by amount (within 0.01 tolerance)
-        const matchingPending = persistedDeposits.find(pendingTx => 
-          pendingTx.status === 'pending' &&
-          pendingTx.type === 'deposit' &&
-          Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
-        );
-        
-        if (matchingPending) {
-          depositsToRemove.push(matchingPending.id);
-          updatedPersistedDeposits = updatedPersistedDeposits.filter(tx => tx.id !== matchingPending.id);
-        }
-      });
-      
-      // Update AsyncStorage if any deposits were removed
-      if (depositsToRemove.length > 0) {
-        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedDeposits));
-        console.log(`[AppContext] Removed ${depositsToRemove.length} pending bank transfer deposit(s) that were approved`);
-      }
-      
-      // FINALLY: Merge bank transactions with backend transactions
+      // FINALLY: Merge bank deposits with backend transactions
       setState(prev => {
         // Get all bank deposit IDs from updated AsyncStorage (source of truth)
         const bankDepositIds = new Set(updatedPersistedDeposits.map(tx => tx.id));

@@ -55,8 +55,7 @@ interface AppContextType {
   withdraw: (amount: number) => Promise<void>;
   addBankTransferDeposit: (amount: number, proofUrl: string) => Promise<void>;
   addBankTransferWithdrawal: (amount: number, bankDetails: any) => Promise<void>;
-  addBankTransferWithdrawal: (amount: number, bankDetails: any) => Promise<void>;
-  
+
   // Investment Actions
   loadInvestments: () => Promise<void>;
   invest: (amount: number, propertyId: string, tokenCount: number) => Promise<void>;
@@ -237,33 +236,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Load bank transfer transactions (deposits and withdrawals) from AsyncStorage on mount
-  // Load bank transfer transactions (deposits and withdrawals) from AsyncStorage on mount
   useEffect(() => {
-    const loadBankTransferTransactions = async () => {
     const loadBankTransferTransactions = async () => {
       try {
         const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
         if (stored) {
           const persistedTransactions: Transaction[] = JSON.parse(stored);
-          const persistedTransactions: Transaction[] = JSON.parse(stored);
           
           setState(prev => {
-            // Merge persisted transactions with existing transactions
             // Merge persisted transactions with existing transactions
             // Avoid duplicates by checking transaction IDs
             const existingIds = new Set(prev.transactions.map(tx => tx.id));
             const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
-            const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
             
-            // Calculate pending deposits only from NEW deposit transactions (not duplicates)
-            const newPendingAmount = newTransactions
-              .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
-              .reduce((sum, tx) => sum + tx.amount, 0);
-            
-            // Calculate balance adjustments from withdrawals
-            const withdrawalAmount = newTransactions
-              .filter(tx => tx.type === 'withdraw')
-              .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
             // Calculate pending deposits only from NEW deposit transactions (not duplicates)
             const newPendingAmount = newTransactions
               .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
@@ -277,10 +262,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return {
               ...prev,
               transactions: [...newTransactions, ...prev.transactions],
-              transactions: [...newTransactions, ...prev.transactions],
               balance: {
                 ...prev.balance,
-                usdc: prev.balance.usdc - withdrawalAmount,
                 usdc: prev.balance.usdc - withdrawalAmount,
                 pendingDeposits: (prev.balance.pendingDeposits || 0) + newPendingAmount,
               },
@@ -289,10 +272,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Error loading bank transfer transactions:', error);
-        console.error('Error loading bank transfer transactions:', error);
       }
     };
-    loadBankTransferTransactions();
     loadBankTransferTransactions();
   }, []);
 
@@ -304,16 +285,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       // FIRST: Load bank transfer transactions from AsyncStorage to ensure we have the latest
       let persistedTransactions: Transaction[] = [];
-      // FIRST: Load bank transfer transactions from AsyncStorage to ensure we have the latest
-      let persistedTransactions: Transaction[] = [];
       try {
         const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
         if (stored) {
           persistedTransactions = JSON.parse(stored);
-          persistedTransactions = JSON.parse(stored);
         }
       } catch (storageError) {
-        console.error('Error loading bank transactions in loadWallet:', storageError);
         console.error('Error loading bank transactions in loadWallet:', storageError);
       }
       
@@ -338,33 +315,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       
       // Remove local pending transactions that match approved backend transactions
-      let updatedPersistedDeposits = [...persistedDeposits];
+      let updatedPersistedTransactions = [...persistedTransactions];
       approvedBankTransfers.forEach(approvedTx => {
-        const matchingPending = persistedDeposits.find(pendingTx => 
+        const matchingPending = persistedTransactions.find(pendingTx => 
           pendingTx.status === 'pending' &&
           pendingTx.type === 'deposit' &&
           Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
         );
         
         if (matchingPending) {
-          updatedPersistedDeposits = updatedPersistedDeposits.filter(tx => tx.id !== matchingPending.id);
+          updatedPersistedTransactions = updatedPersistedTransactions.filter(tx => tx.id !== matchingPending.id);
         }
       });
       
       // Update AsyncStorage if any deposits were removed
-      if (updatedPersistedDeposits.length !== persistedDeposits.length) {
-        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedDeposits));
+      if (updatedPersistedTransactions.length !== persistedTransactions.length) {
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedTransactions));
       }
       
       // Calculate pending deposits from updated AsyncStorage (source of truth for bank transfers)
-      const bankTransferPendingDeposits = updatedPersistedDeposits
+      const bankTransferPendingDeposits = updatedPersistedTransactions
         .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
         .reduce((sum, tx) => sum + tx.amount, 0);
-      
-      // Calculate withdrawals from AsyncStorage
-      const bankTransferWithdrawals = persistedTransactions
-        .filter(tx => tx.type === 'withdraw')
-        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
       
       // Calculate withdrawals from AsyncStorage
       const bankTransferWithdrawals = persistedTransactions
@@ -387,13 +359,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Adjust USDC balance for bank transfer withdrawals
         const adjustedUsdc = walletBalance.usdc - bankTransferWithdrawals;
         
-        // Adjust USDC balance for bank transfer withdrawals
-        const adjustedUsdc = walletBalance.usdc - bankTransferWithdrawals;
-        
         return {
           ...prev,
           balance: {
-            usdc: adjustedUsdc,
             usdc: adjustedUsdc,
             totalValue: walletBalance.totalValue,
             totalInvested: walletBalance.totalInvested,
@@ -405,20 +373,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error loading wallet:', error);
       // On error, calculate balance adjustments from AsyncStorage
-      // On error, calculate balance adjustments from AsyncStorage
       try {
         const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
         if (stored) {
           const persistedTransactions: Transaction[] = JSON.parse(stored);
           const bankTransferPendingDeposits = persistedTransactions
-          const persistedTransactions: Transaction[] = JSON.parse(stored);
-          const bankTransferPendingDeposits = persistedTransactions
             .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
             .reduce((sum, tx) => sum + tx.amount, 0);
-          
-          const bankTransferWithdrawals = persistedTransactions
-            .filter(tx => tx.type === 'withdraw')
-            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
           
           const bankTransferWithdrawals = persistedTransactions
             .filter(tx => tx.type === 'withdraw')
@@ -438,13 +399,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               balance: {
                 ...prev.balance,
                 usdc: prev.balance.usdc - bankTransferWithdrawals,
-                usdc: prev.balance.usdc - bankTransferWithdrawals,
                 pendingDeposits: bankTransferPendingDeposits + otherPendingDeposits,
               },
             };
           });
         } else {
-          // No stored transactions, calculate from transactions only
           // No stored transactions, calculate from transactions only
           setState(prev => {
             const frontendPendingDeposits = prev.transactions
@@ -462,7 +421,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       } catch (storageError) {
         console.error('Error loading bank transactions on wallet error:', storageError);
-        console.error('Error loading bank transactions on wallet error:', storageError);
       }
     }
   }, [isGuest]);
@@ -471,16 +429,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       // FIRST: Load bank transfer transactions from AsyncStorage (always do this first)
       let persistedTransactions: Transaction[] = [];
-      // FIRST: Load bank transfer transactions from AsyncStorage (always do this first)
-      let persistedTransactions: Transaction[] = [];
       try {
         const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
         if (stored) {
           persistedTransactions = JSON.parse(stored);
-          persistedTransactions = JSON.parse(stored);
         }
       } catch (storageError) {
-        console.error('Error loading bank transfer transactions from storage:', storageError);
         console.error('Error loading bank transfer transactions from storage:', storageError);
       }
       
@@ -499,12 +453,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       
       // Remove local pending transactions that match approved backend transactions
-      let updatedPersistedDeposits = [...persistedDeposits];
+      let updatedPersistedTransactions = [...persistedTransactions];
       const depositsToRemove: string[] = [];
       
       approvedBankTransfers.forEach(approvedTx => {
         // Find matching pending local transaction by amount (within 0.01 tolerance)
-        const matchingPending = persistedDeposits.find(pendingTx => 
+        const matchingPending = persistedTransactions.find(pendingTx => 
           pendingTx.status === 'pending' &&
           pendingTx.type === 'deposit' &&
           Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
@@ -512,31 +466,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         if (matchingPending) {
           depositsToRemove.push(matchingPending.id);
-          updatedPersistedDeposits = updatedPersistedDeposits.filter(tx => tx.id !== matchingPending.id);
+          updatedPersistedTransactions = updatedPersistedTransactions.filter(tx => tx.id !== matchingPending.id);
         }
       });
       
       // Update AsyncStorage if any deposits were removed
       if (depositsToRemove.length > 0) {
-        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedDeposits));
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedTransactions));
         console.log(`[AppContext] Removed ${depositsToRemove.length} pending bank transfer deposit(s) that were approved`);
       }
       
       // FINALLY: Merge bank deposits with backend transactions
       setState(prev => {
         // Get all bank deposit IDs from updated AsyncStorage (source of truth)
-        const bankDepositIds = new Set(updatedPersistedDeposits.map(tx => tx.id));
+        const bankDepositIds = new Set(updatedPersistedTransactions.map(tx => tx.id));
         
         // Remove any bank transactions from backend response (to avoid duplicates)
         const backendTransactionsWithoutBankTransactions = response.data.filter(
-          tx => !bankTransactionIds.has(tx.id)
-        // Remove any bank transactions from backend response (to avoid duplicates)
-        const backendTransactionsWithoutBankTransactions = response.data.filter(
-          tx => !bankTransactionIds.has(tx.id)
+          tx => !bankDepositIds.has(tx.id)
         );
         
         // Merge: bank deposits first, then backend transactions
-        const mergedTransactions = [...updatedPersistedDeposits, ...backendTransactionsWithoutBankDeposits];
+        const mergedTransactions = [...updatedPersistedTransactions, ...backendTransactionsWithoutBankTransactions];
         
         return {
           ...prev,
@@ -546,28 +497,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error loading transactions:', error);
       // On error, still try to preserve bank transactions from AsyncStorage
-      // On error, still try to preserve bank transactions from AsyncStorage
       try {
         const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
         if (stored) {
           const persistedTransactions: Transaction[] = JSON.parse(stored);
-          const persistedTransactions: Transaction[] = JSON.parse(stored);
           setState(prev => {
             // Keep existing transactions but ensure bank transactions are included
-            // Keep existing transactions but ensure bank transactions are included
             const existingIds = new Set(prev.transactions.map(tx => tx.id));
-            const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
             const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
             
             return {
               ...prev,
               transactions: [...newTransactions, ...prev.transactions],
-              transactions: [...newTransactions, ...prev.transactions],
             };
           });
         }
       } catch (storageError) {
-        console.error('Error loading bank transactions on transaction error:', storageError);
         console.error('Error loading bank transactions on transaction error:', storageError);
       }
     }
@@ -652,7 +597,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Create pending deposit transaction (frontend-only)
     const newTransaction: Transaction = {
       id: `tx-bank-deposit-${Date.now()}`,
-      id: `tx-bank-deposit-${Date.now()}`,
       type: 'deposit',
       amount: amount,
       currency: 'USDC',
@@ -671,53 +615,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Get all bank transfer transactions (deposits and withdrawals)
       const allBankTransactions = [
-      // Get all bank transfer transactions (deposits and withdrawals)
-      const allBankTransactions = [
         ...prev.transactions.filter(tx => tx.id.startsWith('tx-bank-')),
         newTransaction,
       ];
 
       // Save to AsyncStorage
-      AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankTransactions)).catch(error => {
-        console.error('Error saving bank transfer transactions to storage:', error);
-      });
-
-      return {
-        ...prev,
-        balance: newBalance,
-        transactions: [newTransaction, ...prev.transactions],
-      };
-    });
-  }, []);
-
-  const addBankTransferWithdrawal = useCallback(async (amount: number, bankDetails: any) => {
-    // Create pending withdrawal transaction (frontend-only)
-    const newTransaction: Transaction = {
-      id: `tx-bank-withdraw-${Date.now()}`,
-      type: 'withdraw',
-      amount: -amount, // Negative for withdrawal
-      currency: 'USDC',
-      status: 'pending',
-      date: new Date().toISOString(),
-      description: 'Bank Transfer Withdrawal (Pending Processing)',
-      bankDetails: bankDetails, // Store bank details in transaction
-    };
-
-    setState(prev => {
-      const newBalance: WalletBalance = {
-        ...prev.balance,
-        usdc: prev.balance.usdc - amount, // Deduct from available balance
-      };
-
-      // Get all bank transfer transactions (deposits and withdrawals)
-      const allBankTransactions = [
-        ...prev.transactions.filter(tx => tx.id.startsWith('tx-bank-')),
-        newTransaction,
-      ];
-
-      // Save to AsyncStorage
-      AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankTransactions)).catch(error => {
-        console.error('Error saving bank transfer transactions to storage:', error);
       AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankTransactions)).catch(error => {
         console.error('Error saving bank transfer transactions to storage:', error);
       });
@@ -1279,8 +1181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deposit,
         withdraw,
         addBankTransferDeposit,
-      addBankTransferWithdrawal,
-      addBankTransferWithdrawal,
+        addBankTransferWithdrawal,
         loadInvestments,
         invest,
         getProperty,

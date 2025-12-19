@@ -17,6 +17,7 @@ export interface Transaction {
   propertyId?: string;
   propertyTitle?: string;
   proofUrl?: string; // For bank transfer deposits (frontend-only)
+  bankDetails?: any; // For bank transfer withdrawals (frontend-only)
 }
 
 export interface DepositMethod {

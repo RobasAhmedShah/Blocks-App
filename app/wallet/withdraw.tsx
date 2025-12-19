@@ -18,6 +18,7 @@ import { AppAlert } from '@/components/AppAlert';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
 import { useWallet } from '@/services/useWallet';
+import { bankWithdrawalsAPI } from '@/services/api/bank-withdrawals.api';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -36,7 +37,6 @@ type WithdrawMethod = 'bank' | 'onchain';
 export default function WithdrawScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { addBankTransferWithdrawal } = useApp();
   const { balance, transactions } = useWallet();
 
   // Calculate locked/pending amount
@@ -49,15 +49,21 @@ export default function WithdrawScreen() {
   const availableBalance = balance.usdc;
 
   const [amount, setAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState<WithdrawMethod>('bank');
+  const [selectedMethod, setSelectedMethod] = useState<WithdrawMethod | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [amountError, setAmountError] = useState('');
   const [selectedQuickAmount, setSelectedQuickAmount] = useState<number | null>(null);
-  const [hasPaymentMethod, setHasPaymentMethod] = useState(false); // TODO: Check from actual payment methods API
-  const [showIbanModal, setShowIbanModal] = useState(false);
-  const [ibanNumber, setIbanNumber] = useState('');
-  const [savedIban, setSavedIban] = useState<string>('');
+  const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
+  const [bankDetails, setBankDetails] = useState({
+    accountName: '',
+    accountNumber: '',
+    iban: '',
+    bankName: '',
+    swiftCode: '',
+    branch: '',
+  });
+  const [hasBankDetails, setHasBankDetails] = useState(false);
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -130,12 +136,13 @@ export default function WithdrawScreen() {
     setSelectedQuickAmount(100);
   };
 
-  const handleAddIban = () => {
-    if (ibanNumber.trim().length < 15) {
+  const handleSaveBankDetails = () => {
+    // Validate required fields
+    if (!bankDetails.accountName.trim()) {
       setAlertState({
         visible: true,
-        title: 'Invalid IBAN',
-        message: 'Please enter a valid IBAN number (minimum 15 characters).',
+        title: 'Missing Information',
+        message: 'Please enter account holder name.',
         type: 'error',
         onConfirm: () => {
           setAlertState(prev => ({ ...prev, visible: false }));
@@ -143,11 +150,36 @@ export default function WithdrawScreen() {
       });
       return;
     }
-    // Save IBAN and mark as having payment method
-    setHasPaymentMethod(true);
-    setSavedIban(ibanNumber.trim());
-    setShowIbanModal(false);
-    setIbanNumber(''); // Clear input for next time
+
+    if (!bankDetails.accountNumber.trim()) {
+      setAlertState({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please enter account number.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    if (!bankDetails.bankName.trim()) {
+      setAlertState({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please enter bank name.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    // Save bank details
+    setHasBankDetails(true);
+    setShowBankDetailsModal(false);
   };
 
   const isFormValid = () => {
@@ -159,8 +191,8 @@ export default function WithdrawScreen() {
       selectedMethod &&
       isConfirmed;
 
-    // If bank transfer is selected and no payment method, require IBAN or payment method
-    if (selectedMethod === 'bank' && !hasPaymentMethod) {
+    // If bank transfer is selected, require bank details
+    if (selectedMethod === 'bank' && !hasBankDetails) {
       return false;
     }
 
@@ -185,32 +217,34 @@ export default function WithdrawScreen() {
 
     setIsProcessing(true);
     try {
-      // Add withdrawal to context (frontend-only)
-      const bankDetails = {
-        accountHolderName: 'Saved Bank Account',
-        accountNumber: '****1234',
-        bankName: 'Standard Chartered Bank',
-        iban: savedIban || '',
-        swiftCode: '',
-      };
-      
-      await addBankTransferWithdrawal(withdrawAmount, bankDetails);
+      // Create withdrawal request via backend API
+      const request = await bankWithdrawalsAPI.createRequest({
+        amountUSDT: withdrawAmount,
+        userBankAccountName: bankDetails.accountName.trim(),
+        userBankAccountNumber: bankDetails.accountNumber.trim(),
+        userBankIban: bankDetails.iban.trim() || undefined,
+        userBankName: bankDetails.bankName.trim(),
+        userBankSwiftCode: bankDetails.swiftCode.trim() || undefined,
+        userBankBranch: bankDetails.branch.trim() || undefined,
+      });
 
-      // Navigate to success screen instead of showing alert
+      console.log('Withdrawal request created:', request);
+
+      // Navigate to success screen (don't pass BWR- code to user)
       router.push({
         pathname: '/wallet/withdraw-success',
         params: {
           amount: withdrawAmount.toString(),
           method: 'Bank Transfer',
-          iban: savedIban || 'N/A',
         },
       } as any);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting withdrawal:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit withdrawal request. Please try again.';
       setAlertState({
         visible: true,
         title: 'Error',
-        message: 'Failed to submit withdrawal request. Please try again.',
+        message: errorMessage,
         type: 'error',
         onConfirm: () => {
           setAlertState(prev => ({ ...prev, visible: false }));
@@ -236,12 +270,12 @@ export default function WithdrawScreen() {
         })}
       />
 
-      {/* IBAN Entry Modal */}
+      {/* Bank Details Entry Modal */}
       <Modal
-        visible={showIbanModal}
+        visible={showBankDetailsModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowIbanModal(false)}
+        onRequestClose={() => setShowBankDetailsModal(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -249,27 +283,29 @@ export default function WithdrawScreen() {
         >
           <TouchableOpacity
             activeOpacity={1}
-            onPress={() => setShowIbanModal(false)}
+            onPress={() => setShowBankDetailsModal(false)}
             style={{
               flex: 1,
               backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)',
             }}
           />
-          <View
+          <ScrollView
             style={{
               backgroundColor: colors.background,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               padding: 24,
               paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+              maxHeight: '80%',
             }}
+            keyboardShouldPersistTaps="handled"
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
-                Add IBAN Number
+                Bank Account Details
               </Text>
               <TouchableOpacity
-                onPress={() => setShowIbanModal(false)}
+                onPress={() => setShowBankDetailsModal(false)}
                 style={{
                   width: 32,
                   height: 32,
@@ -283,50 +319,167 @@ export default function WithdrawScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16 }}>
-              Enter your IBAN number to receive bank transfers
+            <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 20 }}>
+              Enter your bank account details to receive withdrawals
             </Text>
 
-            <TextInput
-              value={ibanNumber}
-              onChangeText={setIbanNumber}
-              placeholder="Enter IBAN (e.g., GB29 NWBK 6016 1331 9268 19)"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="characters"
-              style={{
-                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                color: colors.textPrimary,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderRadius: 12,
-                fontSize: 16,
-                borderWidth: 1.5,
-                borderColor: ibanNumber.trim().length >= 15
-                  ? colors.primary
-                  : isDarkColorScheme
-                    ? 'rgba(255, 255, 255, 0.2)'
-                    : 'rgba(0, 0, 0, 0.1)',
-                marginBottom: 20,
-                fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-              }}
-            />
+            <View style={{ gap: 16 }}>
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  Account Holder Name *
+                </Text>
+                <TextInput
+                  value={bankDetails.accountName}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, accountName: text })}
+                  placeholder="John Doe"
+                  placeholderTextColor={colors.textMuted}
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  Account Number *
+                </Text>
+                <TextInput
+                  value={bankDetails.accountNumber}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, accountNumber: text })}
+                  placeholder="1234567890"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  Bank Name *
+                </Text>
+                <TextInput
+                  value={bankDetails.bankName}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, bankName: text })}
+                  placeholder="Standard Chartered Bank"
+                  placeholderTextColor={colors.textMuted}
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  IBAN (Optional)
+                </Text>
+                <TextInput
+                  value={bankDetails.iban}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, iban: text })}
+                  placeholder="GB29 NWBK 6016 1331 9268 19"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="characters"
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  SWIFT Code (Optional)
+                </Text>
+                <TextInput
+                  value={bankDetails.swiftCode}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, swiftCode: text })}
+                  placeholder="SCBLPKKA"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="characters"
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                  }}
+                />
+              </View>
+
+              <View>
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
+                  Branch (Optional)
+                </Text>
+                <TextInput
+                  value={bankDetails.branch}
+                  onChangeText={(text) => setBankDetails({ ...bankDetails, branch: text })}
+                  placeholder="Main Branch, Karachi"
+                  placeholderTextColor={colors.textMuted}
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    color: colors.textPrimary,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    fontSize: 16,
+                    borderWidth: 1.5,
+                    borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </View>
+            </View>
 
             <TouchableOpacity
-              onPress={handleAddIban}
-              disabled={ibanNumber.trim().length < 15}
+              onPress={handleSaveBankDetails}
+              disabled={!bankDetails.accountName.trim() || !bankDetails.accountNumber.trim() || !bankDetails.bankName.trim()}
               style={{
-                backgroundColor: ibanNumber.trim().length < 15 ? colors.border : colors.primary,
+                backgroundColor: (!bankDetails.accountName.trim() || !bankDetails.accountNumber.trim() || !bankDetails.bankName.trim()) ? colors.border : colors.primary,
                 paddingVertical: 16,
                 borderRadius: 12,
                 alignItems: 'center',
-                opacity: ibanNumber.trim().length < 15 ? 0.6 : 1,
+                marginTop: 20,
+                opacity: (!bankDetails.accountName.trim() || !bankDetails.accountNumber.trim() || !bankDetails.bankName.trim()) ? 0.6 : 1,
               }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
-                Add IBAN
+                Save Bank Details
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -406,10 +559,10 @@ export default function WithdrawScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: isDarkColorScheme
-                ? 'rgba(0, 0, 0, 0.4)'
+                ? 'rgba(189, 192, 31, 0.36)'
                 : 'rgba(255, 255, 255, 0.9)',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              // borderWidth: 1,
+              // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
             }}>
             <Ionicons name="information-circle-outline" size={24} color={colors.warning} />
           </TouchableOpacity>
@@ -424,7 +577,7 @@ export default function WithdrawScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
           
-          <View style={{ paddingTop: 8, paddingBottom: 100 }}>
+          <View style={{ paddingTop: 8, paddingBottom: 10 }}>
             {/* Balance Card */}
             <View
               style={{
@@ -482,7 +635,8 @@ export default function WithdrawScreen() {
                   color: colors.textPrimary,
                   fontSize: 16,
                   fontWeight: '600',
-                  marginBottom: 12,
+                  paddingLeft: 5,
+                  marginBottom: 5,
                 }}>
                 Withdrawal Amount
               </Text>
@@ -542,7 +696,8 @@ export default function WithdrawScreen() {
               )}
 
               {/* Quick Amount Buttons */}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}
+              className='px-1'>
                 <TouchableOpacity
                   onPress={() => handleQuickAmount(25)}
                   style={{
@@ -643,7 +798,8 @@ export default function WithdrawScreen() {
                   color: colors.textPrimary,
                   fontSize: 16,
                   fontWeight: '600',
-                  marginBottom: 12,
+                  marginBottom: 5,
+                  paddingLeft: 5,
                 }}>
                 Withdrawal Method
               </Text>
@@ -652,15 +808,14 @@ export default function WithdrawScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setSelectedMethod('bank');
-                  if (!hasPaymentMethod) {
-                    setIbanNumber(''); // Clear input for new IBAN entry
-                    setShowIbanModal(true);
+                  if (!hasBankDetails) {
+                    setShowBankDetailsModal(true);
                   }
                 }}
                 style={{
                   padding: 16,
                   borderRadius: 16,
-                  marginBottom: 12,
+                  marginBottom: 5,
                   backgroundColor: selectedMethod === 'bank'
                     ? isDarkColorScheme
                       ? 'rgba(34, 197, 94, 0.15)'
@@ -708,19 +863,19 @@ export default function WithdrawScreen() {
                       Bank Transfer
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
-                      Linked Bank Account
+                      Linked Bank Account 1-3 business days | No Fee
                     </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                    {/* <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                       1-3 business days | No Fee
-                    </Text>
+                    </Text> */}
                   </View>
                   {selectedMethod === 'bank' && (
                     <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                   )}
                 </View>
 
-                {/* Display Saved IBAN */}
-                {selectedMethod === 'bank' && savedIban && (
+                {/* Display Saved Bank Details */}
+                {selectedMethod === 'bank' && hasBankDetails && (
                   <View
                     style={{
                       marginTop: 12,
@@ -728,21 +883,38 @@ export default function WithdrawScreen() {
                       borderTopWidth: 1,
                       borderTopColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                     }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <Ionicons name="card" size={16} color={colors.primary} />
-                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 8 }}>
-                          IBAN: <Text style={{ color: colors.textPrimary, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>{savedIban}</Text>
+                    <View style={{ gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 2 }}>
+                            Account Name
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                            {bankDetails.accountName}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setShowBankDetailsModal(true)}
+                          style={{ padding: 4 }}>
+                          <Ionicons name="create-outline" size={16} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                      <View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 2 }}>
+                          Account Number
+                        </Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
+                          {bankDetails.accountNumber}
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setIbanNumber(savedIban); // Pre-fill with current IBAN for editing
-                          setShowIbanModal(true);
-                        }}
-                        style={{ padding: 4 }}>
-                        <Ionicons name="create-outline" size={16} color={colors.textMuted} />
-                      </TouchableOpacity>
+                      <View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 2 }}>
+                          Bank
+                        </Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 13 }}>
+                          {bankDetails.bankName}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 )}
@@ -818,7 +990,7 @@ export default function WithdrawScreen() {
               style={{
                 padding: 16,
                 borderRadius: 16,
-                marginBottom: 20,
+                marginBottom: 2,
                 backgroundColor: isDarkColorScheme
                   ? 'rgba(0, 0, 0, 0.5)'
                   : 'rgba(255, 255, 255, 0.9)',
@@ -867,11 +1039,11 @@ export default function WithdrawScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 marginBottom: 20,
-                padding: 16,
+                padding: 12,
                 borderRadius: 12,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(0, 0, 0, 0.3)'
-                  : 'rgba(255, 255, 255, 0.6)',
+                // backgroundColor: isDarkColorScheme
+                //   ? 'rgba(0, 0, 0, 0.3)'
+                //   : 'rgba(255, 255, 255, 0.6)',
               }}>
               <View
                 style={{
@@ -921,7 +1093,7 @@ export default function WithdrawScreen() {
             </TouchableOpacity>
 
             {/* Footer Note */}
-            <View
+            {/* <View
               style={{
                 padding: 12,
                 borderRadius: 12,
@@ -935,7 +1107,7 @@ export default function WithdrawScreen() {
                   Withdrawals may take 1–3 business days to process. You will be notified once the transfer is complete.
                 </Text>
               </View>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

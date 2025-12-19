@@ -18,6 +18,11 @@ export interface Transaction {
   propertyTitle?: string;
   proofUrl?: string; // For bank transfer deposits (frontend-only)
   bankDetails?: any; // For bank transfer withdrawals (frontend-only)
+  metadata?: {
+    bankTransactionId?: string; // Bank transaction ID from admin (for withdrawals)
+    bankWithdrawalRequestId?: string;
+    [key: string]: any;
+  };
 }
 
 export interface DepositMethod {

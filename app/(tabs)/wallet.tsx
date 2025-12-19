@@ -101,7 +101,6 @@ export default function WalletScreen() {
   return (
     <View style={{ flex: 1 }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
-
       {/* Linear Gradient Background - Same as BlocksHomeScreen */}
       <LinearGradient
         colors={
@@ -130,8 +129,7 @@ export default function WalletScreen() {
           bottom: 0,
         }}
       />
-
-      {/* Header */}
+      {/* Header */}s
       <View
         style={{
           backgroundColor: 'transparent', // Transparent to show gradient
@@ -341,7 +339,6 @@ export default function WalletScreen() {
           </View>
         </View>
       </View>
-
       {/* Pending Deposits Notification */}
       {(() => {
         // Calculate pending deposits from transactions to ensure it's always accurate
@@ -389,9 +386,50 @@ export default function WalletScreen() {
           </View>
         ) : null;
       })()}
+      {/* Pending Withdrawals Notification */}
+      {(() => {
+        // Calculate pending withdrawals from transactions
+        const pendingWithdrawals = transactions
+          .filter((tx) => tx.type === 'withdraw' && tx.status === 'pending')
+          .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
+        return pendingWithdrawals > 0 ? (
+          <View className="mb-4 px-4">
+            <View
+              style={{
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: isDarkColorScheme
+                  ? 'rgba(239, 68, 68, 0.2)'
+                  : 'rgba(239, 68, 68, 0.15)',
+                borderWidth: 1.5,
+                borderColor: isDarkColorScheme
+                  ? 'rgba(239, 68, 68, 0.5)'
+                  : 'rgba(239, 68, 68, 0.3)',
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <MaterialIcons name="schedule" size={24} color={colors.destructive} />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: '600',
+                      marginBottom: 4,
+                    }}>
+                    Pending Withdrawal Processing
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
+                    ${pendingWithdrawals.toFixed(2)} is being processed. This may take 2-3 business
+                    days.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : null;
+      })()}
       {/* Quick Actions */}
-
       {/* Transaction Filters */}
       <View className="mx-4 mb-4">
         <ScrollView
@@ -431,7 +469,6 @@ export default function WalletScreen() {
           ))}
         </ScrollView>
       </View>
-
       {/* Transactions */}
       <ScrollView
         className="rounded-2xl px-4 pb-20"

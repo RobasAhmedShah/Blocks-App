@@ -16,6 +16,7 @@ import { Defs, RadialGradient, Rect, Stop, Svg } from 'react-native-svg';
 import { useNotificationContext } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
+import { useApp } from '@/contexts/AppContext';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -23,7 +24,11 @@ export default function WalletScreen() {
   const { balance, transactions, loading, loadWallet, loadTransactions } = useWallet();
   const { walletUnreadCount } = useNotificationContext();
   const { isAuthenticated, isGuest } = useAuth();
+  const { state } = useApp();
   const [activeTab, setActiveTab] = useState('all');
+
+  // Extract first name from fullName (from actual profile data)
+  const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
 
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
@@ -137,7 +142,24 @@ export default function WalletScreen() {
         }}
         className="px-4 pb-4">
         <View className="mb-4 flex-row items-center justify-between">
-          <View style={{ flex: 1 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              color: 'white', 
+              fontSize: 20, 
+              fontWeight: 'bold',
+              marginBottom: 2,
+            }}>
+              Welcome,
+            </Text>
+            <Text style={{ 
+              color: colors.textSecondary, 
+              fontSize: 20, 
+              fontWeight: '400',
+              marginBottom: 2,
+            }}>
+              {firstName}'s Wallet
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => {
               router.push({
@@ -266,7 +288,7 @@ export default function WalletScreen() {
                 fontSize: 42,
                 fontWeight: '700',
               }}>
-              {balance.usdc.toFixed(0)}.
+              {balance.usdc.toFixed(0)}
             </Text>
             <Text
               style={{
@@ -275,7 +297,7 @@ export default function WalletScreen() {
                 fontSize: 32,
                 fontWeight: '600',
               }}>
-              {balance.usdc.toFixed(2).slice(-2)}
+              .{balance.usdc.toFixed(2).slice(-2)}
             </Text>
             <Text
               style={{
@@ -292,12 +314,6 @@ export default function WalletScreen() {
 
           {/* Actions */}
           <View
-            style={
-              {
-                // borderTopWidth: 1,
-                // borderTopColor: 'rgba(255, 255, 255, 0.28)',
-              }
-            }
             className="mt-4 flex-row justify-between rounded-2xl px-8 pt-2">
             <LinearGradient
               colors={
@@ -309,10 +325,10 @@ export default function WalletScreen() {
                       'rgba(255, 255, 255, 0.28)',
                     ]
                   : [
-                      '#ECFDF5', // Light green (top)
-                      '#D1FAE5', // Pale green
-                      '#A7F3D0', // Soft green
-                      '#FFFFFF', // White (bottom)
+                      ' #ECFDF5', // Light green (top)
+                      ' #D1FAE5', // Pale green
+                      ' #A7F3D0', // Soft green
+                      ' #FFFFFF', // White (bottom)
                     ]
               }
               locations={[0.25, 0.4, 0.6, 0.75]} // 40% green, then transition to black
@@ -376,7 +392,7 @@ export default function WalletScreen() {
         </View>
       </View>
       {/* Pending Deposits Notification */}
-      {(() => {
+      {/* {(() => {
         // Calculate pending deposits from transactions to ensure it's always accurate
         // This includes both backend and frontend-only pending deposits
         const pendingDepositsFromTransactions = transactions
@@ -421,9 +437,9 @@ export default function WalletScreen() {
             </View>
           </View>
         ) : null;
-      })()}
+      })()} */}
       {/* Pending Withdrawals Notification */}
-      {(() => {
+      {/* {(() => {
         // Calculate pending withdrawals from transactions
         const pendingWithdrawals = transactions
           .filter((tx) => tx.type === 'withdraw' && tx.status === 'pending')
@@ -464,7 +480,7 @@ export default function WalletScreen() {
             </View>
           </View>
         ) : null;
-      })()}
+      })()} */}
       {/* Quick Actions */}
       {/* Transaction Filters */}
       <View className="mx-4 mb-4">
@@ -507,7 +523,7 @@ export default function WalletScreen() {
       </View>
       {/* Transactions */}
       <ScrollView
-        className="rounded-2xl px-4 pb-20"
+        className="rounded-2xl px-4 pb-20 mb-20"
         // className="mb-2 rounded-2xl pt-4"
         style={
           {
@@ -532,26 +548,14 @@ export default function WalletScreen() {
             <View
               key={transaction.id}
               style={{
-                // backgroundColor: colors.border,
                 backgroundColor: isDarkColorScheme
                   ? 'rgba(0, 0, 0, 0.5)'
                   : 'rgba(255, 255, 255, 0.8)',
-                // borderBottomWidth: 1,
-                // borderBottomColor: 'rgba(255, 255, 255, 0.52)',
-                // borderWidth: 1,
-                // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
               }}
               className="mb-2 flex-row items-center rounded-2xl p-4">
               
               <View
-                className="h-12 w-12 items-center justify-center rounded-full"
-                style={
-                  {
-                    // backgroundColor: isDarkColorScheme
-                    //   ? 'rgba(34, 197, 94, 0.15)'
-                    //   : 'rgba(34, 197, 94, 0.1)',
-                  }
-                }>
+                className="h-12 w-12 items-center justify-center rounded-full">
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
                   size={28}

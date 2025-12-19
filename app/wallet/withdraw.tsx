@@ -49,7 +49,7 @@ export default function WithdrawScreen() {
   const availableBalance = balance.usdc;
 
   const [amount, setAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState<WithdrawMethod>('bank');
+  const [selectedMethod, setSelectedMethod] = useState<WithdrawMethod | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [amountError, setAmountError] = useState('');
@@ -301,6 +301,7 @@ export default function WithdrawScreen() {
                 borderRadius: 12,
                 fontSize: 16,
                 borderWidth: 1.5,
+                letterSpacing: 0.1,
                 borderColor: ibanNumber.trim().length >= 15
                   ? colors.primary
                   : isDarkColorScheme
@@ -406,10 +407,10 @@ export default function WithdrawScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: isDarkColorScheme
-                ? 'rgba(0, 0, 0, 0.4)'
+                ? 'rgba(189, 192, 31, 0.36)'
                 : 'rgba(255, 255, 255, 0.9)',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              // borderWidth: 1,
+              // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
             }}>
             <Ionicons name="information-circle-outline" size={24} color={colors.warning} />
           </TouchableOpacity>
@@ -424,7 +425,7 @@ export default function WithdrawScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
           
-          <View style={{ paddingTop: 8, paddingBottom: 100 }}>
+          <View style={{ paddingTop: 8, paddingBottom: 10 }}>
             {/* Balance Card */}
             <View
               style={{
@@ -482,7 +483,8 @@ export default function WithdrawScreen() {
                   color: colors.textPrimary,
                   fontSize: 16,
                   fontWeight: '600',
-                  marginBottom: 12,
+                  paddingLeft: 5,
+                  marginBottom: 5,
                 }}>
                 Withdrawal Amount
               </Text>
@@ -542,7 +544,8 @@ export default function WithdrawScreen() {
               )}
 
               {/* Quick Amount Buttons */}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}
+              className='px-1'>
                 <TouchableOpacity
                   onPress={() => handleQuickAmount(25)}
                   style={{
@@ -643,7 +646,8 @@ export default function WithdrawScreen() {
                   color: colors.textPrimary,
                   fontSize: 16,
                   fontWeight: '600',
-                  marginBottom: 12,
+                  marginBottom: 5,
+                  paddingLeft: 5,
                 }}>
                 Withdrawal Method
               </Text>
@@ -660,7 +664,7 @@ export default function WithdrawScreen() {
                 style={{
                   padding: 16,
                   borderRadius: 16,
-                  marginBottom: 12,
+                  marginBottom: 5,
                   backgroundColor: selectedMethod === 'bank'
                     ? isDarkColorScheme
                       ? 'rgba(34, 197, 94, 0.15)'
@@ -708,11 +712,11 @@ export default function WithdrawScreen() {
                       Bank Transfer
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 18 }}>
-                      Linked Bank Account
+                      Linked Bank Account 1-3 business days | No Fee
                     </Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                    {/* <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                       1-3 business days | No Fee
-                    </Text>
+                    </Text> */}
                   </View>
                   {selectedMethod === 'bank' && (
                     <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
@@ -818,7 +822,7 @@ export default function WithdrawScreen() {
               style={{
                 padding: 16,
                 borderRadius: 16,
-                marginBottom: 20,
+                marginBottom: 2,
                 backgroundColor: isDarkColorScheme
                   ? 'rgba(0, 0, 0, 0.5)'
                   : 'rgba(255, 255, 255, 0.9)',
@@ -867,11 +871,11 @@ export default function WithdrawScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 marginBottom: 20,
-                padding: 16,
+                padding: 12,
                 borderRadius: 12,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(0, 0, 0, 0.3)'
-                  : 'rgba(255, 255, 255, 0.6)',
+                // backgroundColor: isDarkColorScheme
+                //   ? 'rgba(0, 0, 0, 0.3)'
+                //   : 'rgba(255, 255, 255, 0.6)',
               }}>
               <View
                 style={{
@@ -921,7 +925,7 @@ export default function WithdrawScreen() {
             </TouchableOpacity>
 
             {/* Footer Note */}
-            <View
+            {/* <View
               style={{
                 padding: 12,
                 borderRadius: 12,
@@ -935,7 +939,7 @@ export default function WithdrawScreen() {
                   Withdrawals may take 1–3 business days to process. You will be notified once the transfer is complete.
                 </Text>
               </View>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

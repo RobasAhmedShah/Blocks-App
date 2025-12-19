@@ -137,9 +137,7 @@ export default function WalletScreen() {
         }}
         className="px-4 pb-4">
         <View className="mb-4 flex-row items-center justify-between">
-          <Text style={{ color: colors.textPrimary }} className="text-sm font-medium">
-            Total Balance
-          </Text>
+          <View style={{ flex: 1 }} />
           <TouchableOpacity
             onPress={() => {
               router.push({
@@ -206,19 +204,58 @@ export default function WalletScreen() {
             </Svg>
           </View>
 
+          {/* Total Balance Label */}
+          <View style={{ 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            marginTop: 16,
+            marginBottom: 12,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(34, 197, 94, 0.2)' 
+                : 'rgba(34, 197, 94, 0.15)',
+              borderRadius: 20,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+            }}>
+              <View style={{
+                width: 5,
+                height: 5,
+                borderRadius: 2.5,
+                backgroundColor: colors.primary,
+                marginRight: 6,
+              }} />
+              <Text style={{ 
+                color: '#FFFFFF', 
+                fontSize: 11, 
+                fontWeight: '500',
+                opacity: 0.9,
+              }}>
+                Total Balance
+              </Text>
+            </View>
+          </View>
+
+          {/* Balance Amount - Primary Focus */}
           <View
             style={{
               alignItems: 'baseline',
               justifyContent: 'center',
               flexDirection: 'row',
-              marginTop: 10,
+              marginTop: 4,
+              marginBottom: 4,
             }}>
             <Text
               style={{
                 color: colors.textPrimary,
                 fontFamily: 'sans-serif-light',
                 paddingRight: 2,
-                fontSize: 20,
+                fontSize: 32,
+                fontWeight: '600',
               }}>
               $
             </Text>
@@ -226,30 +263,29 @@ export default function WalletScreen() {
               style={{
                 color: colors.textPrimary,
                 fontFamily: 'sans-serif-light',
-                fontSize: 26,
-              }}
-              // className="text-4xl font-bold"
-            >
+                fontSize: 42,
+                fontWeight: '700',
+              }}>
               {balance.usdc.toFixed(0)}.
             </Text>
             <Text
               style={{
                 color: colors.textPrimary,
                 fontFamily: 'sans-serif-light',
-                fontSize: 20,
-              }}
-              // className="text-4xl font-bold"
-            >
+                fontSize: 32,
+                fontWeight: '600',
+              }}>
               {balance.usdc.toFixed(2).slice(-2)}
             </Text>
             <Text
               style={{
                 color: colors.primary,
-                fontSize: 16,
+                fontSize: 18,
                 fontFamily: 'sans-serif-light',
                 fontWeight: 'bold',
-              }}
-              className="ml-2 mt-1">
+                marginLeft: 8,
+                marginTop: 4,
+              }}>
               USDC
             </Text>
           </View>

@@ -537,7 +537,7 @@ export default function WalletScreen() {
               </View>
               <View className="items-end">
                 <Text
-                  className="text-lg font-bold"
+                  className="text-lg "
                   style={{
                     color:
                       transaction.type === 'deposit' ||

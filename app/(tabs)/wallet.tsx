@@ -129,7 +129,7 @@ export default function WalletScreen() {
           bottom: 0,
         }}
       />
-      {/* Header */}s
+      {/* Header */}
       <View
         style={{
           backgroundColor: 'transparent', // Transparent to show gradient
@@ -506,7 +506,7 @@ export default function WalletScreen() {
                 // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
               }}
               className="mb-2 flex-row items-center rounded-2xl p-4">
-              {/* className="mx-4 flex-row items-center py-4 " */}
+              
               <View
                 className="h-12 w-12 items-center justify-center rounded-full"
                 style={

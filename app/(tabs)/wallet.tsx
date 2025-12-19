@@ -571,6 +571,14 @@ export default function WalletScreen() {
                     {transaction.propertyTitle}
                   </Text>
                 )}
+                {/* Show bank transaction ID for completed withdrawals (hide BWR- codes) */}
+                {transaction.type === 'withdraw' && 
+                 transaction.status === 'completed' && 
+                 transaction.metadata?.bankTransactionId && (
+                  <Text style={{ color: colors.textSecondary }} className="text-xs mt-1">
+                    Transaction ID: {transaction.metadata.bankTransactionId}
+                  </Text>
+                )}
                 <Text style={{ color: colors.textSecondary }} className="text-xs">
                   {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
                 </Text>

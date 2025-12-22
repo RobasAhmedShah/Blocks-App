@@ -442,7 +442,8 @@ export default function PortfolioScreen() {
         renderItem={({ item }) => <PropertyCardStack data={[item]} />}
         ListHeaderComponent={renderHeader}
         // ListFooterComponent={renderFooter}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        nestedScrollEnabled={true}
       />
 
       {/* Bottom Actions */}

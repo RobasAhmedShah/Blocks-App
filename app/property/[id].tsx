@@ -49,6 +49,7 @@ export default function PropertyDetailScreen() {
   const [mapCoordinates, setMapCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
@@ -59,7 +60,10 @@ export default function PropertyDetailScreen() {
   // Geocode property location to coordinates using OpenStreetMap Nominatim API
   useEffect(() => {
     const geocodeLocation = async () => {
-      if (!property || !property.location) return;
+      if (!property || !property.location) {
+        setGeocodingError("Property location information is missing");
+        return;
+      }
 
       try {
         const address = `${property.location}, ${property.city || ''}${property.country ? `, ${property.country}` : ''}`.trim();
@@ -76,7 +80,7 @@ export default function PropertyDetailScreen() {
         );
         
         if (!response.ok) {
-          throw new Error('Geocoding API request failed');
+          throw new Error(`Geocoding API request failed: ${response.status}`);
         }
         
         const data = await response.json();
@@ -87,22 +91,14 @@ export default function PropertyDetailScreen() {
             longitude: parseFloat(data[0].lon),
           });
           setGeocodingError(null);
+          console.log('✅ Geocoding successful:', { address, coordinates: data[0] });
         } else {
-          // Fallback to default coordinates (London, UK based on image)
-          setMapCoordinates({
-            latitude: 51.5074,
-            longitude: -0.1278,
-          });
-          setGeocodingError("Exact location not found, showing approximate location");
+          throw new Error(`No location found for address: ${address}`);
         }
-      } catch (error) {
-        console.error("Geocoding error:", error);
-        // Fallback to default coordinates
-        setMapCoordinates({
-          latitude: 51.5074,
-          longitude: -0.1278,
-        });
-        setGeocodingError("Unable to load map location");
+      } catch (error: any) {
+        console.error("❌ Geocoding error:", error);
+        setGeocodingError(error.message || "Failed to geocode property location. Please check the address.");
+        setMapCoordinates(null);
       }
     };
 
@@ -1384,34 +1380,88 @@ export default function PropertyDetailScreen() {
         overflow: "hidden",
         borderWidth: 1,
         borderColor: colors.border,
-        backgroundColor: colors.muted,
+        backgroundColor: isDarkColorScheme ? '#064E3B' : '#ECFDF5',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
       }}
     >
-      {(property.city || property.location) ? (
-        mapCoordinates ? (
-          <View style={{ flex: 1, position: 'relative' }}>
-            {!mapError ? (
+      {!property.location && !property.city ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Ionicons name="map-outline" size={60} color={colors.primary} />
+          <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16, textAlign: "center" }}>
+            Location not available
+          </Text>
+        </View>
+      ) : geocodingError ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.destructive} />
+          <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16, fontWeight: '600', textAlign: "center", marginBottom: 8 }}>
+            Geocoding Failed
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: "center", paddingHorizontal: 20, lineHeight: 20 }}>
+            {geocodingError}
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: 12, paddingHorizontal: 20 }}>
+            Unable to find coordinates for: {property.location}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
+              Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+            }}
+            style={{
+              marginTop: 16,
+              backgroundColor: colors.primary,
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: colors.primaryForeground, fontWeight: "600" }}>
+              Open in Google Maps
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : mapCoordinates ? (
+        <View style={{ flex: 1, position: 'relative' }}>
+          {!mapError ? (
               <MapView
                 provider={PROVIDER_GOOGLE}
-                style={{ flex: 1, borderRadius: 16 }}
+                style={{ 
+                  flex: 1, 
+                  borderRadius: 16,
+                }}
                 initialRegion={{
                   latitude: mapCoordinates.latitude,
                   longitude: mapCoordinates.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                region={{
-                  latitude: mapCoordinates.latitude,
-                  longitude: mapCoordinates.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
+                  latitudeDelta: 0.008,
+                  longitudeDelta: 0.008,
                 }}
                 mapType="standard"
                 showsUserLocation={false}
                 showsMyLocationButton={false}
+                showsCompass={true}
+                showsScale={false}
                 toolbarEnabled={false}
+                loadingEnabled={true}
+                loadingIndicatorColor={colors.primary}
+                loadingBackgroundColor={isDarkColorScheme ? '#064E3B' : '#ECFDF5'}
+                pitchEnabled={true}
+                rotateEnabled={true}
+                scrollEnabled={true}
+                zoomEnabled={true}
                 onMapReady={() => {
+                  console.log('✅ Google Maps loaded successfully! Coordinates:', mapCoordinates);
+                  setIsMapReady(true);
                   setMapError(null);
+                }}
+                onPress={(e) => {
+                  // Map is interactive, so it's loaded
+                  console.log('✅ Map is interactive - fully loaded');
+                  setIsMapReady(true);
                 }}
               >
               <Marker
@@ -1451,9 +1501,22 @@ export default function PropertyDetailScreen() {
                     marginTop: 12,
                     fontSize: 14,
                     textAlign: "center",
+                    marginBottom: 8,
                   }}
                 >
-                  {mapError || "Map unavailable"}
+                  {mapError || "Google Maps failed to load"}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontSize: 13,
+                    textAlign: "center",
+                    marginTop: 4,
+                    paddingHorizontal: 20,
+                    lineHeight: 20,
+                  }}
+                >
+                  {mapError || "Please verify:\n1. Maps SDK for Android is enabled in Google Cloud Console\n2. API key is correctly configured in AndroidManifest.xml\n3. App has been rebuilt after adding API key"}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -1476,7 +1539,7 @@ export default function PropertyDetailScreen() {
             )}
             
             {/* Overlay button to open in external maps */}
-            {!mapError && (
+            {!mapError && mapCoordinates && (
             <TouchableOpacity
               onPress={() => {
                 const address = `${property.location}, ${property.city}${property.country ? ', ' + property.country : ''}`;
@@ -1515,30 +1578,6 @@ export default function PropertyDetailScreen() {
               </Text>
             </TouchableOpacity>
             )}
-
-            {geocodingError && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 16,
-                  left: 16,
-                  right: 16,
-                  backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.9)',
-                  padding: 8,
-                  borderRadius: 8,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.textSecondary,
-                    fontSize: 11,
-                    textAlign: 'center',
-                  }}
-                >
-                  {geocodingError}
-                </Text>
-              </View>
-            )}
           </View>
         ) : (
           <View
@@ -1558,36 +1597,14 @@ export default function PropertyDetailScreen() {
                 textAlign: "center",
               }}
             >
-              Loading map...
+              Loading map coordinates...
             </Text>
           </View>
-        )
-      ) : (
-        <View
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <Ionicons name="map-outline" size={60} color={colors.primary} />
-          <Text
-            style={{
-              color: colors.textSecondary,
-              marginTop: 12,
-              fontSize: 16,
-              textAlign: "center",
-            }}
-          >
-            Location not available
-          </Text>
-        </View>
-      )}
+        )}
     </View>
 
     {/* Quick Actions */}
-    <View
+    {/* <View
       style={{
         backgroundColor: colors.card,
         borderRadius: 16,
@@ -1641,7 +1658,7 @@ export default function PropertyDetailScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </View> */}
   </View>
 )}
         </View>

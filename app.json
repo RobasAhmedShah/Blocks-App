@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.1.10",
+    "version": "1.1.11",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -61,6 +61,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Allow this app to use Face ID to sign you in securely."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"
       }
     },
     "android": {
@@ -70,14 +73,19 @@
       },
       "package": "com.intelik.Blocks",
       "googleServicesFile": "./google-services.json", 
-      "versionCode": 117
+      "versionCode": 132,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"
+        }
+      }
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-      // "apiUrl": "http://192.168.1.142:3001"
+     
        "apiUrl": "https://blocks-backend.vercel.app"
     },
     "owner": "robas",

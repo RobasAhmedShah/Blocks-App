@@ -294,11 +294,14 @@ export default function WithdrawScreen() {
               backgroundColor: colors.background,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
+              maxHeight: '90%',
+            }}
+            contentContainerStyle={{
               padding: 24,
-              paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-              maxHeight: '80%',
+              paddingBottom: Platform.OS === 'ios' ? 100 : 80,
             }}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
@@ -471,7 +474,8 @@ export default function WithdrawScreen() {
                 paddingVertical: 16,
                 borderRadius: 12,
                 alignItems: 'center',
-                marginTop: 20,
+                marginTop: 24,
+                marginBottom: 20,
                 opacity: (!bankDetails.accountName.trim() || !bankDetails.accountNumber.trim() || !bankDetails.bankName.trim()) ? 0.6 : 1,
               }}
             >

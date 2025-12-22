@@ -1,18 +1,30 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
-import { COLORS } from '@/theme/colors';
+import { View, Platform } from 'react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
+import * as Haptics from 'expo-haptics';
 
 export default function TabsLayout() {
   const { colors, isDarkColorScheme } = useColorScheme();
+
+  // Haptic feedback handler for tab taps
+  const handleTabPress = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarActiveTintColor: '#FFD700',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',
+
+        // ✅ Theme-aware colors
+        tabBarActiveTintColor: colors.warning,
+        tabBarInactiveTintColor: colors.textMuted,
+
+
         tabBarLabelStyle: {
           fontSize: 9,
           fontWeight: '600',
@@ -20,53 +32,39 @@ export default function TabsLayout() {
           marginBottom: 2,
           textTransform: 'uppercase',
         },
+
         tabBarItemStyle: {
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           alignItems: 'center',
-          paddingVertical: 0,
-          height: '80%',
+          height: '100%',
         },
-        tabBarIconStyle: {
-          marginTop: 0,
-          marginBottom: 0,
-        },
+
         tabBarStyle: {
           position: 'absolute',
           left: 20,
           right: 20,
           bottom: 10,
           height: 80,
-          marginHorizontal: 10,
           borderRadius: 50,
           paddingBottom: 8,
-          paddingTop: 5,
-          // backgroundColor: "rgba(0, 0, 0, 0.9)",
+          paddingTop: 6,
           backgroundColor: colors.card,
-          // borderWidth: 4,
-          // borderTopWidth: 4,
-          boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.5)',
-          // borderColor: 'rgba(255, 255, 255, 0.15)',
+          borderWidth: 1,
           borderColor: colors.border,
 
-          // Center the entire tab bar content
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingHorizontal: 10,
-
-          // Shadow
-          shadowColor: '#000',
-          shadowOpacity: 0.08,
+          // ✅ Theme-aware shadow
+          shadowColor: isDarkColorScheme ? '#000' : '#000',
+          shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
           shadowOffset: { width: 0, height: 6 },
           shadowRadius: 12,
-          elevation: 6,
+          elevation: 8,
         },
-      }}>
+      }}
+    >
       {[
         { name: 'home', icon: 'home-outline', title: 'Home' },
         { name: 'portfolio', icon: 'pie-chart-outline', title: 'Portfolio' },
-        { name: 'property', icon: 'business-outline', title: 'Property' },
+        { name: 'property', icon: 'business-outline', title: '' },
         { name: 'wallet', icon: 'wallet-outline', title: 'Wallet' },
         { name: 'profile', icon: 'person-outline', title: 'Profile' },
       ].map((tab) =>
@@ -74,27 +72,40 @@ export default function TabsLayout() {
           <Tabs.Screen
             key={tab.name}
             name={tab.name}
+            listeners={{
+              tabPress: () => {
+                handleTabPress();
+              },
+            }}
             options={{
-              // title: tab.title,
               title: '',
-              tabBarIcon: ({ color, focused }) => (
+              tabBarIcon: ({ focused }) => (
                 <View
                   style={{
                     backgroundColor: colors.primary,
-                    borderRadius: 50,
-                    height: 65,
-                    width: 65,
-                    borderColor: colors.border,
-                    boxShadow: '0px 0px 10px rgba(0, 0, 0, 0.5)',
-                    // marginTop: 15,
-                    marginBottom: 10,
+                    height: 64,
+                    width: 64,
+                    borderRadius: 32,
                     justifyContent: 'center',
                     alignItems: 'center',
-                  }}>
+                    marginBottom: 18,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.3,
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowRadius: 10,
+                    elevation: 10,
+                  }}
+                >
                   <Ionicons
-                    name={focused ? (tab.icon.replace('-outline', '') as any) : (tab.icon as any)}
-                    size={32}
-                    color={colors.background}
+                    name={
+                      focused
+                        ? (tab.icon.replace('-outline', '') as any)
+                        : (tab.icon as any)
+                    }
+                    size={30}
+                    color={colors.primaryForeground}
                   />
                 </View>
               ),
@@ -104,12 +115,21 @@ export default function TabsLayout() {
           <Tabs.Screen
             key={tab.name}
             name={tab.name}
+            listeners={{
+              tabPress: () => {
+                handleTabPress();
+              },
+            }}
             options={{
               title: tab.title,
-              tabBarIcon: ({ color, focused }) => (
+              tabBarIcon: ({ focused, color }) => (
                 <Ionicons
-                  name={focused ? (tab.icon.replace('-outline', '') as any) : (tab.icon as any)}
-                  size={24}
+                  name={
+                    focused
+                      ? (tab.icon.replace('-outline', '') as any)
+                      : (tab.icon as any)
+                  }
+                  size={22}
                   color={color}
                 />
               ),

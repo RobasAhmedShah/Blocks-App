@@ -73,7 +73,7 @@
       },
       "package": "com.intelik.Blocks",
       "googleServicesFile": "./google-services.json", 
-      "versionCode": 132,
+      "versionCode": 134,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"
@@ -86,7 +86,7 @@
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
      
-       "apiUrl": "https://blocks-backend.vercel.app"
+      "apiUrl": "https://blocks-backend.vercel.app"
     },
     "owner": "robas",
     "runtimeVersion": {

@@ -206,23 +206,45 @@ export default function WalletScreen() {
           <View style={{ position: 'absolute', inset: 0 }}>
             <Svg width="100%" height="100%">
               <Defs>
-                {/* Top Right Glow */}
-                <RadialGradient id="grad1" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
-                  <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                  <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                </RadialGradient>
+                {isDarkColorScheme ? (
+                  <>
+                    {/* Dark Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                    </RadialGradient>
 
-                {/* Bottom Left Glow */}
-                <RadialGradient id="grad2" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
-                  <Stop offset="0%" stopColor="#34d399" stopOpacity="0.2" />
-                  <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                </RadialGradient>
+                    {/* Dark Mode - Bottom Left Glow */}
+                    <RadialGradient id="grad2" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                ) : (
+                  <>
+                    {/* Light Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </RadialGradient>
+
+                    {/* Light Mode - Bottom Left Glow */}
+                    <RadialGradient id="grad2" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                      <Stop offset="0%" stopColor="#6ee7b7" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#f0fdf4" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                )}
               </Defs>
 
-              {/* 1. Base Dark Layer (Deep Emerald) */}
-              <Rect width="100%" height="100%" fill="#022c22" />
+              {/* Base Layer */}
+              <Rect 
+                width="100%" 
+                height="100%" 
+                fill={isDarkColorScheme ? "#022c22" : "#f0fdf4"} 
+              />
 
-              {/* 2. Layer the gradients on top of the base */}
+              {/* Layer the gradients on top of the base */}
               <Rect width="100%" height="100%" fill="url(#grad1)" />
               <Rect width="100%" height="100%" fill="url(#grad2)" />
             </Svg>
@@ -241,9 +263,9 @@ export default function WalletScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(34, 197, 94, 0.2)'
-                  : 'rgba(34, 197, 94, 0.15)',
+                // backgroundColor: isDarkColorScheme
+                //   ? 'rgba(34, 197, 94, 0.2)'
+                //   : 'rgba(34, 197, 94, 0.15)',
                 borderRadius: 20,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
@@ -259,7 +281,7 @@ export default function WalletScreen() {
               />
               <Text
                 style={{
-                  color: '#FFFFFF',
+                  color: isDarkColorScheme ? '#FFFFFF' : '#064e3b',
                   fontSize: 11,
                   fontWeight: '500',
                   opacity: 0.9,
@@ -331,10 +353,10 @@ export default function WalletScreen() {
                       'rgba(255, 255, 255, 0.28)',
                     ]
                   : [
-                      ' #ECFDF5', // Light green (top)
-                      ' #D1FAE5', // Pale green
-                      ' #A7F3D0', // Soft green
-                      ' #FFFFFF', // White (bottom)
+                      '#ECFDF5', // Light green (top)
+                      '#D1FAE5', // Pale green
+                      '#A7F3D0', // Soft green
+                      '#FFFFFF', // White (bottom)
                     ]
               }
               locations={[0.25, 0.4, 0.6, 0.75]} // 40% green, then transition to black

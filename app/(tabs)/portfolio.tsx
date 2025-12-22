@@ -10,6 +10,8 @@ import ArcLoader from '@/components/EmeraldLoader';
 import { SavedPlansSection } from '@/components/portfolio/SavedPlansSection';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
+import { PortfolioWeeklyChart } from '@/components/portfolio/PortfolioWeeklyChart';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -60,19 +62,22 @@ export default function PortfolioScreen() {
   const renderHeader = () => (
     <>
       {/* Header */}
+      <View>
+
+
+
+      
       <View
-        style={{
-          backgroundColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.95)' : colors.background,
-          borderBottomWidth: isDarkColorScheme ? 0 : 1,
-          borderBottomColor: colors.border,
-        }}
-        className="px-4 pb-4 pt-12">
-        <View className="mb-4 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <Text style={{ color: colors.textSecondary }} className="text-sm font-medium">
-              Total Portfolio Value
-            </Text>
-          </View>
+        // style={{
+        //   backgroundColor: colors.background,
+        // }}
+        className="px-4 pb-6 pt-12">
+               {/* Linear Gradient Background - Same as BlocksHomeScreen */}
+      
+        <View className="mb-6 flex-row items-center justify-between">
+          <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
+            Portfolio
+          </Text>
           <TouchableOpacity
             onPress={() => {
               router.push({
@@ -89,7 +94,7 @@ export default function PortfolioScreen() {
                   position: 'absolute',
                   top: 6,
                   right: 6,
-                  backgroundColor: colors.destructive,
+                  backgroundColor: colors.primary,
                   borderRadius: 10,
                   minWidth: 20,
                   height: 20,
@@ -97,7 +102,7 @@ export default function PortfolioScreen() {
                   justifyContent: 'center',
                   paddingHorizontal: 6,
                   borderWidth: 2,
-                  borderColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.95)' : colors.background,
+                  borderColor: colors.primary,
                 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>
                   {portfolioUnreadCount > 99 ? '99+' : portfolioUnreadCount}
@@ -107,57 +112,215 @@ export default function PortfolioScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="mb-2 flex-row items-center justify-between">
-          <Text style={{ color: colors.textPrimary }} className="text-4xl font-bold">
-            $
-            {totalValue.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+        {/* Current Balance Card */}
+        <View
+          style={
+            
+            {
+            // backgroundColor: colors.card,
+            borderRadius: 20,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDarkColorScheme ? 0.3 : 0.1,
+            shadowRadius: 12,
+            // elevation: 8,
+          }}>
+            <LinearGradient
+        colors={
+          isDarkColorScheme
+            ? [
+                'rgba(255, 216, 100, 0.84)', // Subtle golden yellow shine (top)
+                'rgba(171, 199, 44, 0.85)',  // Warm yellow-green transition
+                'rgba(123, 136, 3, 0.35)',   // Matches portfolio card theme
+                'rgba(6, 95, 70, 0.4)',      // Deep teal-green (bottom)
+              ]
+            : [
+                'rgba(255, 250, 240, 0.95)', // Warm ivory shine
+                'rgba(255, 248, 220, 0.85)', // Soft golden-white
+                'rgba(250, 250, 245, 0.9)',  // Subtle cream
+                'rgba(255, 255, 255, 0.95)', // Pure white
+              ]
+        }
+        locations={[0, 0.3, 0.65, 1]}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 20,
+        }}
+      />
+
+          <Text style={{ color: 'black' }} className="mb-2 text-sm font-medium">
+             Total Holdings
           </Text>
-          <View
-            style={{
-              backgroundColor: isDarkColorScheme
-                ? 'rgba(22, 163, 74, 0.2)'
-                : 'rgba(22, 163, 74, 0.1)',
-            }}
-            className="flex-row items-center rounded-full px-3 py-1.5">
-            <Ionicons name="arrow-up" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary }} className="ml-1 text-sm font-semibold">
-              +{totalROI.toFixed(1)}%
+          <View className="mb-1 flex-row items-baseline">
+            <Text style={{ color: 'black', fontFamily: 'sans-serif' }} className="text-5xl">
+              ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
+            <Text style={{ color: 'black', fontFamily: 'sans-serif-thin' }} className=" text-4xl">
+              .{totalValue.toFixed(2).split('.')[1]}
             </Text>
           </View>
+          <View className="mt-2 flex-row items-center justify-between">
+            <Text style={{ color: 'black' }} className="text-xs">
+              ${monthlyRentalIncome.toFixed(2)} Monthly Income
+            </Text>
+            <View
+              style={{
+                backgroundColor: isDarkColorScheme
+                  ? 'rgba(22, 163, 74, 0.15)'
+                  : 'rgba(22, 163, 74, 0.1)',
+              }}
+              className="flex-row items-center rounded-full px-2.5 py-1">
+              <Ionicons name="arrow-up" size={14} color={colors.textPrimary} />
+              <Text style={{ color: colors.textPrimary }} className="ml-1 text-xs font-bold">
+                +{totalROI.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
         </View>
-        <Text style={{ color: colors.textSecondary }} className="text-right text-xs">
-          ${monthlyRentalIncome.toFixed(2)} Monthly Rental Income
-        </Text>
+      </View>
+
+      {/* Quick Actions Row */}
+      <View className="px-4">
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => router.push('../wallet')}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+            }}>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+              <Ionicons name="add" size={24} color={colors.primaryForeground} />
+            </View>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              Deposit
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/portfolio/myassets/assets-first')}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+            }}>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+              <Ionicons name="cube" size={24} color={colors.primaryForeground} />
+            </View>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              My Assets
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('../portfolio/guidance/guidance-one')}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+            }}>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+              <Ionicons name="document-text-outline" size={24} color={colors.primaryForeground} />
+            </View>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              Guidance
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Stats Overview Cards */}
       <View className="mt-6 px-4">
-        <Text style={{ color: colors.textPrimary }} className="mb-3 text-lg font-bold">
-          Overview
-        </Text>
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+            Overview
+          </Text>
+          <TouchableOpacity>
+            <Text style={{ color: colors.primary }} className="text-sm font-medium">
+              View All
+            </Text>
+          </TouchableOpacity>
+        </View>
         <View className="flex-row flex-wrap gap-3">
           {/* Total Earnings Card */}
           <View
             style={{
               flex: 1,
               minWidth: '47%',
-              backgroundColor: colors.primary,
+              backgroundColor: colors.card,
               borderRadius: 16,
               padding: 16,
-              // borderWidth: 1,
-              // borderColor: colors.card,
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             }}>
             <View className="mb-2 flex-row items-center justify-between">
-              <Ionicons name="calendar" size={20} color={colors.card} />
               <View
                 style={{
-                  // backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                  backgroundColor: colors.card,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="trending-up" size={18} color={colors.primary} />
+              </View>
+              <View
+                style={{
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
                   paddingHorizontal: 8,
-                  paddingVertical: 2,
+                  paddingVertical: 3,
                   borderRadius: 8,
                 }}>
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
@@ -165,15 +328,11 @@ export default function PortfolioScreen() {
                 </Text>
               </View>
             </View>
-            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
               Total Earnings
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
-              $
-              {totalEarnings.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
+              ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
 
@@ -182,29 +341,38 @@ export default function PortfolioScreen() {
             style={{
               flex: 1,
               minWidth: '47%',
-              backgroundColor: colors.primary,
+              backgroundColor: colors.card,
               borderRadius: 16,
               padding: 16,
-              // borderWidth: 1,
-              // borderColor: colors.card,
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             }}>
             <View className="mb-2 flex-row items-center justify-between">
-              <Ionicons name="calendar" size={20} color={colors.card} />
               <View
                 style={{
-                  // backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                  backgroundColor: colors.card,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="calendar" size={18} color={colors.primary} />
+              </View>
+              <View
+                style={{
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
                   paddingHorizontal: 8,
-                  paddingVertical: 2,
+                  paddingVertical: 3,
                   borderRadius: 8,
                 }}>
-                <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '600' }}>+12%</Text>
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>+12%</Text>
               </View>
             </View>
-            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
               This Month
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
               ${thisMonthEarnings.toFixed(2)}
             </Text>
           </View>
@@ -214,24 +382,30 @@ export default function PortfolioScreen() {
             style={{
               flex: 1,
               minWidth: '47%',
-              backgroundColor: colors.primary,
+              backgroundColor: colors.card,
               borderRadius: 16,
               padding: 16,
-              // borderWidth: 1,
-              // borderColor: colors.border,
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             }}>
-            <View className="mb-2 flex-row items-center justify-between">
-              <Ionicons name="wallet" size={20} color={colors.card} />
+            <View className="mb-2">
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="wallet" size={18} color={colors.primary} />
+              </View>
             </View>
-            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
               Total Invested
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: 'bold' }}>
-              $
-              {totalInvested.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
+              ${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
 
@@ -240,126 +414,116 @@ export default function PortfolioScreen() {
             style={{
               flex: 1,
               minWidth: '47%',
-              backgroundColor: colors.primary,
+              backgroundColor: colors.card,
               borderRadius: 16,
               padding: 16,
-              // borderWidth: 1,
-              // borderColor: colors.border,
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             }}>
-            <View className="mb-2 flex-row items-center justify-between">
-              <Ionicons name="time" size={20} color={colors.card} />
+            <View className="mb-2">
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="time" size={18} color={colors.primary} />
+              </View>
             </View>
-            <Text style={{ color: colors.background, fontSize: 11, marginBottom: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
               Next Payout
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
               {nextPayoutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </Text>
-            <Text style={{ color: colors.background, fontSize: 10, marginTop: 2 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
               ~${averageMonthly.toFixed(2)}
             </Text>
           </View>
         </View>
       </View>
 
-      {/*MY Asset Section*/}
-      <View className="left-0 right-0 z-10 mb-4 mt-6 px-4">
-        <View
-          style={{
-            backgroundColor: isDarkColorScheme ? colors.card : '#FFFFFF',
-            borderWidth: isDarkColorScheme ? 0 : 1,
-            borderColor: colors.border,
-            shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
-            shadowOffset: { width: 0, height: isDarkColorScheme ? 10 : 8 },
-            shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
-            shadowRadius: isDarkColorScheme ? 20 : 24,
-            elevation: isDarkColorScheme ? 20 : 8,
-          }}
-          className="flex-row items-center justify-around gap-2 rounded-2xl px-3 py-2">
-          <TouchableOpacity
-            onPress={() => router.push('../wallet')}
-            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
-            style={
-              {
-                // backgroundColor: colors.primary,
-              }
-            }>
-            <Ionicons name="add" size={24} color={colors.primary} />
-            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
-              Deposit
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push('/portfolio/myassets/assets-first')}
-            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
-            style={
-              {
-                // backgroundColor: colors.primary,
-              }
-            }>
-            <Ionicons name="cube" size={24} color={colors.primary} />
-            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
-              My Assets
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push('../portfolio/guidance/guidance-one')}
-            className="flex-1 flex-col items-center justify-center rounded-2xl p-2"
-            style={
-              {
-                // backgroundColor: colors.primary,
-              }
-            }>
-            <Ionicons name="document-text-outline" size={24} color={colors.primary} />
-            <Text style={{ color: colors.primary }} className="mt-0.5 text-xs font-medium">
-              Guidance
-            </Text>
-          </TouchableOpacity>
-        </View>
+
+      {/* Weekly Performance Chart */}
+      <View className="mt-6 px-4">
+        <PortfolioWeeklyChart 
+          monthlyIncome={monthlyRentalIncome}
+          monthlyExpenses={monthlyRentalIncome * 0.12}
+          investments={investments}
+          totalValue={totalValue}
+        />
       </View>
 
       {/* Performance Summary */}
-      <View className="mt-0 px-4">
-        <Text style={{ color: colors.textPrimary }} className="mb-3 text-lg font-bold">
-          Performance Summary
-        </Text>
+      <View className="mt-4 px-4">
         <View
           style={{
             backgroundColor: colors.card,
             borderRadius: 16,
-            padding: 16,
-            // borderWidth: 0.5,
-            // borderColor: isDarkColorScheme ? 'rgba(189, 189, 189, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+            padding: 18,
+            borderWidth: 1,
+            borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
           }}>
-          <View className="mb-3 flex-row items-center">
-            <Ionicons name="trending-up" size={20} color={colors.primary} />
-            <Text
-              style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
-              Monthly Highlights
-            </Text>
+          <View className="mb-4 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                }}>
+                <Ionicons name="stats-chart" size={18} color={colors.primary} />
+              </View>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+                Performance Summary
+              </Text>
+            </View>
           </View>
 
-          <View className="mb-2 flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
               Average Monthly Return
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
               ${averageMonthly.toFixed(2)}
             </Text>
           </View>
 
-          <View className="mb-2 flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Best Performer</Text>
+          <View
+            style={{
+              height: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+              marginVertical: 10,
+            }}
+          />
+
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Best Performer</Text>
             <Text
-              style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}
+              style={{ color: colors.primary, fontSize: 15, fontWeight: '700' }}
               numberOfLines={1}>
               {bestProperty?.property.title || 'N/A'}
             </Text>
           </View>
 
+          <View
+            style={{
+              height: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+              marginVertical: 10,
+            }}
+          />
+
           <View className="flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Active Properties</Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Active Properties</Text>
+            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
               {investments.length}
             </Text>
           </View>
@@ -367,10 +531,17 @@ export default function PortfolioScreen() {
       </View>
 
       {/* Properties Header */}
-      <View className="mb-2 mt-6 px-4">
-        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
-          Your Properties
-        </Text>
+      <View className="mb-3 mt-6 px-4">
+        <View className="flex-row items-center justify-between">
+          <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+            YOUR PROPERTIES
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
+            <Text style={{ color: colors.primary }} className="text-sm font-semibold">
+              View All
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Overlapping Property Cards */}
@@ -380,6 +551,7 @@ export default function PortfolioScreen() {
 
       {/* Saved Plans Section */}
       <SavedPlansSection />
+      </View>
     </>
   );
 
@@ -435,6 +607,34 @@ export default function PortfolioScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background }} className="flex-1">
+         {/* Linear Gradient Background - 40% green top, black bottom */}
+   <LinearGradient
+        colors={
+          isDarkColorScheme
+            ? [
+                '#00C896', // Teal green (top)
+                '#064E3B', // Deep emerald (40% mark)
+                '#032822',
+                '#021917',
+              ]
+            : [
+                '#F5F5F5', // Smoky light gray
+                '#EDEDED', // Soft ash
+                '#E0E0E0', // Gentle gray
+                '#FFFFFF', // Pure white
+              ]
+        }
+        locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      />
       <FlatList
         data={[]}
         keyExtractor={(_, i) => i.toString()}

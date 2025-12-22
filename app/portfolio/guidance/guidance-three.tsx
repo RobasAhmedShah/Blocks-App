@@ -122,11 +122,17 @@ export default function ConfirmInvestmentScreen() {
       {/* Content */}
       <ScrollView 
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ 
+          paddingHorizontal: 16, 
+          paddingVertical: 32, 
+          paddingBottom: 24,
+          alignItems: 'center',
+        }}
         showsVerticalScrollIndicator={false}
+        bounces={true}
+        nestedScrollEnabled={true}
       >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 32 }}>
-          <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
+        <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
             {/* Property Image and Info */}
             <View style={{ flexDirection: 'column', alignItems: 'center', gap: 16 }}>
               {property.images && property.images.length > 0 ? (
@@ -258,7 +264,6 @@ export default function ConfirmInvestmentScreen() {
               By confirming, you agree to the Terms of Service. This is a non-binding intent to invest.
             </Text>
           </View>
-        </View>
       </ScrollView>
 
       {/* Bottom Buttons */}

@@ -1,4 +1,5 @@
 export interface Property {
+  createdAt: number;
   id: string;
   displayCode?: string; // Database display code like "PROP-000018"
   title: string;
@@ -13,7 +14,7 @@ export interface Property {
   estReturn?: number; // Optional, for backward compatibility (use estimatedROI instead)
   fundingProgress?: number; // Optional, calculated from soldTokens/totalTokens
   tokenSymbol?: string; // Optional
-  
+
   tokenPrice: number;
   minInvestment: number;
   totalTokens: number;
@@ -21,7 +22,7 @@ export interface Property {
   estimatedROI: number;
   estimatedYield: number;
   completionDate: string;
-  
+
   status: 'funding' | 'construction' | 'completed' | 'generating-income';
   images: string[];
   description: string;
@@ -77,4 +78,3 @@ export interface UserInvestment {
 
 // Wallet types moved to @types/wallet.ts
 // Import from there: import { WalletBalance, Transaction } from "@/types/wallet";
-

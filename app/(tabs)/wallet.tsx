@@ -143,20 +143,22 @@ export default function WalletScreen() {
         className="px-4 pb-4">
         <View className="mb-4 flex-row items-center justify-between">
           <View style={{ flex: 1 }}>
-            <Text style={{ 
-              color: 'white', 
-              fontSize: 20, 
-              fontWeight: 'bold',
-              marginBottom: 2,
-            }}>
+            <Text
+              style={{
+                color: 'white',
+                fontSize: 20,
+                fontWeight: 'bold',
+                marginBottom: 2,
+              }}>
               Welcome,
             </Text>
-            <Text style={{ 
-              color: colors.textSecondary, 
-              fontSize: 20, 
-              fontWeight: '400',
-              marginBottom: 2,
-            }}>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontSize: 20,
+                fontWeight: '400',
+                marginBottom: 2,
+              }}>
               {firstName}'s Wallet
             </Text>
           </View>
@@ -318,8 +320,7 @@ export default function WalletScreen() {
           </View>
 
           {/* Actions */}
-          <View
-            className="mt-4 flex-row justify-between rounded-2xl px-8 pt-2">
+          <View className="mt-4 flex-row justify-between rounded-2xl px-8 pt-2">
             <LinearGradient
               colors={
                 isDarkColorScheme
@@ -341,7 +342,7 @@ export default function WalletScreen() {
               end={{ x: 1, y: 0 }}
               style={{
                 position: 'absolute',
-                height: 1,
+                height: 0.1,
                 top: 0,
                 left: 0,
                 right: 0,
@@ -355,6 +356,7 @@ export default function WalletScreen() {
                 onPress={() => router.push('../wallet')}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(22, 163, 74, 0.15)',
+                  boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
                 }}
                 className="mb-2 h-14 w-14 items-center justify-center rounded-full">
                 <MaterialIcons name="arrow-upward" size={28} color={colors.primary} />
@@ -370,6 +372,7 @@ export default function WalletScreen() {
                 onPress={() => router.push('/wallet/withdraw' as any)}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(239, 68, 68, 0.15)',
+                  boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
                 }}
                 className="mb-2 h-14 w-14 items-center justify-center rounded-full">
                 <MaterialIcons name="arrow-downward" size={28} color={colors.primary} />
@@ -385,6 +388,7 @@ export default function WalletScreen() {
                 onPress={() => router.push('/wallet/transfer' as any)}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(234, 179, 8, 0.15)',
+                  boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
                 }}
                 className="mb-2 h-14 w-14 items-center justify-center rounded-full">
                 <MaterialIcons name="swap-horiz" size={28} color={colors.warning} />
@@ -528,7 +532,7 @@ export default function WalletScreen() {
       </View>
       {/* Transactions */}
       <ScrollView
-        className="rounded-2xl px-4 pb-20 mb-20"
+        className="mb-20 rounded-2xl px-4 pb-20"
         // className="mb-2 rounded-2xl pt-4"
         style={
           {
@@ -558,8 +562,7 @@ export default function WalletScreen() {
                   : 'rgba(255, 255, 255, 0.8)',
               }}
               className="mb-2 flex-row items-center rounded-2xl p-4">
-              <View
-                className="h-12 w-12 items-center justify-center rounded-full">
+              <View className="h-12 w-12 items-center justify-center rounded-full">
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
                   size={28}
@@ -576,13 +579,13 @@ export default function WalletScreen() {
                   </Text>
                 )}
                 {/* Show bank transaction ID for completed withdrawals (hide BWR- codes) */}
-                {transaction.type === 'withdraw' && 
-                 transaction.status === 'completed' && 
-                 transaction.metadata?.bankTransactionId && (
-                  <Text style={{ color: colors.textSecondary }} className="text-xs mt-1">
-                    Transaction ID: {transaction.metadata.bankTransactionId}
-                  </Text>
-                )}
+                {transaction.type === 'withdraw' &&
+                  transaction.status === 'completed' &&
+                  transaction.metadata?.bankTransactionId && (
+                    <Text style={{ color: colors.textSecondary }} className="mt-1 text-xs">
+                      Transaction ID: {transaction.metadata.bankTransactionId}
+                    </Text>
+                  )}
                 <Text style={{ color: colors.textSecondary }} className="text-xs">
                   {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
                 </Text>

@@ -27,12 +27,22 @@ import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useAuth } from "@/contexts/AuthContext";
+import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 
 // In the current backend, tokenPrice and minInvestment are already “real” prices.
 // No more /10 scaling.
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
 const { width } = Dimensions.get("window");
+
+// Token price trend data (sample data - can be replaced with real data)
+const tokenPriceData: LineGraphDataPoint[] = [
+  { date: new Date('2025-01-01'), value: 10 },
+  { date: new Date('2025-01-02'), value: 18 },
+  { date: new Date('2025-01-03'), value: 14 },
+  { date: new Date('2025-01-04'), value: 22 },
+  { date: new Date('2025-01-05'), value: 19 },
+];
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -541,6 +551,34 @@ export default function PropertyDetailScreen() {
               >
                 {property.description}
               </Text>
+
+              {/* Token Price Trend */}
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: "600",
+                    marginBottom: 16,
+                  }}
+                >
+                  Token Price Trend
+                </Text>
+                <SimpleLineGraph 
+                  data={tokenPriceData}
+                  lineColor={colors.primary}
+                  gradientColor={colors.primary}
+                />
+              </View>
 
               {/* Key Facts */}
               <View

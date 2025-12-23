@@ -17,6 +17,7 @@ import { useNotificationContext } from '@/contexts/NotificationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { useApp } from '@/contexts/AppContext';
+import { bankWithdrawalsAPI, BankWithdrawalRequest } from '@/services/api/bank-withdrawals.api';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -26,9 +27,28 @@ export default function WalletScreen() {
   const { isAuthenticated, isGuest } = useAuth();
   const { state } = useApp();
   const [activeTab, setActiveTab] = useState('all');
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<BankWithdrawalRequest[]>([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
+
+  // Load pending withdrawal requests
+  const loadPendingWithdrawals = React.useCallback(async () => {
+    if (isGuest || !isAuthenticated) return;
+    
+    try {
+      setLoadingWithdrawals(true);
+      const requests = await bankWithdrawalsAPI.getMyRequests();
+      // Filter only pending withdrawals
+      const pending = requests.filter(req => req.status === 'pending');
+      setPendingWithdrawals(pending);
+    } catch (error) {
+      console.error('Error loading pending withdrawals:', error);
+    } finally {
+      setLoadingWithdrawals(false);
+    }
+  }, [isGuest, isAuthenticated]);
 
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
@@ -36,8 +56,9 @@ export default function WalletScreen() {
       if (loadWallet && loadTransactions && !isGuest && isAuthenticated) {
         loadWallet();
         loadTransactions();
+        loadPendingWithdrawals();
       }
-    }, [loadWallet, loadTransactions, isGuest, isAuthenticated])
+    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated])
   );
 
   // Show SignInGate if in guest mode (after all hooks)
@@ -45,7 +66,50 @@ export default function WalletScreen() {
     return <SignInGate />;
   }
 
-  const filteredTransactions = transactions.filter((tx) => {
+  // Convert pending withdrawal requests to transaction-like objects
+  const pendingWithdrawalTransactions = React.useMemo(() => {
+    return pendingWithdrawals.map((withdrawal) => ({
+      id: `pending-withdrawal-${withdrawal.id}`,
+      type: 'withdraw' as const,
+      amount: -withdrawal.amountUSDT,
+      date: withdrawal.createdAt,
+      description: withdrawal.description || `Bank Withdrawal - ${withdrawal.displayCode}`,
+      status: 'pending' as const,
+      currency: withdrawal.currency || 'USDC',
+      propertyId: undefined,
+      propertyTitle: undefined,
+      metadata: {
+        withdrawalRequestId: withdrawal.id,
+        displayCode: withdrawal.displayCode,
+        bankAccountName: withdrawal.userBankAccountName,
+        bankAccountNumber: withdrawal.userBankAccountNumber,
+        bankName: withdrawal.userBankName,
+      },
+    }));
+  }, [pendingWithdrawals]);
+
+  // Merge transactions with pending withdrawal requests
+  const allTransactions = React.useMemo(() => {
+    // Combine regular transactions with pending withdrawal requests
+    // Remove any duplicate pending withdrawals that might already be in transactions
+    const existingWithdrawalIds = new Set(
+      transactions
+        .filter(tx => tx.type === 'withdraw' && tx.status === 'pending')
+        .map(tx => tx.metadata?.withdrawalRequestId)
+        .filter(Boolean)
+    );
+
+    const newPendingWithdrawals = pendingWithdrawalTransactions.filter(
+      tx => !existingWithdrawalIds.has(tx.metadata?.withdrawalRequestId)
+    );
+
+    // Sort by date (newest first)
+    return [...transactions, ...newPendingWithdrawals].sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [transactions, pendingWithdrawalTransactions]);
+
+  const filteredTransactions = allTransactions.filter((tx) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'rental_income') {
       // Show both 'rental' and 'rental_income' when filtering by rental_income
@@ -54,7 +118,7 @@ export default function WalletScreen() {
     return tx.type === activeTab;
   });
 
-  if (loading) {
+  if (loading || loadingWithdrawals) {
     return (
       <View
         style={{
@@ -93,7 +157,7 @@ export default function WalletScreen() {
       case 'rental_income':
         return colors.primary;
       case 'withdraw':
-        return colors.destructive;
+        return colors.primary;
       case 'investment':
         return colors.primary;
       case 'transfer':
@@ -117,11 +181,11 @@ export default function WalletScreen() {
                 '#021917',
               ]
             : [
-                '#ECFDF5', // Light green (top)
-                '#D1FAE5', // Pale green
-                '#A7F3D0', // Soft green
-                '#FFFFFF', // White (bottom)
-              ]
+              '#F5F5F5', // Smoky light gray
+              '#EDEDED', // Soft ash
+              '#E0E0E0', // Gentle gray
+              '#FFFFFF', // Pure white
+            ]
         }
         locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
         start={{ x: 0, y: 0 }}
@@ -145,7 +209,7 @@ export default function WalletScreen() {
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                color: 'white',
+                color: colors.textPrimary,
                 fontSize: 20,
                 fontWeight: 'bold',
                 marginBottom: 2,
@@ -178,7 +242,7 @@ export default function WalletScreen() {
                   position: 'absolute',
                   top: 6,
                   right: 6,
-                  backgroundColor: colors.destructive,
+                  backgroundColor: colors.primary,
                   borderRadius: 12,
                   minWidth: 20,
                   height: 20,
@@ -422,96 +486,7 @@ export default function WalletScreen() {
           </View>
         </View>
       </View>
-      {/* Pending Deposits Notification */}
-      {/* {(() => {
-        // Calculate pending deposits from transactions to ensure it's always accurate
-        // This includes both backend and frontend-only pending deposits
-        const pendingDepositsFromTransactions = transactions
-          .filter((tx) => tx.type === 'deposit' && tx.status === 'pending')
-          .reduce((sum, tx) => sum + tx.amount, 0);
-
-        // Use balance.pendingDeposits if available, otherwise calculate from transactions
-        const totalPending = balance.pendingDeposits || pendingDepositsFromTransactions;
-
-        return totalPending > 0 ? (
-          <View className="mb-4 mt-4 px-4">
-            <View
-              style={{
-                padding: 16,
-                borderRadius: 16,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(234, 179, 8, 0.2)'
-                  : 'rgba(234, 179, 8, 0.15)',
-                borderWidth: 1.5,
-                borderColor: isDarkColorScheme
-                  ? 'rgba(234, 179, 8, 0.5)'
-                  : 'rgba(234, 179, 8, 0.3)',
-              }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <MaterialIcons name="pending" size={24} color={colors.warning} />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: '600',
-                      marginBottom: 4,
-                    }}>
-                    Pending Deposit Verification
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
-                    ${totalPending.toFixed(2)} is pending verification. This may take up to 24
-                    hours.
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null;
-      })()} */}
-      {/* Pending Withdrawals Notification */}
-      {/* {(() => {
-        // Calculate pending withdrawals from transactions
-        const pendingWithdrawals = transactions
-          .filter((tx) => tx.type === 'withdraw' && tx.status === 'pending')
-          .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-
-        return pendingWithdrawals > 0 ? (
-          <View className="mb-4 px-4">
-            <View
-              style={{
-                padding: 16,
-                borderRadius: 16,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(239, 68, 68, 0.2)'
-                  : 'rgba(239, 68, 68, 0.15)',
-                borderWidth: 1.5,
-                borderColor: isDarkColorScheme
-                  ? 'rgba(239, 68, 68, 0.5)'
-                  : 'rgba(239, 68, 68, 0.3)',
-              }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <MaterialIcons name="schedule" size={24} color={colors.destructive} />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: '600',
-                      marginBottom: 4,
-                    }}>
-                    Pending Withdrawal Processing
-                  </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18 }}>
-                    ${pendingWithdrawals.toFixed(2)} is being processed. This may take 2-3 business
-                    days.
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null;
-      })()} */}
+      
       {/* Quick Actions */}
       {/* Transaction Filters */}
       <View className="mx-4 mb-4">
@@ -600,6 +575,21 @@ export default function WalletScreen() {
                     {transaction.propertyTitle}
                   </Text>
                 )}
+                {/* Show bank details for pending withdrawals */}
+                {transaction.type === 'withdraw' &&
+                  transaction.status === 'pending' &&
+                  transaction.metadata?.bankName && (
+                    <View style={{ marginTop: 4 }}>
+                      <Text style={{ color: colors.textSecondary }} className="text-xs">
+                        {transaction.metadata.bankName}
+                      </Text>
+                      {transaction.metadata.displayCode && (
+                        <Text style={{ color: colors.textMuted }} className="text-xs">
+                          Request: {transaction.metadata.displayCode}
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 {/* Show bank transaction ID for completed withdrawals (hide BWR- codes) */}
                 {transaction.type === 'withdraw' &&
                   transaction.status === 'completed' &&
@@ -608,7 +598,7 @@ export default function WalletScreen() {
                       Transaction ID: {transaction.metadata.bankTransactionId}
                     </Text>
                   )}
-                <Text style={{ color: colors.textSecondary }} className="text-xs">
+                <Text style={{ color: transaction.status === 'completed' ? colors.primary : colors.warning }} className="text-xs">
                   {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
                 </Text>
               </View>
@@ -622,7 +612,7 @@ export default function WalletScreen() {
                       transaction.type === 'rental_income'
                         ? colors.primary
                         : transaction.type === 'withdraw'
-                          ? colors.destructive
+                          ? colors.primary
                           : colors.textPrimary,
                   }}>
                   {transaction.amount >= 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}

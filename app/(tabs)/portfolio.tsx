@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { PortfolioWeeklyChart } from '@/components/portfolio/PortfolioWeeklyChart';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useApp } from '@/contexts/AppContext';
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -20,14 +21,21 @@ export default function PortfolioScreen() {
   const { investments, totalValue, totalROI, monthlyRentalIncome, loading, loadInvestments } =
     usePortfolio();
   const { portfolioUnreadCount } = useNotificationContext();
+  const { state, loadTransactions } = useApp();
+  const transactions = state.transactions || [];
 
-  // Refresh investments when screen comes into focus
+  // Refresh investments and transactions when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (loadInvestments && !isGuest && isAuthenticated) {
-        loadInvestments();
+      if (!isGuest && isAuthenticated) {
+        if (loadInvestments) {
+          loadInvestments();
+        }
+        if (loadTransactions) {
+          loadTransactions();
+        }
       }
-    }, [loadInvestments, isGuest, isAuthenticated])
+    }, [loadInvestments, loadTransactions, isGuest, isAuthenticated])
   );
 
   // Show SignInGate if in guest mode - render conditionally but call all hooks first
@@ -40,9 +48,9 @@ export default function PortfolioScreen() {
     return (
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: colors.background }}>
-        <ArcLoader size={46} color={colors.primary} />
-      </View>
+      style={{ backgroundColor: colors.background }}>
+      <ArcLoader size={46} color={colors.primary} />
+    </View>
     );
   }
 
@@ -52,7 +60,7 @@ export default function PortfolioScreen() {
   const averageMonthly = monthlyRentalIncome;
   const thisMonthEarnings = monthlyRentalIncome * 1.12; // Simulated 12% growth
   const nextPayoutDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-
+  
   // Find best performing property
   const bestProperty = investments.reduce(
     (best, current) => (current.roi > (best?.roi || 0) ? current : best),
@@ -67,7 +75,7 @@ export default function PortfolioScreen() {
 
 
       
-      <View
+      <View 
         // style={{
         //   backgroundColor: colors.background,
         // }}
@@ -77,8 +85,8 @@ export default function PortfolioScreen() {
         <View className="mb-6 flex-row items-center justify-between">
           <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
             Portfolio
-          </Text>
-          <TouchableOpacity
+            </Text>
+          <TouchableOpacity 
             onPress={() => {
               router.push({
                 pathname: '/notifications',
@@ -111,7 +119,7 @@ export default function PortfolioScreen() {
             )}
           </TouchableOpacity>
         </View>
-
+              
         {/* Current Balance Card */}
         <View
           style={
@@ -171,20 +179,20 @@ export default function PortfolioScreen() {
           <View className="mt-2 flex-row items-center justify-between">
             <Text style={{ color: 'black' }} className="text-xs">
               ${monthlyRentalIncome.toFixed(2)} Monthly Income
-            </Text>
-            <View
-              style={{
+          </Text>
+          <View 
+            style={{ 
                 backgroundColor: isDarkColorScheme
                   ? 'rgba(22, 163, 74, 0.15)'
                   : 'rgba(22, 163, 74, 0.1)',
-              }}
+            }}
               className="flex-row items-center rounded-full px-2.5 py-1">
               <Ionicons name="arrow-up" size={14} color={colors.textPrimary} />
               <Text style={{ color: colors.textPrimary }} className="ml-1 text-xs font-bold">
-                +{totalROI.toFixed(1)}%
-              </Text>
-            </View>
+              +{totalROI.toFixed(1)}%
+            </Text>
           </View>
+        </View>
         </View>
       </View>
 
@@ -275,7 +283,7 @@ export default function PortfolioScreen() {
             </View>
             <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
               Guidance
-            </Text>
+        </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -284,8 +292,8 @@ export default function PortfolioScreen() {
       <View className="mt-6 px-4">
         <View className="mb-3 flex-row items-center justify-between">
           <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-            Overview
-          </Text>
+          Overview
+        </Text>
           <TouchableOpacity>
             <Text style={{ color: colors.primary }} className="text-sm font-medium">
               View All
@@ -451,9 +459,9 @@ export default function PortfolioScreen() {
       <View className="mt-6 px-4">
         <PortfolioWeeklyChart 
           monthlyIncome={monthlyRentalIncome}
-          monthlyExpenses={monthlyRentalIncome * 0.12}
           investments={investments}
           totalValue={totalValue}
+          transactions={transactions}
         />
       </View>
 
@@ -483,10 +491,10 @@ export default function PortfolioScreen() {
               </View>
               <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
                 Performance Summary
-              </Text>
+            </Text>
             </View>
           </View>
-
+          
           <View className="mb-3 flex-row items-center justify-between">
             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
               Average Monthly Return
@@ -533,13 +541,13 @@ export default function PortfolioScreen() {
       {/* Properties Header */}
       <View className="mb-3 mt-6 px-4">
         <View className="flex-row items-center justify-between">
-          <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
             YOUR PROPERTIES
           </Text>
           <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
             <Text style={{ color: colors.primary }} className="text-sm font-semibold">
               View All
-            </Text>
+        </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -668,15 +676,15 @@ export default function PortfolioScreen() {
               Deposit
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity 
             onPress={() => router.push('/portfolio/myassets/assets-first')}
             className="flex-1 flex-col items-center justify-center p-2">
             <Ionicons name="cube" size={24} color={colors.textPrimary} />
             <Text style={{ color: colors.textPrimary }} className="mt-0.5 text-xs font-medium">
-              My Assets
+             My Assets
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity 
             onPress={() => router.push('../portfolio/guidance/guidance-one')}
             className="flex-1 flex-col items-center justify-center p-2">
             <Ionicons name="document-text-outline" size={24} color={colors.textPrimary} />

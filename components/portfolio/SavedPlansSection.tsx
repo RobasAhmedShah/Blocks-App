@@ -34,15 +34,40 @@ export function SavedPlansSection() {
     }
   }, []);
 
-  useEffect(() => {
-    loadPlans();
-  }, [loadPlans]);
-
-  // Refresh plans when screen comes into focus
+  // Only load plans when screen comes into focus, not on every render
   useFocusEffect(
     React.useCallback(() => {
-      loadPlans();
-    }, [loadPlans])
+      let isMounted = true;
+      let isCancelled = false;
+      
+      const load = async () => {
+        if (isCancelled || !isMounted) return;
+        
+        try {
+          setLoading(true);
+          const plans = await savedPlansService.getAllPlans();
+          
+          if (!isCancelled && isMounted) {
+            setSavedPlans(plans);
+          }
+        } catch (error) {
+          if (!isCancelled && isMounted) {
+            console.error('Error loading saved plans:', error);
+          }
+        } finally {
+          if (!isCancelled && isMounted) {
+            setLoading(false);
+          }
+        }
+      };
+      
+      load();
+      
+      return () => {
+        isCancelled = true;
+        isMounted = false;
+      };
+    }, []) // Empty deps - only run on focus
   );
 
   const handleDeletePlan = async (planId: string) => {

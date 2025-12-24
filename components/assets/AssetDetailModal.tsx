@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,26 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
+import { usePortfolio } from '@/services/usePortfolio';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { ASSETS_CONSTANTS } from './constants';
 import { getModalStats } from './utils';
+import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 
 const { SCREEN_WIDTH, SCREEN_HEIGHT } = ASSETS_CONSTANTS;
+
+// Token price trend data (sample data - can be replaced with real data)
+const tokenPriceData: LineGraphDataPoint[] = [
+  { date: new Date('2025-01-01'), value: 10 },
+  { date: new Date('2025-01-02'), value: 18 },
+  { date: new Date('2025-01-03'), value: 14 },
+  { date: new Date('2025-01-04'), value: 22 },
+  { date: new Date('2025-01-05'), value: 19 },
+];
 
 // Types
 export interface StatCard {
@@ -200,9 +213,14 @@ export function AssetDetailModal({
   onRangeChange,
   modalPanResponder,
 }: AssetDetailModalProps) {
+  // All hooks must be called before any conditional returns
   const router = useRouter();
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+  const { investments } = usePortfolio();
+
+    
   
+  // Early return after all hooks
   if (!visible || !investment) return null;
 
   const property = investment.property;
@@ -225,6 +243,7 @@ export function AssetDetailModal({
   } else {
     console.log(`[AssetDetailModal] No certificates found for investment ${investment.id}`);
   }
+  
   
   // Handle PDF download/viewing
   const handleDownloadPDF = async (certificateUrl: string, index: number) => {
@@ -268,6 +287,7 @@ export function AssetDetailModal({
       setDownloadingDoc(null);
     }
   };
+
 
   return (
     <>
@@ -442,6 +462,34 @@ export function AssetDetailModal({
                     />
                   ))}
                 </View>
+              </View>
+
+              {/* Token Price Trend */}
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: "600",
+                    marginBottom: 16,
+                  }}
+                >
+                  Token Price Trend
+                </Text>
+                <SimpleLineGraph 
+                  data={tokenPriceData}
+                  lineColor={colors.primary}
+                  gradientColor={colors.primary}
+                />
               </View>
 
               {/* Investment Details Card */}

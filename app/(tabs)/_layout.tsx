@@ -46,8 +46,8 @@ export default function TabsLayout() {
           bottom: 10,
           height: 80,
           borderRadius: 50,
-          paddingBottom: 8,
-          paddingTop: 6,
+          // paddingBottom: 8,
+          paddingTop: 10,
           backgroundColor: colors.card,
           borderWidth: 1,
           borderColor: colors.border,
@@ -129,7 +129,7 @@ export default function TabsLayout() {
                       ? (tab.icon.replace('-outline', '') as any)
                       : (tab.icon as any)
                   }
-                  size={22}
+                  size={26}
                   color={color}
                 />
               ),

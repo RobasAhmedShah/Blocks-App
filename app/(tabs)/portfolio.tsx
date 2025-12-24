@@ -14,6 +14,8 @@ import { PortfolioWeeklyChart } from '@/components/portfolio/PortfolioWeeklyChar
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
 
+
+
 export default function PortfolioScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
@@ -70,17 +72,40 @@ export default function PortfolioScreen() {
   const renderHeader = () => (
     <>
       {/* Header */}
-      <View>
-
-
-
-      
-      <View 
-        // style={{
-        //   backgroundColor: colors.background,
-        // }}
-        className="px-4 pb-6 pt-12">
-               {/* Linear Gradient Background - Same as BlocksHomeScreen */}
+      <View >
+      <View className="px-4 pb-6 pt-12">
+        
+        {/* <LinearGradient
+          colors={
+            isDarkColorScheme
+              ? 
+                [
+                'rgb(4, 149, 55)',
+                'rgb(4, 149, 14)',
+                'rgb(28, 121, 2)',
+                'rgb(1, 65, 23)',
+                ]
+              : [
+                'rgba(245, 245, 245, 1)', // #F5F5F5
+                'rgba(237, 237, 237, 1)', // #EDEDED
+                'rgba(224, 224, 224, 1)', // #E0E0E0
+                'rgba(255, 255, 255, 1)', // #FFFFFF
+                ]
+          }
+          locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
+          // locations={[0, 0.5, 1]} // 40% green, then transition to black
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+          }}
+        /> */}
       
         <View className="mb-6 flex-row items-center justify-between">
           <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
@@ -136,10 +161,11 @@ export default function PortfolioScreen() {
             shadowRadius: 12,
             // elevation: 8,
           }}>
-            <LinearGradient
+        <LinearGradient
         colors={
-          isDarkColorScheme
-            ? [
+        isDarkColorScheme
+            ? 
+              [
                 'rgba(255, 216, 100, 0.84)', // Subtle golden yellow shine (top)
                 'rgba(171, 199, 44, 0.85)',  // Warm yellow-green transition
                 'rgba(123, 136, 3, 0.35)',   // Matches portfolio card theme
@@ -151,19 +177,19 @@ export default function PortfolioScreen() {
                 'rgba(250, 250, 245, 0.9)',  // Subtle cream
                 'rgba(255, 255, 255, 0.95)', // Pure white
               ]
-        }
-        locations={[0, 0.3, 0.65, 1]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 20,
-        }}
-      />
+              }
+            locations={[0, 0.3, 0.65, 1]}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: 20,
+            }}
+          />
 
           <Text style={{ color: 'black' }} className="mb-2 text-sm font-medium">
              Total Holdings
@@ -197,20 +223,37 @@ export default function PortfolioScreen() {
       </View>
 
       {/* Quick Actions Row */}
-      <View className="px-4">
-        <View className="flex-row gap-3">
+      <View className="mx-4">
+        <View className="flex-row"
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: 16,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        }}
+        >
+        
+        {[
+          { label: 'Deposit', icon: 'add', route: '../wallet' },
+          { label: 'My Assets', icon: 'cube', route: '../portfolio/myassets/assets-first' },
+          { label: 'Guidance', icon: 'document-text-outline', route: '../portfolio/guidance/guidance-one' },
+          { label: 'Market', icon: 'storefront', route: '/marketplace' },
+        ].map((item, index) => (
           <TouchableOpacity
-            onPress={() => router.push('../wallet')}
+            onPress={() => router.push(item.route as any)}
             style={{
               flex: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-              borderRadius: 16,
-              padding: 16,
+              // backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+              // borderRadius: 16,
+              paddingVertical: 10,
               alignItems: 'center',
               justifyContent: 'center',
-              borderWidth: 1,
+              // borderWidth: 1,
+              borderRightWidth: index === 3 ? 0 : 2,
               borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-            }}>
+            }}
+            >
             <View
               style={{
                 width: 48,
@@ -221,99 +264,14 @@ export default function PortfolioScreen() {
                 justifyContent: 'center',
                 marginBottom: 8,
               }}>
-              <Ionicons name="add" size={24} color={colors.primaryForeground} />
+              <Ionicons name={item.icon as any} size={24} color={colors.primaryForeground} />
             </View>
             <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              Deposit
+              {item.label}
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push('/portfolio/myassets/assets-first')}
-            style={{
-              flex: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-              borderRadius: 16,
-              padding: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-            }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-              <Ionicons name="cube" size={24} color={colors.primaryForeground} />
-            </View>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              My Assets
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push('../portfolio/guidance/guidance-one')}
-            style={{
-              flex: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-              borderRadius: 16,
-              padding: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-            }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-              <Ionicons name="document-text-outline" size={24} color={colors.primaryForeground} />
-            </View>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              Guidance
-        </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.push('/marketplace')}
-            style={{
-              flex: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-              borderRadius: 16,
-              padding: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-            }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-              <Ionicons name="storefront" size={24} color={colors.primaryForeground} />
-            </View>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              Marketplace
-            </Text>
-          </TouchableOpacity>
+        ))}
+          
         </View>
       </View>
 
@@ -649,19 +607,20 @@ export default function PortfolioScreen() {
         colors={
           isDarkColorScheme
             ? [
-                '#00C896', // Teal green (top)
-                '#064E3B', // Deep emerald (40% mark)
-                '#032822',
-                '#021917',
+              '#00C896', // Teal green (top)
+              '#064E3B', // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
               ]
             : [
-                '#F5F5F5', // Smoky light gray
-                '#EDEDED', // Soft ash
-                '#E0E0E0', // Gentle gray
-                '#FFFFFF', // Pure white
+              'rgba(245, 245, 245, 1)', // #F5F5F5
+              'rgba(237, 237, 237, 1)', // #EDEDED
+              'rgba(224, 224, 224, 1)', // #E0E0E0
+              'rgba(255, 255, 255, 1)', // #FFFFFF
               ]
         }
         locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
+        // locations={[0, 0.5, 1]} // 40% green, then transition to black
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={{

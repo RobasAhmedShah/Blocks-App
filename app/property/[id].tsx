@@ -446,8 +446,8 @@ export default function PropertyDetailScreen() {
         {/* Main Content */}
         <View className="-mt-3 bg-white rounded-t-3xl -ml-1 p-6" style={{ backgroundColor: colors.card }}>
           {/* Key Stats */}
-          <View className="flex-row flex-wrap gap-6 mb-6" style={{ backgroundColor: colors.card }}>
-            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
+          <View className="flex-row flex-wrap gap-6 mb-4" style={{ backgroundColor: colors.card }}>
+            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.background,borderRadius: 10,padding: 10 }}>
               <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>
                 Min. Investment
               </Text>
@@ -455,7 +455,7 @@ export default function PropertyDetailScreen() {
                 ${property.minInvestment.toFixed(2)}
               </Text>
             </View>
-            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
+            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.background,borderRadius: 10,padding: 10 }}>
               <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>
                 Expected Yield
               </Text>
@@ -466,8 +466,8 @@ export default function PropertyDetailScreen() {
           </View>
 
           {/* Progress Bar */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+          <View style={{ marginBottom: 12,backgroundColor: colors.background,borderRadius: 10,padding: 10 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
               <Text style={{ color: colors.textMuted, fontSize: 14 }}>Funding Progress</Text>
               <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "600" }}>
                 {Math.round((property.soldTokens / property.totalTokens) * 100)}%
@@ -509,7 +509,7 @@ export default function PropertyDetailScreen() {
                 key={tab}
                 onPress={() => setActiveTab(tab as any)}
                 style={{
-                  paddingBottom: 12,
+                  paddingVertical: 12,
                   paddingHorizontal: 16,
                   borderBottomWidth: activeTab === tab ? 2 : 0,
                   borderBottomColor: activeTab === tab ? colors.primary : "transparent",
@@ -555,7 +555,7 @@ export default function PropertyDetailScreen() {
               {/* Token Price Trend */}
               <View
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: colors.background,
                   borderRadius: 16,
                   padding: 20,
                   marginBottom: 24,
@@ -583,7 +583,7 @@ export default function PropertyDetailScreen() {
               {/* Key Facts */}
               <View
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: colors.background,
                   borderRadius: 16,
                   padding: 20,
                   marginBottom: 24,
@@ -780,7 +780,7 @@ export default function PropertyDetailScreen() {
               {/* Amenities */}
               <View
                 style={{
-                  backgroundColor: colors.card,
+                  backgroundColor: colors.background,
                   borderRadius: 16,
                   padding: 20,
                   marginBottom: 24,

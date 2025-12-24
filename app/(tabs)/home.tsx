@@ -460,26 +460,49 @@ function BlocksHomeScreen() {
               Blocks
             </Text>
           </View>
-          <CopilotStep
-            text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
-            order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
-            name={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.name}>
-            <CopilotView
-              style={{
-                // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 9999,
-                borderWidth: 1,
-                borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
-              }}>
-              <CopilotTouchableOpacity onPress={() => router.push('./wallet')}>
-                <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
-                  ${balance.toFixed(2)}
-                </Text>
-              </CopilotTouchableOpacity>
-            </CopilotView>
-          </CopilotStep>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {/* Marketplace Button */}
+            {!isGuest && isAuthenticated && (
+              <TouchableOpacity
+                onPress={() => router.push('/marketplace')}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 9999,
+                  backgroundColor: `${colors.primary}${isDarkColorScheme ? '30' : '20'}`,
+                  borderWidth: 1,
+                  borderColor: `${colors.primary}${isDarkColorScheme ? '50' : '40'}`,
+                }}
+                activeOpacity={0.7}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="storefront" size={16} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                    Marketplace
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            <CopilotStep
+              text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
+              order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
+              name={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.name}>
+              <CopilotView
+                style={{
+                  // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
+                }}>
+                <CopilotTouchableOpacity onPress={() => router.push('./wallet')}>
+                  <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
+                    ${balance.toFixed(2)}
+                  </Text>
+                </CopilotTouchableOpacity>
+              </CopilotView>
+            </CopilotStep>
+          </View>
         </Animated.View>
 
         {/* KYC Verification Alert - only shows when not submitted, disappears after submission */}
@@ -744,6 +767,81 @@ function BlocksHomeScreen() {
           </View>
 
           {affordable.length > 0 && <AffordableSection affordable={affordable} />}
+          
+          {/* Marketplace Quick Access Card */}
+          {!isGuest && isAuthenticated && (
+            <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 16 }}>
+              <TouchableOpacity
+                onPress={() => router.push('/marketplace')}
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 20,
+                  padding: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: isDarkColorScheme ? 0.3 : 0.1,
+                  shadowRadius: 12,
+                  elevation: 8,
+                }}
+                activeOpacity={0.8}>
+                <LinearGradient
+                  colors={
+                    isDarkColorScheme
+                      ? ['rgba(6, 78, 59, 0.3)', 'rgba(2, 44, 34, 0.5)']
+                      : ['rgba(236, 253, 245, 0.8)', 'rgba(209, 250, 229, 0.6)']
+                  }
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: 20,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <View
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      backgroundColor: colors.primary + '20',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                    <Ionicons name="storefront" size={28} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        marginBottom: 4,
+                      }}>
+                      Token Marketplace
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        lineHeight: 20,
+                      }}>
+                      Buy and sell property tokens with other users
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color={colors.textMuted}
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {isGuest ? null : (
             <View style={{ marginBottom: -20, marginTop: 26 }}>
               <CopilotStep

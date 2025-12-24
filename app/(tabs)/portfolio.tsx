@@ -39,9 +39,9 @@ export default function PortfolioScreen() {
   );
 
   // Show SignInGate if in guest mode - render conditionally but call all hooks first
-  // if (isGuest || !isAuthenticated) {
-  //   return <SignInGate />;
-  // }
+  if (isGuest || !isAuthenticated) {
+    return <SignInGate />;
+  }
 
   // Loading state - must be after all hooks
   if (loading || !investments) {
@@ -284,6 +284,35 @@ export default function PortfolioScreen() {
             <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
               Guidance
         </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/marketplace')}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+            }}>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+              <Ionicons name="storefront" size={24} color={colors.primaryForeground} />
+            </View>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              Marketplace
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

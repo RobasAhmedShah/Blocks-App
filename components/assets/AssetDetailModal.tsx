@@ -319,7 +319,7 @@ export function AssetDetailModal({
           </View>
 
           {/* Floating Header */}
-          <Animated.View
+          {/* <Animated.View
             style={{
               opacity: modalHeaderOpacity,
               position: 'absolute',
@@ -327,9 +327,9 @@ export function AssetDetailModal({
               left: 0,
               right: 0,
               zIndex: 10,
-              backgroundColor: isDarkColorScheme 
-                ? 'rgba(11, 12, 16, 0.95)' 
-                : 'rgba(255, 255, 255, 0.95)',
+              // backgroundColor: isDarkColorScheme 
+              //   ? 'rgba(58, 155, 34, 0.95)' 
+              //   : 'rgba(255, 255, 255, 0.95)',
               borderTopLeftRadius: 32,
               borderTopRightRadius: 32,
             }}
@@ -362,7 +362,7 @@ export function AssetDetailModal({
                 </TouchableOpacity>
               </View>
             </SafeAreaView>
-          </Animated.View>
+          </Animated.View> */}
 
           {/* Scrollable Content */}
           <ScrollView

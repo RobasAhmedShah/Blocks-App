@@ -480,7 +480,7 @@ export default function WalletScreen() {
                 <MaterialIcons name="swap-horiz" size={28} color={colors.warning} />
               </TouchableOpacity>
               <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-                Transfer
+                Trade
               </Text>
             </View>
           </View>

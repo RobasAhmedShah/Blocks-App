@@ -53,7 +53,7 @@ export default function PropertyDetailScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
-  const { isGuest, exitGuestMode} = useAuth();
+  const { isGuest, exitGuestMode, isAuthenticated } = useAuth();
 
   const bookmarked = id ? isBookmarked(id) : false;
 
@@ -1680,6 +1680,23 @@ export default function PropertyDetailScreen() {
           gap: 8,
         }}
       >
+        {!isGuest && isAuthenticated && (
+          <TouchableOpacity
+            onPress={() => router.push(`/marketplace?propertyId=${id}`)}
+            style={{
+              backgroundColor: colors.card,
+              height: 48,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Ionicons name="storefront" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           onPress={handleInvest}
           style={{

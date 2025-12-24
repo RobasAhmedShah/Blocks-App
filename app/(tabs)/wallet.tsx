@@ -621,7 +621,7 @@ export default function WalletScreen() {
                       transaction.type === 'rental' ||
                       transaction.type === 'rental_income'
                         ? colors.primary
-                        : transaction.type === 'withdraw'
+                        : transaction.type === 'withdraw' || transaction.type === 'investment'
                           ? colors.destructive
                           : colors.textPrimary,
                   }}>

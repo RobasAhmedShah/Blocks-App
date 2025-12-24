@@ -1,0 +1,1513 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  StatusBar,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { marketplaceAPI, MarketplaceListing } from '@/services/api/marketplace.api';
+import { useWallet } from '@/services/useWallet';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AppAlert } from '@/components/AppAlert';
+import { normalizePropertyImages } from '@/utils/propertyUtils';
+import Constants from 'expo-constants';
+import { useAuth } from '@/contexts/AuthContext';
+import { authApi } from '@/services/api/auth.api';
+import * as SecureStore from 'expo-secure-store';
+
+export default function ListingDetailScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { balance } = useWallet();
+  const [listing, setListing] = useState<MarketplaceListing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [tokensToBuy, setTokensToBuy] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  
+  // Check if this is the user's own listing
+  const isOwnListing = listing && currentUserId && listing.sellerId === currentUserId;
+  
+  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+
+  // Helper function to get property image URL
+  const getPropertyImageUrl = (images: any): string | null => {
+    if (!images) return null;
+    
+    // Normalize images to array of strings
+    const imageArray = normalizePropertyImages(images);
+    if (imageArray.length === 0) return null;
+    
+    const firstImage = imageArray[0];
+    if (!firstImage) return null;
+    
+    // If it's already a full URL, return as-is
+    if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+      return firstImage;
+    }
+    
+    // If it's a relative path starting with /, prepend API base URL
+    if (firstImage.startsWith('/')) {
+      return `${API_BASE_URL}${firstImage}`;
+    }
+    
+    // Otherwise, assume it's a relative path
+    return `${API_BASE_URL}/${firstImage}`;
+  };
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  useEffect(() => {
+    if (id) {
+      loadListing();
+    }
+    loadCurrentUser();
+  }, [id]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('auth_token');
+      if (token) {
+        const user = await authApi.getMe(token);
+        setCurrentUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Failed to load current user:', error);
+    }
+  };
+
+  const loadListing = async () => {
+    try {
+      setLoading(true);
+      const data = await marketplaceAPI.getListing(id as string);
+      setListing(data);
+    } catch (error: any) {
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: error.message || 'Failed to load listing',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState((prev) => ({ ...prev, visible: false }));
+          router.back();
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAmountChange = (text: string) => {
+    if (text === '' || /^\d*\.?\d{0,6}$/.test(text)) {
+      setTokensToBuy(text);
+    }
+  };
+
+  const handleMaxTokens = () => {
+    if (listing) {
+      setTokensToBuy(listing.remainingTokens.toString());
+    }
+  };
+
+  const calculateTotal = () => {
+    if (!listing || !tokensToBuy) return 0;
+    const tokens = parseFloat(tokensToBuy);
+    if (isNaN(tokens)) return 0;
+    return tokens * listing.pricePerToken;
+  };
+
+  const validatePurchase = () => {
+    if (!listing) return { valid: false, error: 'Listing not found' };
+
+    const tokens = parseFloat(tokensToBuy);
+    if (isNaN(tokens) || tokens <= 0) {
+      return { valid: false, error: 'Please enter a valid token amount' };
+    }
+
+    if (tokens > listing.remainingTokens) {
+      return {
+        valid: false,
+        error: `Only ${listing.remainingTokens.toFixed(2)} tokens available`,
+      };
+    }
+
+    const total = calculateTotal();
+    if (total < listing.minOrderUSDT) {
+      return {
+        valid: false,
+        error: `Minimum order is ${listing.minOrderUSDT.toFixed(2)} USDT`,
+      };
+    }
+
+    if (total > listing.maxOrderUSDT) {
+      return {
+        valid: false,
+        error: `Maximum order is ${listing.maxOrderUSDT.toFixed(2)} USDT`,
+      };
+    }
+
+    if (total > balance.usdc) {
+      return {
+        valid: false,
+        error: `Insufficient balance. Available: ${balance.usdc.toFixed(2)} USDC`,
+      };
+    }
+
+    return { valid: true, error: null };
+  };
+
+  const handleBuy = async () => {
+    const validation = validatePurchase();
+    if (!validation.valid) {
+      setAlertState({
+        visible: true,
+        title: 'Invalid Purchase',
+        message: validation.error || 'Please check your input',
+        type: 'error',
+        onConfirm: () => setAlertState((prev) => ({ ...prev, visible: false })),
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await marketplaceAPI.buyTokens(id as string, {
+        listingId: id as string,
+        tokensToBuy: parseFloat(tokensToBuy),
+      });
+
+      setAlertState({
+        visible: true,
+        title: 'Purchase Successful!',
+        message: `You successfully purchased ${tokensToBuy} tokens`,
+        type: 'success',
+        onConfirm: () => {
+          setAlertState((prev) => ({ ...prev, visible: false }));
+          setShowBuyModal(false);
+          router.back();
+        },
+      });
+    } catch (error: any) {
+      setAlertState({
+        visible: true,
+        title: 'Purchase Failed',
+        message: error.message || 'Failed to complete purchase',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState((prev) => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!listing) return;
+
+    // Check if listing is active before allowing unpublish
+    if (listing.status !== 'active') {
+      setAlertState({
+        visible: true,
+        title: 'Cannot Unpublish',
+        message: `This listing is already ${listing.status}. Only active listings can be unpublished.`,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState((prev) => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    // Show confirmation alert
+    setAlertState({
+      visible: true,
+      title: 'Unpublish Listing?',
+      message: 'Are you sure you want to remove this listing from the marketplace? Your tokens will be unlocked and available for sale again.',
+      type: 'warning',
+      onConfirm: async () => {
+        setAlertState((prev) => ({ ...prev, visible: false }));
+        setIsProcessing(true);
+        try {
+          await marketplaceAPI.cancelListing(listing.id);
+          setAlertState({
+            visible: true,
+            title: 'Listing Unpublished',
+            message: 'Your listing has been removed from the marketplace successfully.',
+            type: 'success',
+            onConfirm: () => {
+              setAlertState((prev) => ({ ...prev, visible: false }));
+              router.back();
+            },
+          });
+        } catch (error: any) {
+          // Extract error message from response
+          let errorMessage = 'Failed to unpublish listing';
+          if (error.message) {
+            errorMessage = error.message;
+          } else if (error.response) {
+            try {
+              const errorData = await error.response.json();
+              errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch {
+              errorMessage = `HTTP ${error.response.status}`;
+            }
+          }
+          
+          setAlertState({
+            visible: true,
+            title: 'Unpublish Failed',
+            message: errorMessage,
+            type: 'error',
+            onConfirm: () => {
+              setAlertState((prev) => ({ ...prev, visible: false }));
+            },
+          });
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}
+      >
+        <MaterialIcons name="error-outline" size={64} color={colors.textMuted} />
+        <Text style={{ color: colors.textPrimary }} className="text-lg font-semibold mt-4">
+          Listing not found
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            marginTop: 20,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            backgroundColor: colors.primary,
+            borderRadius: 12,
+          }}
+        >
+          <Text style={{ color: '#ffffff' }} className="font-semibold">
+            Go Back
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const propertyImage = listing ? getPropertyImageUrl(listing.property.images) : null;
+
+  const total = calculateTotal();
+  const validation = validatePurchase();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Property Image Header */}
+        {propertyImage ? (
+          <Image
+            source={{ uri: propertyImage }}
+            style={{ width: '100%', height: 300 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            style={{
+              width: '100%',
+              height: 300,
+              backgroundColor: colors.primary + '20',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <MaterialIcons name="home" size={64} color={colors.primary} />
+          </View>
+        )}
+
+        {/* Back Button Overlay */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            position: 'absolute',
+            top: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+            left: 16,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        </TouchableOpacity>
+
+        {/* Content */}
+        <View className="px-4 py-6">
+          {/* Property Title with Info Button */}
+          <View className="flex-row items-center justify-between mb-2">
+            <Text
+              style={{ color: colors.textPrimary }}
+              className="text-2xl font-bold flex-1"
+            >
+              {listing.property.title}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowInfoModal(true)}
+              style={{
+                backgroundColor: colors.primary + '20',
+                borderRadius: 20,
+                padding: 8,
+                marginLeft: 12,
+              }}
+            >
+              <Ionicons name="information-circle" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Location */}
+          <View className="flex-row items-center mb-4">
+            <Ionicons name="location" size={16} color={colors.textMuted} />
+            <Text style={{ color: colors.textMuted }} className="text-sm ml-1">
+              {listing.property.city || 'Location'} • {listing.property.displayCode}
+            </Text>
+          </View>
+
+          {/* Status Badge */}
+          {listing.status !== 'active' && (
+            <View
+              style={{
+                backgroundColor: listing.status === 'sold' 
+                  ? '#10b981' 
+                  : colors.textMuted,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                marginBottom: 16,
+                alignItems: 'center',
+              }}
+            >
+              <View className="flex-row items-center">
+                <MaterialIcons 
+                  name={listing.status === 'sold' ? 'check-circle' : 'cancel'} 
+                  size={20} 
+                  color="#ffffff" 
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={{ color: '#ffffff' }} className="font-bold text-base">
+                  {listing.status === 'sold' ? 'Sold' : 'Unpublished'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Price Card */}
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text style={{ color: colors.textMuted }} className="text-xs mb-1">
+                  Price per Token
+                </Text>
+                <Text style={{ color: colors.primary }} className="text-3xl font-bold">
+                  ${listing.pricePerToken.toFixed(2)}
+                </Text>
+              </View>
+              <View
+                style={{
+                  backgroundColor: colors.primary + '20',
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: colors.primary }} className="font-bold text-lg">
+                  {listing.property.expectedROI}% APY
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: colors.border,
+                marginVertical: 16,
+              }}
+            />
+
+            <View className="flex-row justify-between">
+              <Text style={{ color: colors.textMuted }} className="text-sm">
+                Available Tokens
+              </Text>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                {listing.remainingTokens.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Expected Returns Card */}
+          {(() => {
+            const roi = listing.property.expectedROI || 0;
+            const pricePerToken = listing.pricePerToken;
+            const tokens = listing.remainingTokens;
+            const investmentValue = pricePerToken * tokens;
+            const annualReturn = (roi / 100) * investmentValue;
+            const monthlyReturn = annualReturn / 12;
+            const dailyReturn = annualReturn / 365;
+
+            return (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+                  Expected Returns
+                </Text>
+                
+                <View className="flex-row justify-between items-center mb-3">
+                  <View className="flex-row items-center flex-1">
+                    <View
+                      style={{
+                        backgroundColor: colors.primary + '20',
+                        borderRadius: 10,
+                        padding: 10,
+                        marginRight: 12,
+                      }}
+                    >
+                      <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                    </View>
+                    <View className="flex-1">
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Daily Return
+                      </Text>
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                        ${dailyReturn.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View className="flex-row justify-between items-center mb-3">
+                  <View className="flex-row items-center flex-1">
+                    <View
+                      style={{
+                        backgroundColor: colors.primary + '20',
+                        borderRadius: 10,
+                        padding: 10,
+                        marginRight: 12,
+                      }}
+                    >
+                      <Ionicons name="calendar" size={20} color={colors.primary} />
+                    </View>
+                    <View className="flex-1">
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Monthly Return
+                      </Text>
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                        ${monthlyReturn.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View className="flex-row justify-between items-center mb-3">
+                  <View className="flex-row items-center flex-1">
+                    <View
+                      style={{
+                        backgroundColor: colors.primary + '20',
+                        borderRadius: 10,
+                        padding: 10,
+                        marginRight: 12,
+                      }}
+                    >
+                      <Ionicons name="calendar-sharp" size={20} color={colors.primary} />
+                    </View>
+                    <View className="flex-1">
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Annual Return
+                      </Text>
+                      <Text style={{ color: colors.primary }} className="text-base font-bold">
+                        ${annualReturn.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: colors.border,
+                    marginVertical: 12,
+                  }}
+                />
+
+                <View className="flex-row justify-between items-center">
+                  <Text style={{ color: colors.textMuted }} className="text-sm">
+                    Total Investment Value
+                  </Text>
+                  <Text style={{ color: colors.primary }} className="text-lg font-bold">
+                    ${investmentValue.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* ROI Projection Mini Chart */}
+          {(() => {
+            const years = [1, 2, 3, 4, 5];
+            const baseROI = listing.property.expectedROI || 0;
+            const pricePerToken = listing.pricePerToken;
+            
+            const projections = years.map((year) => {
+              const annualReturn = (baseROI / 100) * pricePerToken;
+              const totalReturn = annualReturn * year;
+              const projectedValue = pricePerToken + totalReturn;
+              const roiPercentage = ((projectedValue - pricePerToken) / pricePerToken) * 100;
+              
+              return {
+                year,
+                projectedValue,
+                roiPercentage,
+              };
+            });
+
+            const maxValue = Math.max(...projections.map(p => p.projectedValue), pricePerToken);
+            const chartData = projections.map((projection) => ({
+              ...projection,
+              height: (projection.projectedValue / maxValue) * 100,
+            }));
+
+            return (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+                  5-Year ROI Projection
+                </Text>
+                
+                {/* Mini Chart */}
+                <View
+                  style={{
+                    height: 140,
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    justifyContent: 'space-between',
+                    marginBottom: 16,
+                    paddingBottom: 8,
+                  }}
+                >
+                  {chartData.map((data, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        flex: 1,
+                        alignItems: 'center',
+                        marginHorizontal: 2,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: '100%',
+                          height: `${data.height}%`,
+                          backgroundColor: colors.primary,
+                          borderRadius: 6,
+                          minHeight: 20,
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          paddingBottom: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#ffffff',
+                            fontSize: 9,
+                            fontWeight: 'bold',
+                          }}
+                          numberOfLines={1}
+                        >
+                          ${data.projectedValue.toFixed(0)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={{
+                          color: colors.textMuted,
+                          fontSize: 10,
+                          marginTop: 6,
+                          fontWeight: '600',
+                        }}
+                      >
+                        Y{data.year}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Projection Summary */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                    paddingTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: colors.border,
+                  }}
+                >
+                  {projections.slice(0, 3).map((projection, index) => (
+                    <View key={index} style={{ alignItems: 'center' }}>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Year {projection.year}
+                      </Text>
+                      <Text style={{ color: colors.primary }} className="text-sm font-bold">
+                        +{projection.roiPercentage.toFixed(1)}%
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* Investment Metrics Card */}
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+              Investment Metrics
+            </Text>
+            
+            <View className="flex-row justify-between mb-3">
+              <View className="flex-1">
+                <Text style={{ color: colors.textMuted }} className="text-xs mb-1">
+                  Expected ROI (APY)
+                </Text>
+                <Text style={{ color: colors.primary }} className="text-base font-bold">
+                  {listing.property.expectedROI}%
+                </Text>
+              </View>
+              <View className="flex-1" style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: colors.textMuted }} className="text-xs mb-1">
+                  Token Price
+                </Text>
+                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                  ${listing.pricePerToken.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: colors.border,
+                marginVertical: 12,
+              }}
+            />
+
+            <View className="flex-row justify-between mb-2">
+              <Text style={{ color: colors.textMuted }} className="text-sm">
+                Available Tokens
+              </Text>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                {listing.remainingTokens.toFixed(2)} tokens
+              </Text>
+            </View>
+            <View className="flex-row justify-between">
+              <Text style={{ color: colors.textMuted }} className="text-sm">
+                Property Code
+              </Text>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                {listing.property.displayCode}
+              </Text>
+            </View>
+          </View>
+
+          {/* Action Button - Buy or Unpublish */}
+          {isOwnListing ? (
+            listing.status === 'active' ? (
+              <TouchableOpacity
+                onPress={handleUnpublish}
+                disabled={isProcessing}
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  opacity: isProcessing ? 0.6 : 1,
+                }}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View className="flex-row items-center">
+                    <MaterialIcons name="unpublished" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
+                      Unpublish Property
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 20,
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <View className="flex-row items-center">
+                  <MaterialIcons 
+                    name={listing.status === 'sold' ? 'check-circle' : 'cancel'} 
+                    size={20} 
+                    color={listing.status === 'sold' ? '#10b981' : colors.textMuted} 
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text 
+                    style={{ 
+                      color: listing.status === 'sold' ? '#10b981' : colors.textMuted 
+                    }} 
+                    className="text-lg font-bold"
+                  >
+                    {listing.status === 'sold' ? 'Listing Sold' : 'Listing Unpublished'}
+                  </Text>
+                </View>
+                <Text 
+                  style={{ color: colors.textMuted }} 
+                  className="text-xs mt-2 text-center"
+                >
+                  {listing.status === 'sold' 
+                    ? 'This listing has been sold and cannot be unpublished' 
+                    : 'This listing has been removed from the marketplace'}
+                </Text>
+              </View>
+            )
+          ) : (
+            <TouchableOpacity
+              onPress={() => setShowBuyModal(true)}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 16,
+                paddingVertical: 18,
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
+                Buy Tokens
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Buy Modal - Only show for non-own listings */}
+      <Modal
+        visible={showBuyModal && !isOwnListing}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowBuyModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                padding: 24,
+                maxHeight: '90%',
+              }}
+            >
+              <View className="flex-row items-center justify-between mb-6">
+                <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
+                  Buy Tokens
+                </Text>
+                <TouchableOpacity onPress={() => setShowBuyModal(false)}>
+                  <Ionicons name="close" size={28} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Property Info */}
+              <View
+                style={{
+                  backgroundColor: isDarkColorScheme
+                    ? 'rgba(255,255,255,0.05)'
+                    : 'rgba(6,78,59,0.05)',
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 20,
+                }}
+              >
+                <Text
+                  style={{ color: colors.textPrimary }}
+                  className="font-semibold mb-1"
+                >
+                  {listing.property.title}
+                </Text>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  {listing.property.displayCode} • ${listing.pricePerToken.toFixed(2)} per token
+                </Text>
+              </View>
+
+              {/* Token Amount Input */}
+              <View className="mb-4">
+                <Text style={{ color: colors.textMuted }} className="text-sm mb-2">
+                  Amount to Buy
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: colors.background,
+                    borderRadius: 16,
+                    padding: 20,
+                    borderWidth: 1,
+                    borderColor: validation.valid && tokensToBuy
+                      ? colors.primary
+                      : colors.border,
+                  }}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <TextInput
+                      style={{
+                        color: colors.textPrimary,
+                        fontSize: 32,
+                        fontWeight: 'bold',
+                        flex: 1,
+                      }}
+                      value={tokensToBuy}
+                      onChangeText={handleAmountChange}
+                      placeholder="0"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="decimal-pad"
+                    />
+                    <View className="items-end">
+                      <Text style={{ color: colors.textMuted }} className="text-sm mb-1">
+                        Tokens
+                      </Text>
+                      <TouchableOpacity
+                        onPress={handleMaxTokens}
+                        style={{
+                          backgroundColor: colors.primary,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                        }}
+                      >
+                        <Text style={{ color: '#ffffff' }} className="text-xs font-semibold">
+                          MAX
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {listing && (
+                    <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
+                      Max: {listing.remainingTokens.toFixed(2)} tokens
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Total Cost */}
+              <View
+                style={{
+                  backgroundColor: colors.primary + '20',
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 20,
+                }}
+              >
+                <Text style={{ color: colors.textMuted }} className="text-sm mb-2">
+                  You will pay
+                </Text>
+                <Text style={{ color: colors.primary }} className="text-3xl font-bold">
+                  ${total.toFixed(2)} USDT
+                </Text>
+                {tokensToBuy && (
+                  <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
+                    ≈ {tokensToBuy} tokens × ${listing.pricePerToken.toFixed(2)}
+                  </Text>
+                )}
+              </View>
+
+              {/* Wallet Balance */}
+              <View
+                style={{
+                  backgroundColor: colors.background,
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 20,
+                }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <Text style={{ color: colors.textMuted }} className="text-sm">
+                    Available Balance
+                  </Text>
+                  <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                    ${balance.usdc.toFixed(2)} USDC
+                  </Text>
+                </View>
+              </View>
+
+              {/* Buy Button */}
+              <TouchableOpacity
+                onPress={handleBuy}
+                disabled={!validation.valid || isProcessing}
+                style={{
+                  backgroundColor:
+                    validation.valid && tokensToBuy ? colors.primary : colors.border,
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  alignItems: 'center',
+                  opacity: validation.valid && tokensToBuy ? 1 : 0.6,
+                }}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
+                    Confirm Purchase
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {!validation.valid && tokensToBuy && (
+                <Text
+                  style={{ color: colors.destructive }}
+                  className="text-xs text-center mt-3"
+                >
+                  {validation.error}
+                </Text>
+              )}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={() => {
+          if (alertState.onConfirm) {
+            alertState.onConfirm();
+          } else {
+            setAlertState((prev) => ({ ...prev, visible: false }));
+          }
+        }}
+      />
+
+      {/* Info Modal with Detailed Information */}
+      <Modal
+        visible={showInfoModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '90%',
+              paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+            }}
+          >
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: 20,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+              }}
+            >
+              <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+                Property Details
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowInfoModal(false)}
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 20,
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {listing && <PropertyInfoContent listing={listing} colors={colors} isDarkColorScheme={isDarkColorScheme} />}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// Property Info Content Component
+function PropertyInfoContent({ 
+  listing, 
+  colors, 
+  isDarkColorScheme 
+}: { 
+  listing: MarketplaceListing; 
+  colors: any; 
+  isDarkColorScheme: boolean;
+}) {
+  // Calculate ROI projections for the next 5 years
+  const roiProjections = useMemo(() => {
+    const years = [1, 2, 3, 4, 5];
+    const baseROI = listing.property.expectedROI || 0;
+    const pricePerToken = listing.pricePerToken;
+    
+    return years.map((year) => {
+      // Compound ROI calculation
+      const annualReturn = (baseROI / 100) * pricePerToken;
+      const totalReturn = annualReturn * year;
+      const projectedValue = pricePerToken + totalReturn;
+      const roiPercentage = ((projectedValue - pricePerToken) / pricePerToken) * 100;
+      
+      return {
+        year,
+        projectedValue,
+        roiPercentage,
+        totalReturn,
+      };
+    });
+  }, [listing.property.expectedROI, listing.pricePerToken]);
+
+  // Calculate expected returns
+  const expectedReturns = useMemo(() => {
+    const roi = listing.property.expectedROI || 0;
+    const pricePerToken = listing.pricePerToken;
+    const tokens = listing.remainingTokens;
+    
+    const investmentValue = pricePerToken * tokens;
+    const annualReturn = (roi / 100) * investmentValue;
+    const monthlyReturn = annualReturn / 12;
+    const dailyReturn = annualReturn / 365;
+    
+    return {
+      investmentValue,
+      annualReturn,
+      monthlyReturn,
+      dailyReturn,
+    };
+  }, [listing]);
+
+  // Generate chart data for ROI projection
+  const chartData = useMemo(() => {
+    const maxValue = Math.max(...roiProjections.map(p => p.projectedValue), listing.pricePerToken);
+    return roiProjections.map((projection) => ({
+      ...projection,
+      height: (projection.projectedValue / maxValue) * 100,
+    }));
+  }, [roiProjections, listing.pricePerToken]);
+
+  return (
+    <View style={{ padding: 20 }}>
+      {/* ROI Projection Graph */}
+      <View style={{ marginBottom: 24 }}>
+        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+          ROI Projection (5 Years)
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          {/* Chart */}
+          <View
+            style={{
+              height: 180,
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+              paddingBottom: 8,
+            }}
+          >
+            {chartData.map((data, index) => (
+              <View
+                key={index}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  marginHorizontal: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: '100%',
+                    height: `${data.height}%`,
+                    backgroundColor: colors.primary,
+                    borderRadius: 8,
+                    minHeight: 20,
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    paddingBottom: 4,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#ffffff',
+                      fontSize: 10,
+                      fontWeight: 'bold',
+                    }}
+                    numberOfLines={1}
+                  >
+                    ${data.projectedValue.toFixed(0)}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    marginTop: 8,
+                    fontWeight: '600',
+                  }}
+                >
+                  Y{data.year}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Chart Legend */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-around',
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+            }}
+          >
+            {roiProjections.map((projection, index) => (
+              <View key={index} style={{ alignItems: 'center' }}>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  Year {projection.year}
+                </Text>
+                <Text style={{ color: colors.primary }} className="text-sm font-bold">
+                  {projection.roiPercentage.toFixed(1)}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Expected Returns Breakdown */}
+      <View style={{ marginBottom: 24 }}>
+        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+          Expected Returns
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="flex-row items-center">
+              <View
+                style={{
+                  backgroundColor: colors.primary + '20',
+                  borderRadius: 8,
+                  padding: 8,
+                  marginRight: 12,
+                }}
+              >
+                <Ionicons name="calendar" size={20} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  Daily Return
+                </Text>
+                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                  ${expectedReturns.dailyReturn.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="flex-row items-center">
+              <View
+                style={{
+                  backgroundColor: colors.primary + '20',
+                  borderRadius: 8,
+                  padding: 8,
+                  marginRight: 12,
+                }}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  Monthly Return
+                </Text>
+                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                  ${expectedReturns.monthlyReturn.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="flex-row justify-between items-center mb-3">
+            <View className="flex-row items-center">
+              <View
+                style={{
+                  backgroundColor: colors.primary + '20',
+                  borderRadius: 8,
+                  padding: 8,
+                  marginRight: 12,
+                }}
+              >
+                <Ionicons name="calendar-sharp" size={20} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  Annual Return
+                </Text>
+                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
+                  ${expectedReturns.annualReturn.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View
+            style={{
+              height: 1,
+              backgroundColor: colors.border,
+              marginVertical: 12,
+            }}
+          />
+
+          <View className="flex-row justify-between items-center">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Total Investment Value
+            </Text>
+            <Text style={{ color: colors.primary }} className="text-lg font-bold">
+              ${expectedReturns.investmentValue.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Detailed Metrics */}
+      <View style={{ marginBottom: 24 }}>
+        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+          Investment Metrics
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <View className="flex-row justify-between mb-3">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Expected ROI (APY)
+            </Text>
+            <Text style={{ color: colors.primary }} className="text-sm font-bold">
+              {listing.property.expectedROI}%
+            </Text>
+          </View>
+          <View className="flex-row justify-between mb-3">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Price per Token
+            </Text>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              ${listing.pricePerToken.toFixed(2)}
+            </Text>
+          </View>
+          <View className="flex-row justify-between mb-3">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Available Tokens
+            </Text>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              {listing.remainingTokens.toFixed(2)}
+            </Text>
+          </View>
+          <View className="flex-row justify-between mb-3">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Minimum Order
+            </Text>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              ${listing.minOrderUSDT.toFixed(2)}
+            </Text>
+          </View>
+          <View className="flex-row justify-between">
+            <Text style={{ color: colors.textMuted }} className="text-sm">
+              Maximum Order
+            </Text>
+            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+              ${listing.maxOrderUSDT.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 5-Year Projection Table */}
+      <View>
+        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+          5-Year Projection
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          {roiProjections.map((projection, index) => (
+            <View
+              key={index}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: 12,
+                borderBottomWidth: index < roiProjections.length - 1 ? 1 : 0,
+                borderBottomColor: colors.border,
+              }}
+            >
+              <View>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  Year {projection.year}
+                </Text>
+                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                  ${projection.projectedValue.toFixed(2)}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: colors.textMuted }} className="text-xs">
+                  ROI
+                </Text>
+                <Text style={{ color: colors.primary }} className="text-base font-bold">
+                  +{projection.roiPercentage.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+

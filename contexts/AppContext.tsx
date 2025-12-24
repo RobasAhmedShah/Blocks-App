@@ -688,10 +688,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       });
       
+      // Filter out investments with zero or very small token counts (< 0.001)
+      // These shouldn't appear in the portfolio
+      const validInvestments = investments.filter(inv => (inv.tokens || 0) >= 0.001);
+      
+      console.log(`[AppContext] Filtered investments: ${validInvestments.length} valid out of ${investments.length} total`);
+      
       // Group investments by property ID
       const investmentsByProperty = new Map<string, InvestmentResponse[]>();
       
-      investments.forEach((inv) => {
+      validInvestments.forEach((inv) => {
         const propertyId = inv.property.id;
         if (!investmentsByProperty.has(propertyId)) {
           investmentsByProperty.set(propertyId, []);

@@ -58,8 +58,18 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorData.errorMessage || errorMessage;
+      } catch {
+        // If response is not JSON, use status text or default message
+        errorMessage = response.statusText || errorMessage;
+      }
+      const error = new Error(errorMessage);
+      (error as any).status = response.status;
+      (error as any).response = response;
+      throw error;
     }
 
     // Handle 204 No Content responses (common for DELETE requests)

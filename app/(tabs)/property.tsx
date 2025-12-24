@@ -119,7 +119,12 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <View className="w-10" />
+          <TouchableOpacity
+            onPress={() => router.push('/marketplace')}
+            className="w-10 h-10 items-center justify-center"
+          >
+            <Ionicons name="storefront" size={24} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
         {/* Search Bar */}

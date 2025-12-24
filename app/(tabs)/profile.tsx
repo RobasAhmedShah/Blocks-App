@@ -24,6 +24,7 @@ import { useCopilot } from "react-native-copilot";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useFocusEffect } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -444,6 +445,35 @@ export default function BlocksProfileScreen() {
         type={alertConfig.type}
         buttons={alertConfig.buttons}
         onClose={hideAlert}
+      />
+
+      <LinearGradient
+        colors={
+          isDarkColorScheme
+            ? [
+              '#00C896', // Teal green (top)
+              '#064E3B', // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
+              ]
+            : [
+              'rgba(245, 245, 245, 1)', // #F5F5F5
+              'rgba(237, 237, 237, 1)', // #EDEDED
+              'rgba(224, 224, 224, 1)', // #E0E0E0
+              'rgba(255, 255, 255, 1)', // #FFFFFF
+              ]
+        }
+        locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
+        // locations={[0, 0.5, 1]} // 40% green, then transition to black
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
       />
 
       {/* Header */}

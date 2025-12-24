@@ -407,18 +407,20 @@ function BlocksHomeScreen() {
       <LinearGradient
         colors={
           isDarkColorScheme
-          ? [
-                '#00C896', // Teal green (top)
-                '#064E3B', // Deep emerald (40% mark)
-              '#032822',
-              '#021917',
-            ]
-          : [
+          ? 
+          [
+            '#00C896', // Teal green (top)
+            '#064E3B', // Deep emerald (40% mark)
+            '#032822',
+            '#021917',
+          ]
+          : 
+          [
             '#F5F5F5', // Smoky light gray
             '#EDEDED', // Soft ash
             '#E0E0E0', // Gentle gray
-                '#FFFFFF', // Pure white
-            ]
+            '#FFFFFF', // Pure white
+          ]
         }
         locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
         start={{ x: 0, y: 0 }}

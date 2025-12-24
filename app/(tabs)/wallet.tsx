@@ -175,11 +175,11 @@ export default function WalletScreen() {
         colors={
           isDarkColorScheme
             ? [
-                '#00C896', // Teal green (top)
-                '#064E3B', // Deep emerald (40% mark)
-                '#032822',
-                '#021917',
-              ]
+              '#00C896', // Teal green (top)
+              '#064E3B', // Deep emerald (40% mark)
+              '#032822',
+              '#021917',
+            ]
             : [
               '#F5F5F5', // Smoky light gray
               '#EDEDED', // Soft ash
@@ -319,8 +319,8 @@ export default function WalletScreen() {
             style={{
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 16,
-              marginBottom: 12,
+              marginTop: 6,
+              marginBottom: 4,
             }}>
             <View
               style={{
@@ -428,7 +428,7 @@ export default function WalletScreen() {
               end={{ x: 1, y: 0 }}
               style={{
                 position: 'absolute',
-                height: 0.1,
+                height: 1,
                 top: 0,
                 left: 0,
                 right: 0,

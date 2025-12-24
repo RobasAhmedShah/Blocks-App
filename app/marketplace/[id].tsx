@@ -6,17 +6,14 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { marketplaceAPI, MarketplaceListing } from '@/services/api/marketplace.api';
-import { useWallet } from '@/services/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppAlert } from '@/components/AppAlert';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
@@ -24,19 +21,18 @@ import Constants from 'expo-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/services/api/auth.api';
 import * as SecureStore from 'expo-secure-store';
+import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { balance } = useWallet();
   const [listing, setListing] = useState<MarketplaceListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
-  const [tokensToBuy, setTokensToBuy] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Check if this is the user's own listing
   const isOwnListing = listing && currentUserId && listing.sellerId === currentUserId;
@@ -120,110 +116,6 @@ export default function ListingDetailScreen() {
     }
   };
 
-  const handleAmountChange = (text: string) => {
-    if (text === '' || /^\d*\.?\d{0,6}$/.test(text)) {
-      setTokensToBuy(text);
-    }
-  };
-
-  const handleMaxTokens = () => {
-    if (listing) {
-      setTokensToBuy(listing.remainingTokens.toString());
-    }
-  };
-
-  const calculateTotal = () => {
-    if (!listing || !tokensToBuy) return 0;
-    const tokens = parseFloat(tokensToBuy);
-    if (isNaN(tokens)) return 0;
-    return tokens * listing.pricePerToken;
-  };
-
-  const validatePurchase = () => {
-    if (!listing) return { valid: false, error: 'Listing not found' };
-
-    const tokens = parseFloat(tokensToBuy);
-    if (isNaN(tokens) || tokens <= 0) {
-      return { valid: false, error: 'Please enter a valid token amount' };
-    }
-
-    if (tokens > listing.remainingTokens) {
-      return {
-        valid: false,
-        error: `Only ${listing.remainingTokens.toFixed(2)} tokens available`,
-      };
-    }
-
-    const total = calculateTotal();
-    if (total < listing.minOrderUSDT) {
-      return {
-        valid: false,
-        error: `Minimum order is ${listing.minOrderUSDT.toFixed(2)} USDT`,
-      };
-    }
-
-    if (total > listing.maxOrderUSDT) {
-      return {
-        valid: false,
-        error: `Maximum order is ${listing.maxOrderUSDT.toFixed(2)} USDT`,
-      };
-    }
-
-    if (total > balance.usdc) {
-      return {
-        valid: false,
-        error: `Insufficient balance. Available: ${balance.usdc.toFixed(2)} USDC`,
-      };
-    }
-
-    return { valid: true, error: null };
-  };
-
-  const handleBuy = async () => {
-    const validation = validatePurchase();
-    if (!validation.valid) {
-      setAlertState({
-        visible: true,
-        title: 'Invalid Purchase',
-        message: validation.error || 'Please check your input',
-        type: 'error',
-        onConfirm: () => setAlertState((prev) => ({ ...prev, visible: false })),
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      await marketplaceAPI.buyTokens(id as string, {
-        listingId: id as string,
-        tokensToBuy: parseFloat(tokensToBuy),
-      });
-
-      setAlertState({
-        visible: true,
-        title: 'Purchase Successful!',
-        message: `You successfully purchased ${tokensToBuy} tokens`,
-        type: 'success',
-        onConfirm: () => {
-          setAlertState((prev) => ({ ...prev, visible: false }));
-          setShowBuyModal(false);
-          router.back();
-        },
-      });
-    } catch (error: any) {
-      setAlertState({
-        visible: true,
-        title: 'Purchase Failed',
-        message: error.message || 'Failed to complete purchase',
-        type: 'error',
-        onConfirm: () => {
-          setAlertState((prev) => ({ ...prev, visible: false }));
-        },
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const handleUnpublish = async () => {
     if (!listing) return;
@@ -343,9 +235,6 @@ export default function ListingDetailScreen() {
 
   const propertyImage = listing ? getPropertyImageUrl(listing.property.images) : null;
 
-  const total = calculateTotal();
-  const validation = validatePurchase();
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
@@ -403,7 +292,9 @@ export default function ListingDetailScreen() {
             <TouchableOpacity
               onPress={() => setShowInfoModal(true)}
               style={{
-                backgroundColor: colors.primary + '20',
+                // backgroundColor: colors.primary + '20',
+                borderWidth: 1,
+                borderColor: colors.primary,
                 borderRadius: 20,
                 padding: 8,
                 marginLeft: 12,
@@ -471,7 +362,9 @@ export default function ListingDetailScreen() {
               </View>
               <View
                 style={{
-                  backgroundColor: colors.primary + '20',
+                  // backgroundColor: colors.primary + '20',
+                  borderWidth: 1,
+                  borderColor: colors.primary,
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 12,
@@ -530,13 +423,13 @@ export default function ListingDetailScreen() {
                   <View className="flex-row items-center flex-1">
                     <View
                       style={{
-                        backgroundColor: colors.primary + '20',
+                        backgroundColor: isDarkColorScheme ? 'rgba(45, 204, 98, 0.84)' : colors.primary + '80',
                         borderRadius: 10,
                         padding: 10,
                         marginRight: 12,
                       }}
                     >
-                      <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                      <Ionicons name="calendar-outline" size={20} color={colors.textPrimary} />
                     </View>
                     <View className="flex-1">
                       <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -882,195 +775,15 @@ export default function ListingDetailScreen() {
       </ScrollView>
 
       {/* Buy Modal - Only show for non-own listings */}
-      <Modal
+      <BuyTokenModal
         visible={showBuyModal && !isOwnListing}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowBuyModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: colors.card,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-                padding: 24,
-                maxHeight: '90%',
-              }}
-            >
-              <View className="flex-row items-center justify-between mb-6">
-                <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
-                  Buy Tokens
-                </Text>
-                <TouchableOpacity onPress={() => setShowBuyModal(false)}>
-                  <Ionicons name="close" size={28} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Property Info */}
-              <View
-                style={{
-                  backgroundColor: isDarkColorScheme
-                    ? 'rgba(255,255,255,0.05)'
-                    : 'rgba(6,78,59,0.05)',
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 20,
-                }}
-              >
-                <Text
-                  style={{ color: colors.textPrimary }}
-                  className="font-semibold mb-1"
-                >
-                  {listing.property.title}
-                </Text>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  {listing.property.displayCode} • ${listing.pricePerToken.toFixed(2)} per token
-                </Text>
-              </View>
-
-              {/* Token Amount Input */}
-              <View className="mb-4">
-                <Text style={{ color: colors.textMuted }} className="text-sm mb-2">
-                  Amount to Buy
-                </Text>
-                <View
-                  style={{
-                    backgroundColor: colors.background,
-                    borderRadius: 16,
-                    padding: 20,
-                    borderWidth: 1,
-                    borderColor: validation.valid && tokensToBuy
-                      ? colors.primary
-                      : colors.border,
-                  }}
-                >
-                  <View className="flex-row items-center justify-between">
-                    <TextInput
-                      style={{
-                        color: colors.textPrimary,
-                        fontSize: 32,
-                        fontWeight: 'bold',
-                        flex: 1,
-                      }}
-                      value={tokensToBuy}
-                      onChangeText={handleAmountChange}
-                      placeholder="0"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="decimal-pad"
-                    />
-                    <View className="items-end">
-                      <Text style={{ color: colors.textMuted }} className="text-sm mb-1">
-                        Tokens
-                      </Text>
-                      <TouchableOpacity
-                        onPress={handleMaxTokens}
-                        style={{
-                          backgroundColor: colors.primary,
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text style={{ color: '#ffffff' }} className="text-xs font-semibold">
-                          MAX
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  {listing && (
-                    <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
-                      Max: {listing.remainingTokens.toFixed(2)} tokens
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {/* Total Cost */}
-              <View
-                style={{
-                  backgroundColor: colors.primary + '20',
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 20,
-                }}
-              >
-                <Text style={{ color: colors.textMuted }} className="text-sm mb-2">
-                  You will pay
-                </Text>
-                <Text style={{ color: colors.primary }} className="text-3xl font-bold">
-                  ${total.toFixed(2)} USDT
-                </Text>
-                {tokensToBuy && (
-                  <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
-                    ≈ {tokensToBuy} tokens × ${listing.pricePerToken.toFixed(2)}
-                  </Text>
-                )}
-              </View>
-
-              {/* Wallet Balance */}
-              <View
-                style={{
-                  backgroundColor: colors.background,
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 20,
-                }}
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text style={{ color: colors.textMuted }} className="text-sm">
-                    Available Balance
-                  </Text>
-                  <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-                    ${balance.usdc.toFixed(2)} USDC
-                  </Text>
-                </View>
-              </View>
-
-              {/* Buy Button */}
-              <TouchableOpacity
-                onPress={handleBuy}
-                disabled={!validation.valid || isProcessing}
-                style={{
-                  backgroundColor:
-                    validation.valid && tokensToBuy ? colors.primary : colors.border,
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  alignItems: 'center',
-                  opacity: validation.valid && tokensToBuy ? 1 : 0.6,
-                }}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
-                    Confirm Purchase
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {!validation.valid && tokensToBuy && (
-                <Text
-                  style={{ color: colors.destructive }}
-                  className="text-xs text-center mt-3"
-                >
-                  {validation.error}
-                </Text>
-              )}
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        listing={listing}
+        onClose={() => setShowBuyModal(false)}
+        onSuccess={() => {
+          setShowBuyModal(false);
+          loadListing(); // Refresh listing data
+        }}
+      />
 
       <AppAlert
         visible={alertState.visible}

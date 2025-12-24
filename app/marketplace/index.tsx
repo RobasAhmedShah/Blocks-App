@@ -21,6 +21,7 @@ import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
 import { authApi } from '@/services/api/auth.api';
 import * as SecureStore from 'expo-secure-store';
+import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
 
 export default function MarketplaceScreen() {
   const router = useRouter();
@@ -38,6 +39,8 @@ export default function MarketplaceScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
   const [myListingsCategory, setMyListingsCategory] = useState<'active' | 'sold' | 'cancelled'>('active');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   
   const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
@@ -160,31 +163,63 @@ export default function MarketplaceScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
-      <LinearGradient
+         {/* Linear Gradient Background - Marketplace Theme */}
+         <LinearGradient
         colors={
           isDarkColorScheme
-            ? ['#022c22', '#064e3b']
-            : ['#ecfdf5', '#d1fae5']
+            ? [
+                '#0A4D3A', // Deep forest green (top)
+                '#064E3B', // Deep emerald
+                '#022C22', // Darker green
+                '#011F1A', // Very dark green
+                '#000000', // Pure black (bottom)
+              ]
+            : [
+              '#F0FDF4', // Very light green tint
+              '#ECFDF5', // Light mint
+              '#F9FAFB', // Light gray
+              '#FFFFFF', // Pure white
+            ]
         }
-        className="px-4 pb-4"
-        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48 }}
+        locations={[0, 0.25, 0.5, 0.75, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      />
+
+      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+      {/* Slim Header */}
+      <View
+        
+        className="px-4 mt-8 "
+        style={{ paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 40, paddingBottom: 12 }}
       >
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-1">
+        <View className="flex-row items-center justify-between mb-3">
+        <Ionicons
+         onPress={() => router.back()}
+         style={{
+          backgroundColor: colors.primary,
+          paddingHorizontal: 8,
+          paddingVertical: 8,
+          borderRadius: 16,
+        }}
+         name="arrow-back" size={24} color={colors.textPrimary} />
+
+          <View className="">
+            
             <Text
               style={{ color: isDarkColorScheme ? '#ffffff' : '#064e3b' }}
-              className="text-2xl font-bold mb-1"
+              className="text-xl font-bold "
             >
               Marketplace
-            </Text>
-            <Text
-              style={{ color: isDarkColorScheme ? 'rgba(255,255,255,0.7)' : 'rgba(6,78,59,0.7)' }}
-              className="text-sm"
-            >
-              Buy and sell property tokens
             </Text>
           </View>
 
@@ -192,35 +227,36 @@ export default function MarketplaceScreen() {
             onPress={() => router.push('/marketplace/sell')}
             style={{
               backgroundColor: colors.primary,
-              paddingHorizontal: 20,
-              paddingVertical: 10,
-              borderRadius: 20,
+              paddingHorizontal: 8,
+              paddingVertical: 8,
+              borderRadius: 16,
             }}
           >
-            <Text style={{ color: '#ffffff' }} className="font-semibold">
-              Sell Tokens
+            <Text style={{ color: '#ffffff' }} className="text-sm font-semibold">
+            <Ionicons name="add-circle" size={24} color={colors.textPrimary} />
+
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
+        {/* Compact Search Bar */}
         <View
           style={{ backgroundColor: colors.card }}
-          className="flex-row items-center rounded-2xl px-4 py-3 shadow-sm mb-3"
+          className="flex-row items-center rounded-xl px-3 py-2 mb-2"
         >
-          <MaterialIcons name="search" size={20} color={colors.textMuted} />
+          <MaterialIcons name="search" size={18} color={colors.textMuted} />
           <TextInput
             placeholder="Search properties..."
             placeholderTextColor={colors.textMuted}
-            style={{ color: colors.textPrimary, flex: 1, marginLeft: 12 }}
+            style={{ color: colors.textPrimary, flex: 1, marginLeft: 8, fontSize: 14 }}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* Sort & Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
-          <View className="flex-row gap-2">
+        {/* Compact Sort Pills */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-1.5">
             {[
               { label: 'Newest', value: 'created_at_desc' as const },
               { label: 'Price: Low', value: 'price_asc' as const },
@@ -231,18 +267,18 @@ export default function MarketplaceScreen() {
                 key={option.value}
                 onPress={() => setSortBy(option.value)}
                 style={{
-                  backgroundColor: sortBy === option.value ? colors.primary : colors.card,
-                  paddingHorizontal: 16,
+                  backgroundColor: sortBy === option.value ? colors.primary + '20' : colors.card,
+                  paddingHorizontal: 12,
                   paddingVertical: 8,
-                  borderRadius: 20,
+                  borderRadius: 12,
                   borderWidth: 1,
                   borderColor: sortBy === option.value ? colors.primary : colors.border,
                 }}
               >
                 <Text
                   style={{
-                    color: sortBy === option.value ? '#ffffff' : colors.textPrimary,
-                    fontSize: 12,
+                    color: sortBy === option.value ? colors.textPrimary : colors.textPrimary,
+                    fontSize: 11,
                     fontWeight: '600',
                   }}
                 >
@@ -252,87 +288,81 @@ export default function MarketplaceScreen() {
             ))}
           </View>
         </ScrollView>
-      </LinearGradient>
+      </View>
 
-      {/* Tab Capsules */}
-      <View
+    {/* Heading-style Tabs with Bottom Border Indicator */}
+<View
+  style={{
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  }}
+  className='ml-2'
+>
+  <View style={{ flexDirection: 'row', gap: 24 }}
+  className='flex-row items-center justify-around'>
+    
+    {/* All Listings Tab */}
+    <TouchableOpacity
+      onPress={() => setActiveTab('all')}
+      style={{
+        paddingVertical: 12,
+        borderBottomWidth: 2,
+        width: '45%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomColor:
+          activeTab === 'all' ? colors.primary : 'transparent',
+      }}
+    >
+      <Text
         style={{
-          backgroundColor: colors.background,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
+          color:
+            activeTab === 'all'
+              ? colors.primary
+              : colors.textMuted,
+          fontSize: 15,
+          fontWeight: activeTab === 'all' ? '700' : '500',
         }}
       >
-        <View className="flex-row gap-3">
-          <TouchableOpacity
-            onPress={() => setActiveTab('all')}
-            style={{
-              flex: 1,
-              backgroundColor: activeTab === 'all' ? colors.primary : colors.card,
-              paddingVertical: 12,
-              paddingHorizontal: 20,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: activeTab === 'all' ? colors.primary : colors.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: activeTab === 'all' ? '#ffffff' : colors.textPrimary,
-                fontSize: 14,
-                fontWeight: '600',
-              }}
-            >
-              All Listings
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setActiveTab('my')}
-            style={{
-              flex: 1,
-              backgroundColor: activeTab === 'my' ? colors.primary : colors.card,
-              paddingVertical: 12,
-              paddingHorizontal: 20,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: activeTab === 'my' ? colors.primary : colors.border,
-              alignItems: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: activeTab === 'my' ? '#ffffff' : colors.textPrimary,
-                fontSize: 14,
-                fontWeight: '600',
-              }}
-            >
-              My Listings
-            </Text>
-            {myListings.length > 0 && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -6,
-                  right: -6,
-                  backgroundColor: colors.primary,
-                  borderRadius: 10,
-                  minWidth: 20,
-                  height: 20,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  paddingHorizontal: 6,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>
-                  {myListings.length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+        All Listings
+      </Text>
+    </TouchableOpacity>
+
+    {/* My Listings Tab */}
+    <TouchableOpacity
+      onPress={() => setActiveTab('my')}
+      style={{
+        paddingVertical: 12,
+        borderBottomWidth: 2,
+        width: '50%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomColor:
+          activeTab === 'my' ? colors.primary : 'transparent',
+        // flexDirection: 'row',
+        // gap: 6,
+      }}
+    >
+      <Text
+        style={{
+          color:
+            activeTab === 'my'
+              ? colors.primary
+              : colors.textMuted,
+          fontSize: 15,
+          fontWeight: activeTab === 'my' ? '700' : '500',
+        }}
+      >
+        My Listings
+      </Text>
+
+      
+    </TouchableOpacity>
+
+  </View>
+</View>
+
 
       {/* Listings */}
       {loading || (activeTab === 'my' && loadingMyListings) ? (
@@ -350,8 +380,16 @@ export default function MarketplaceScreen() {
             {activeTab === 'my' ? (
               // My Listings Tab
               <>
-                {/* Category Tabs for My Listings */}
-                <View className="flex-row gap-2 mb-4">
+                {/* Compact Category Tabs for My Listings */}
+                <View 
+                  style={{
+                    flexDirection: 'row',
+                    backgroundColor: colors.card,
+                    borderRadius: 10,
+                    padding: 3,
+                    marginBottom: 12,
+                  }}
+                >
                   {[
                     { key: 'active' as const, label: 'Active', count: myListings.filter(l => l.status === 'active').length },
                     { key: 'sold' as const, label: 'Sold', count: myListings.filter(l => l.status === 'sold').length },
@@ -362,13 +400,11 @@ export default function MarketplaceScreen() {
                       onPress={() => setMyListingsCategory(category.key)}
                       style={{
                         flex: 1,
-                        backgroundColor: myListingsCategory === category.key ? colors.primary : colors.card,
-                        paddingVertical: 10,
-                        paddingHorizontal: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: myListingsCategory === category.key ? colors.primary : colors.border,
+                        backgroundColor: myListingsCategory === category.key ? colors.primary : 'transparent',
+                        paddingVertical: 6,
+                        borderRadius: 8,
                         alignItems: 'center',
+                        position: 'relative',
                       }}
                     >
                       <Text
@@ -384,21 +420,21 @@ export default function MarketplaceScreen() {
                         <View
                           style={{
                             position: 'absolute',
-                            top: -6,
-                            right: -6,
+                            top: -4,
+                            right: 4,
                             backgroundColor: myListingsCategory === category.key ? '#ffffff' : colors.primary,
-                            borderRadius: 10,
-                            minWidth: 20,
-                            height: 20,
+                            borderRadius: 8,
+                            minWidth: 16,
+                            height: 16,
                             justifyContent: 'center',
                             alignItems: 'center',
-                            paddingHorizontal: 6,
+                            paddingHorizontal: 4,
                           }}
                         >
                           <Text
                             style={{
                               color: myListingsCategory === category.key ? colors.primary : '#ffffff',
-                              fontSize: 10,
+                              fontSize: 9,
                               fontWeight: 'bold',
                             }}
                           >
@@ -410,7 +446,7 @@ export default function MarketplaceScreen() {
                   ))}
                 </View>
 
-                {/* Filtered My Listings by Category */}
+                {/* Filtered My Listings by Category - Grid Layout */}
                 {(() => {
                   const filteredMyListings = myListings.filter(listing => listing.status === myListingsCategory);
                   
@@ -453,209 +489,176 @@ export default function MarketplaceScreen() {
                       )}
                     </View>
                   ) : (
-                    filteredMyListings.map((listing) => {
-                  const propertyImage = getPropertyImageUrl(listing.property.images);
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                      {filteredMyListings.map((listing) => {
+                        const propertyImage = getPropertyImageUrl(listing.property.images);
 
-                  return (
-                    <TouchableOpacity
-                      key={listing.id}
-                      onPress={() => router.push(`/marketplace/${listing.id}`)}
-                      style={{
-                        backgroundColor: colors.card,
-                        borderRadius: 20,
-                        marginBottom: 12,
-                        overflow: 'hidden',
-                        borderWidth: 2,
-                        borderColor: listing.status === 'active' 
-                          ? colors.primary 
-                          : listing.status === 'sold' 
-                            ? '#10b981' 
-                            : colors.textMuted,
-                        opacity: listing.status !== 'active' ? 0.8 : 1,
-                      }}
-                    >
-                      {/* Status Badge */}
-                      {listing.status !== 'active' && (
-                        <View
-                          style={{
-                            position: 'absolute',
-                            top: 12,
-                            right: 12,
-                            backgroundColor: listing.status === 'sold' ? '#10b981' : colors.textMuted,
-                            borderRadius: 12,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            zIndex: 10,
-                          }}
-                        >
-                          <View className="flex-row items-center">
-                            <MaterialIcons 
-                              name={listing.status === 'sold' ? 'check-circle' : 'cancel'} 
-                              size={14} 
-                              color="#ffffff" 
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={{ color: '#ffffff' }} className="text-xs font-bold">
-                              {listing.status === 'sold' ? 'SOLD' : 'UNPUBLISHED'}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                      {/* Property Image */}
-                      {propertyImage ? (
-                        <Image
-                          source={{ uri: propertyImage }}
-                          style={{ width: '100%', height: 200 }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View
-                          style={{
-                            width: '100%',
-                            height: 200,
-                            backgroundColor: colors.primary + '20',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <MaterialIcons name="home" size={48} color={colors.primary} />
-                        </View>
-                      )}
-
-                      <View className="p-4">
-                        {/* Property Title & Location */}
-                        <Text
-                          style={{ color: colors.textPrimary }}
-                          className="text-lg font-bold mb-1"
-                          numberOfLines={1}
-                        >
-                          {listing.property.title}
-                        </Text>
-                        <View className="flex-row items-center mb-3">
-                          <Ionicons
-                            name="location-outline"
-                            size={14}
-                            color={colors.textMuted}
-                          />
-                          <Text
-                            style={{ color: colors.textMuted }}
-                            className="text-xs ml-1"
+                        return (
+                          <TouchableOpacity
+                            key={listing.id}
+                            onPress={() => router.push(`/marketplace/${listing.id}`)}
+                            style={{
+                              width: '48%',
+                              borderRadius: 14,
+                              marginBottom: 12,
+                              overflow: 'hidden',
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              opacity: listing.status !== 'active' ? 0.85 : 1,
+                            }}
                           >
-                            {listing.property.city || 'Location'}
-                          </Text>
-                        </View>
-
-                        {/* Price & ROI */}
-                        <View className="flex-row items-center justify-between mb-3">
-                          <View>
-                            <Text
-                              style={{ color: colors.textMuted }}
-                              className="text-xs mb-1"
-                            >
-                              Price per Token
-                            </Text>
-                            <Text
-                              style={{ color: colors.primary }}
-                              className="text-xl font-bold"
-                            >
-                              {formatPrice(listing.pricePerToken)}
-                            </Text>
-                          </View>
-                          <View className="items-end">
-                            <Text
-                              style={{ color: colors.textMuted }}
-                              className="text-xs mb-1"
-                            >
-                              Expected ROI
-                            </Text>
-                            <View
+                            {/* Card Gradient Background */}
+                            <LinearGradient
+                              colors={
+                                isDarkColorScheme
+                                  ? listing.status === 'active'
+                                    ? [
+                                        'rgba(34, 197, 94, 0.15)', // Subtle green tint
+                                        'rgba(6, 78, 59, 0.25)', // Deep emerald
+                                        'rgba(15, 23, 42, 0.95)', // Dark slate
+                                        'rgba(2, 6, 23, 0.98)', // Almost black
+                                      ]
+                                    : listing.status === 'sold'
+                                    ? [
+                                        'rgba(16, 185, 129, 0.12)', // Subtle teal
+                                        'rgba(5, 150, 105, 0.20)', // Darker teal
+                                        'rgba(15, 23, 42, 0.95)', // Dark slate
+                                        'rgba(2, 6, 23, 0.98)', // Almost black
+                                      ]
+                                    : [
+                                        'rgba(107, 114, 128, 0.10)', // Subtle gray
+                                        'rgba(55, 65, 81, 0.20)', // Darker gray
+                                        'rgba(15, 23, 42, 0.95)', // Dark slate
+                                        'rgba(2, 6, 23, 0.98)', // Almost black
+                                      ]
+                                  : [
+                                      'rgba(255, 255, 255, 0.98)', // Almost white
+                                      'rgba(249, 250, 251, 0.95)', // Light gray
+                                      'rgba(243, 244, 246, 0.98)', // Lighter gray
+                                    ]
+                              }
+                              locations={[0, 0.3, 0.7, 1]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
                               style={{
-                                backgroundColor: colors.primary + '20',
-                                paddingHorizontal: 12,
-                                paddingVertical: 4,
-                                borderRadius: 12,
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                borderRadius: 14,
                               }}
-                            >
-                              <Text
-                                style={{ color: isDarkColorScheme ? '#ffffff' : '#064e3b' }}
-                                className="text-sm font-bold"
+                            />
+                            {/* Image */}
+                            {propertyImage ? (
+                              <Image
+                                source={{ uri: propertyImage }}
+                                style={{ width: '100%', height: 110 }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <View
+                                style={{
+                                  width: '100%',
+                                  height: 110,
+                                  backgroundColor: colors.primary + '20',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                }}
                               >
-                                {typeof listing.property.expectedROI === 'number' 
-                                  ? listing.property.expectedROI.toFixed(1) 
-                                  : (listing.property.expectedROI || 0)}%
+                                <MaterialIcons name="home" size={28} color={colors.primary} />
+                              </View>
+                            )}
+
+                            <View style={{ padding: 10, position: 'relative', zIndex: 1 }}>
+                              {/* Title & Status Row */}
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                                <Text
+                                  style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700', flex: 1, marginRight: 4 }}
+                                  numberOfLines={1}
+                                >
+                                  {listing.property.title}
+                                </Text>
+                                <Text
+                                  style={{ 
+                                    color: listing.status === 'active' 
+                                      ? colors.primary 
+                                      : listing.status === 'sold' 
+                                        ? '#10b981'
+                                        : colors.textMuted,
+                                    fontSize: 9, 
+                                    fontWeight: '700' 
+                                  }}
+                                >
+                                  {listing.status === 'active' ? 'ACTIVE' : listing.status === 'sold' ? 'SOLD' : 'UNPUB'}
+                                </Text>
+                              </View>
+
+                              {/* Location */}
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                                <Ionicons
+                                  name="location-outline"
+                                  size={10}
+                                  color={colors.textMuted}
+                                />
+                                <Text
+                                  style={{ color: colors.textMuted, fontSize: 10, marginLeft: 3 }}
+                                  numberOfLines={1}
+                                >
+                                  {listing.property.city || 'Location'}
+                                </Text>
+                              </View>
+
+                              {/* Price - Primary Focus */}
+                              <Text
+                                style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 2 }}
+                              >
+                                {formatPrice(listing.pricePerToken)}
                               </Text>
+                              <Text
+                                style={{ color: colors.textMuted, fontSize: 9, marginBottom: 6 }}
+                              >
+                                per token
+                              </Text>
+
+                              {/* Action Buttons */}
+                              <View style={{ flexDirection: 'row', gap: 6 }}>
+                                <TouchableOpacity
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/marketplace/${listing.id}`);
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    backgroundColor: listing.status === 'active' ? colors.primary : 'transparent',
+                                    borderRadius: 8,
+                                    paddingVertical: 6,
+                                    alignItems: 'center',
+                                    borderWidth: listing.status === 'active' ? 0 : 1,
+                                    borderColor: colors.border,
+                                  }}
+                                >
+                                  <Text 
+                                    style={{ 
+                                      color: listing.status === 'active' ? '#ffffff' : colors.textPrimary,
+                                      fontSize: 11, 
+                                      fontWeight: '600' 
+                                    }}
+                                  >
+                                    View
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
                             </View>
-                          </View>
-                        </View>
-
-                        {/* Available Tokens & Order Limits */}
-                        <View
-                          style={{
-                            backgroundColor: isDarkColorScheme
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'rgba(6,78,59,0.05)',
-                            borderRadius: 12,
-                            padding: 12,
-                            marginBottom: 12,
-                          }}
-                        >
-                          <View className="flex-row justify-between items-center mb-2">
-                            <Text style={{ color: colors.textMuted }} className="text-xs">
-                              Available
-                            </Text>
-                            <Text
-                              style={{ color: colors.textPrimary }}
-                              className="text-sm font-semibold"
-                            >
-                              {(() => {
-                                const tokens = listing.remainingTokens;
-                                if (typeof tokens === 'number') {
-                                  return tokens.toFixed(2);
-                                }
-                                const tokensNum = parseFloat(String(tokens || '0')) || 0;
-                                return tokensNum.toFixed(2);
-                              })()} tokens
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* View/Edit Button */}
-                        <TouchableOpacity
-                          onPress={() => router.push(`/marketplace/${listing.id}`)}
-                          style={{
-                            backgroundColor: listing.status === 'active' 
-                              ? colors.primary + '20' 
-                              : colors.card,
-                            borderRadius: 12,
-                            paddingVertical: 14,
-                            alignItems: 'center',
-                            borderWidth: 1,
-                            borderColor: listing.status === 'active' 
-                              ? colors.primary 
-                              : colors.border,
-                            opacity: listing.status === 'active' ? 1 : 0.6,
-                          }}
-                        >
-                          <Text 
-                            style={{ 
-                              color: listing.status === 'active' 
-                                ? colors.primary 
-                                : colors.textMuted 
-                            }} 
-                            className="font-bold text-base"
-                          >
-                            View Listing
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   );
                 })()}
               </>
             ) : (
-              // All Listings Tab
+              // All Listings Tab - Grid Layout
               filteredListings.length === 0 ? (
                 <View className="items-center justify-center py-12">
                   <MaterialIcons name="store" size={64} color={colors.textMuted} />
@@ -669,163 +672,201 @@ export default function MarketplaceScreen() {
                   </Text>
                 </View>
               ) : (
-                filteredListings.map((listing) => {
-                  const propertyImage = getPropertyImageUrl(listing.property.images);
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                  {filteredListings.map((listing) => {
+                    const propertyImage = getPropertyImageUrl(listing.property.images);
 
-                  return (
-                    <TouchableOpacity
-                      key={listing.id}
-                      onPress={() => router.push(`/marketplace/${listing.id}`)}
-                      style={{
-                        backgroundColor: colors.card,
-                        borderRadius: 20,
-                        marginBottom: 16,
-                        overflow: 'hidden',
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      {/* Property Image */}
-                      {propertyImage ? (
-                        <Image
-                          source={{ uri: propertyImage }}
-                          style={{ width: '100%', height: 200 }}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View
+                    return (
+                      <TouchableOpacity
+                        key={listing.id}
+                        onPress={() => router.push(`/marketplace/${listing.id}`)}
+                        style={{
+                          width: '48%',
+                          borderRadius: 14,
+                          marginBottom: 12,
+                          overflow: 'hidden',
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        {/* Card Gradient Background */}
+                        <LinearGradient
+                          colors={
+                            isDarkColorScheme
+                              ? [
+                                  'rgba(34, 197, 94, 0.15)', // Subtle green tint
+                                  'rgba(6, 78, 59, 0.25)', // Deep emerald
+                                  'rgba(15, 23, 42, 0.95)', // Dark slate
+                                  'rgba(2, 6, 23, 0.98)', // Almost black
+                                ]
+                              : [
+                                  'rgba(255, 255, 255, 0.98)', // Almost white
+                                  'rgba(249, 250, 251, 0.95)', // Light gray
+                                  'rgba(243, 244, 246, 0.98)', // Lighter gray
+                                ]
+                          }
+                          locations={[0, 0.3, 0.7, 1]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
                           style={{
-                            width: '100%',
-                            height: 200,
-                            backgroundColor: colors.primary + '20',
-                            justifyContent: 'center',
-                            alignItems: 'center',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            borderRadius: 14,
                           }}
-                        >
-                          <MaterialIcons name="home" size={48} color={colors.primary} />
-                        </View>
-                      )}
-
-                      <View className="p-4">
-                        {/* Property Title & Location */}
-                        <Text
-                          style={{ color: colors.textPrimary }}
-                          className="text-lg font-bold mb-1"
-                          numberOfLines={1}
-                        >
-                          {listing.property.title}
-                        </Text>
-                        <View className="flex-row items-center mb-3">
-                          <Ionicons
-                            name="location-outline"
-                            size={14}
-                            color={colors.textMuted}
+                        />
+                        {/* Image */}
+                        {propertyImage ? (
+                          <Image
+                            source={{ uri: propertyImage }}
+                            style={{ width: '100%', height: 110 }}
+                            resizeMode="cover"
                           />
-                          <Text
-                            style={{ color: colors.textMuted }}
-                            className="text-xs ml-1"
+                        ) : (
+                          <View
+                            style={{
+                              width: '100%',
+                              height: 110,
+                              backgroundColor: colors.primary + '20',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                            }}
                           >
-                            {listing.property.city || 'Location'}
-                          </Text>
-                        </View>
+                            <MaterialIcons name="home" size={28} color={colors.primary} />
+                          </View>
+                        )}
 
-                        {/* Price & ROI */}
-                        <View className="flex-row items-center justify-between mb-3">
-                          <View>
+                        <View style={{ padding: 10, position: 'relative', zIndex: 1 }}>
+                          {/* Property Title & ROI Badge Row */}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
                             <Text
-                              style={{ color: colors.textMuted }}
-                              className="text-xs mb-1"
+                              style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700', flex: 1, marginRight: 4 }}
+                              numberOfLines={1}
                             >
-                              Price per Token
+                              {listing.property.title}
                             </Text>
                             <Text
-                              style={{ color: colors.primary }}
-                              className="text-xl font-bold"
+                              style={{ 
+                                color: colors.primary, 
+                                fontSize: 9, 
+                                fontWeight: '700' 
+                              }}
                             >
-                              {formatPrice(listing.pricePerToken)}
+                              {typeof listing.property.expectedROI === 'number' 
+                                ? listing.property.expectedROI.toFixed(0) 
+                                : (listing.property.expectedROI || 0)}% ROI
                             </Text>
                           </View>
-                          <View className="items-end">
+
+                          {/* Location & Status */}
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                            <Ionicons
+                              name="location-outline"
+                              size={10}
+                              color={colors.textMuted}
+                            />
                             <Text
-                              style={{ color: colors.textMuted }}
-                              className="text-xs mb-1"
+                              style={{ color: colors.textMuted, fontSize: 10, marginLeft: 3 }}
+                              numberOfLines={1}
                             >
-                              Expected ROI
+                              {listing.property.city || 'Location'}
                             </Text>
                             <View
                               style={{
-                                backgroundColor: colors.primary + '20',
-                                paddingHorizontal: 12,
-                                paddingVertical: 4,
-                                borderRadius: 12,
+                                width: 3,
+                                height: 3,
+                                borderRadius: 1.5,
+                                backgroundColor: colors.primary,
+                                marginLeft: 5,
+                                marginRight: 3,
+                              }}
+                            />
+                            <Text
+                              style={{ color: colors.primary, fontSize: 9, fontWeight: '600' }}
+                            >
+                              Active
+                            </Text>
+                          </View>
+
+                          {/* Price - Primary Focus */}
+                          <Text
+                            style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 2 }}
+                          >
+                            {formatPrice(listing.pricePerToken)}
+                          </Text>
+                          <Text
+                            style={{ color: colors.textMuted, fontSize: 9, marginBottom: 6 }}
+                          >
+                            per token
+                          </Text>
+
+                          {/* Action Buttons */}
+                          <View style={{ flexDirection: 'row', gap: 6 }}>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setSelectedListing(listing);
+                                setShowBuyModal(true);
+                              }}
+                              style={{
+                                flex: 1,
+                                backgroundColor: colors.primary,
+                                borderRadius: 8,
+                                paddingVertical: 6,
+                                alignItems: 'center',
                               }}
                             >
-                              <Text
-                                style={{ color: isDarkColorScheme ? '#ffffff' : '#064e3b' }}
-                                className="text-sm font-bold"
-                              >
-                                {typeof listing.property.expectedROI === 'number' 
-                                  ? listing.property.expectedROI.toFixed(1) 
-                                  : (listing.property.expectedROI || 0)}%
+                              <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
+                                Buy
                               </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Available Tokens & Order Limits */}
-                        <View
-                          style={{
-                            backgroundColor: isDarkColorScheme
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'rgba(6,78,59,0.05)',
-                            borderRadius: 12,
-                            padding: 12,
-                            marginBottom: 12,
-                          }}
-                        >
-                          <View className="flex-row justify-between items-center mb-2">
-                            <Text style={{ color: colors.textMuted }} className="text-xs">
-                              Available
-                            </Text>
-                            <Text
-                              style={{ color: colors.textPrimary }}
-                              className="text-sm font-semibold"
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                router.push(`/marketplace/${listing.id}`);
+                              }}
+                              style={{
+                                flex: 1,
+                                backgroundColor: 'transparent',
+                                borderRadius: 8,
+                                paddingVertical: 6,
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                              }}
                             >
-                              {(() => {
-                                const tokens: any = listing.remainingTokens;
-                                if (typeof tokens === 'number') {
-                                  return tokens.toFixed(2);
-                                }
-                                const tokensNum = parseFloat(String(tokens || '0')) || 0;
-                                return tokensNum.toFixed(2);
-                              })()} tokens
-                            </Text>
+                              <Text style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '600' }}>
+                                View
+                              </Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
-
-                        {/* Buy Button */}
-                        <TouchableOpacity
-                          onPress={() => router.push(`/marketplace/${listing.id}`)}
-                          style={{
-                            backgroundColor: colors.primary,
-                            borderRadius: 12,
-                            paddingVertical: 14,
-                            alignItems: 'center',
-                          }}
-                        >
-                          <Text style={{ color: '#ffffff' }} className="font-bold text-base">
-                            Buy Tokens
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               )
             )}
           </View>
         </ScrollView>
       )}
+
+      {/* Buy Token Modal */}
+      <BuyTokenModal
+        visible={showBuyModal}
+        listing={selectedListing}
+        onClose={() => {
+          setShowBuyModal(false);
+          setSelectedListing(null);
+        }}
+        onSuccess={() => {
+          setShowBuyModal(false);
+          setSelectedListing(null);
+          loadListings(); // Refresh listings after purchase
+        }}
+      />
     </View>
   );
 }

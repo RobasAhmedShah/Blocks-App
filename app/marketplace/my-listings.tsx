@@ -29,7 +29,7 @@ export default function MyListingsScreen() {
     visible: boolean;
     title: string;
     message: string;
-    type: 'success' | 'error' | 'warning' | 'info';
+    type: 'success' | 'error' | 'warning' | 'info' ;
     onConfirm?: () => void;
   }>({
     visible: false,
@@ -407,7 +407,7 @@ export default function MyListingsScreen() {
         title={alertState.title}
         message={alertState.message}
         type={alertState.type}
-        onConfirm={alertState.onConfirm}
+        onConfirm={alertState.onConfirm || (() => {})}
       />
     </View>
   );

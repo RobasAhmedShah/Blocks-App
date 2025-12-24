@@ -884,32 +884,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (idx === existingInvestmentIndex) {
             const newTokens = inv.tokens + tokenCount;
             const newInvestedAmount = inv.investedAmount + amount;
-            const estimatedValue = newTokens * property!.tokenPrice * 1.15; // 15% growth estimate
-            const newROI = ((estimatedValue - newInvestedAmount) / newInvestedAmount) * 100;
+            // Holdings based on property's current value (no instant ROI)
+            const currentValue = newTokens * property!.tokenPrice;
             
             return {
               ...inv,
               tokens: newTokens,
               investedAmount: newInvestedAmount,
-              currentValue: estimatedValue,
-              roi: newROI,
-              monthlyRentalIncome: (estimatedValue * property!.estimatedYield / 100) / 12,
+              currentValue: currentValue,
+              // ROI will be updated from rewards DB, not auto-calculated
+              roi: inv.roi, // Keep existing ROI (will be updated from rewards DB)
+              // Monthly rental income will come from rewards DB
+              monthlyRentalIncome: inv.monthlyRentalIncome, // Keep existing (will be updated from rewards DB)
             };
           }
           return inv;
         });
       } else {
         // Create new investment
-        const estimatedValue = tokenCount * property.tokenPrice * 1.15;
+        // Holdings based on property's current value (no instant ROI)
+        const currentValue = tokenCount * property.tokenPrice;
         const newInvestment: Investment = {
           id: `inv-${Date.now()}`,
           property: updatedProperties.find(p => p.id === propertyId)!,
           tokens: tokenCount,
           investedAmount: amount,
-          currentValue: estimatedValue,
-          roi: ((estimatedValue - amount) / amount) * 100,
+          currentValue: currentValue,
+          // ROI starts at 0, will be updated from rewards DB
+          roi: 0,
           rentalYield: property.estimatedYield,
-          monthlyRentalIncome: (estimatedValue * property.estimatedYield / 100) / 12,
+          // Monthly rental income starts at 0, will be updated from rewards DB
+          monthlyRentalIncome: 0,
         };
         updatedInvestments = [...prev.investments, newInvestment];
       }

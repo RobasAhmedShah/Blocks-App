@@ -471,7 +471,7 @@ export default function WalletScreen() {
             {/* Transfer */}
             <View className="items-center rounded-2xl py-4">
               <TouchableOpacity
-                onPress={() => router.push('/wallet/transfer' as any)}
+                onPress={() => router.push('/marketplace' as any)}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(234, 179, 8, 0.15)',
                   boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',

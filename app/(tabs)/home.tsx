@@ -1,6 +1,6 @@
-import React, { useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { View, Text, Dimensions, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, Dimensions, StatusBar, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -27,6 +27,7 @@ import { useTour } from '@/contexts/TourContext';
 import { TOUR_STEPS } from '@/utils/tourHelpers';
 import { useKycCheck } from '@/hooks/useKycCheck';
 import { useAuth } from '@/contexts/AuthContext';
+import { MarketplacePreviewRow } from '@/components/marketplace/MarketplacePreviewRow';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,19 +48,19 @@ const SubtlePattern = ({ isDark }: { isDark: boolean }) => (
     <Defs>
       <Pattern id="subtleGrid" patternUnits="userSpaceOnUse" width="80" height="80">
         {/* Horizontal line */}
-        <Rect
-          x="0"
-          y="0"
-          width="80"
-          height="3"
+        <Rect 
+          x="0" 
+          y="0" 
+          width="80" 
+          height="3" 
           fill={isDark ? 'rgb(80, 74, 74)' : 'rgba(0, 0, 0, 0.6)'}
         />
         {/* Vertical line */}
-        <Rect
-          x="0"
-          y="0"
-          width="3"
-          height="80"
+        <Rect 
+          x="0" 
+          y="0" 
+          width="3" 
+          height="80" 
           fill={isDark ? 'rgb(80, 74, 74)' : 'rgba(22, 163, 74, 0.6)'}
         />
       </Pattern>
@@ -74,26 +75,27 @@ function BlocksHomeScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const { state, loadWallet } = useApp();
   const { start, copilotEvents } = useCopilot();
-  const {
-    isTourCompleted,
-    markTourCompleted,
-    isFirstLaunch,
-    shouldStartTour,
-    setShouldStartTour,
+  const { 
+    isTourCompleted, 
+    markTourCompleted, 
+    isFirstLaunch, 
+    shouldStartTour, 
+    setShouldStartTour, 
     updateCurrentStep,
     isTourActive,
     setIsTourActive,
     setScrollViewRef,
   } = useTour();
-
+  
   // KYC Status using hook (with caching)
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const { isGuest, isAuthenticated } = useAuth();
-
+  
+  
   // Create ref for ScrollView only
   // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
   const scrollViewRef = useRef<any>(null);
-
+  
   // Register ScrollView ref with context
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -101,7 +103,8 @@ function BlocksHomeScreen() {
     }
   }, [setScrollViewRef]);
 
-  // Refresh wallet balance and KYC status when screen comes into focus
+
+  // Refresh wallet balance, KYC status, and marketplace listings when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       // CRITICAL: Don't reload wallet during active tour!
@@ -110,13 +113,13 @@ function BlocksHomeScreen() {
         return;
       }
       if (!isGuest && isAuthenticated) {
-        loadWallet();
-        // Refresh KYC in background (cached data shows immediately)
-        loadKycStatus(false);
+      loadWallet();
+      // Refresh KYC in background (cached data shows immediately)
+      loadKycStatus(false);
       }
     }, [loadWallet, loadKycStatus, isTourActive])
   );
-
+  
   // Check for shouldStartTour when screen comes into focus (for replay button)
   // REMOVED: This was causing duplicate tour starts. useLayoutEffect handles it.
 
@@ -131,24 +134,24 @@ function BlocksHomeScreen() {
 
       const firstLaunch = await isFirstLaunch();
       const tourDone = await isTourCompleted('home');
-
-      console.log('[HomeScreen] Tour check:', {
-        firstLaunch,
-        tourDone,
+      
+      console.log('[HomeScreen] Tour check:', { 
+        firstLaunch, 
+        tourDone, 
         shouldStartTour,
         isTourActive,
       });
-
+      
       // FIX: Check shouldStartTour FIRST (highest priority)
       // This allows manual replay from Profile button
       const shouldStart = shouldStartTour || (!tourDone && firstLaunch);
-
+      
       if (shouldStart) {
         console.log('[HomeScreen] Starting tour... Reason:', {
           manualReplay: shouldStartTour,
           firstLaunch: !tourDone && firstLaunch,
         });
-
+        
         // Use longer delay to ensure screen is fully rendered and CopilotProvider is ready
         setTimeout(() => {
           console.log('[HomeScreen] Calling start() now...');
@@ -170,7 +173,7 @@ function BlocksHomeScreen() {
         });
       }
     };
-
+    
     checkAndStartTour();
   }, [
     start,
@@ -194,7 +197,7 @@ function BlocksHomeScreen() {
       setIsTourActive(false); // CRITICAL: Set inactive when tour stops
       await markTourCompleted('home');
     };
-
+    
     const handleStepChange = (step: any) => {
       console.log('[HomeScreen] 📍 Step changed:', step?.name, 'Order:', step?.order);
       // FIX: Don't use JSON.stringify on step object - it has circular references
@@ -207,7 +210,7 @@ function BlocksHomeScreen() {
         hasWrapperRef: !!step?.wrapperRef,
         wrapperRefCurrent: !!step?.wrapperRef?.current,
       });
-
+      
       if (step?.name) {
         updateCurrentStep(step.name);
         // AUTO-SCROLL TO STEP using wrapperRef from step object
@@ -222,7 +225,7 @@ function BlocksHomeScreen() {
                   const screenHeight = Dimensions.get('window').height;
                   const centerOffset = screenHeight / 2 - height / 2;
                   const scrollToY = Math.max(0, y - centerOffset);
-
+                  
                   scrollViewRef.current?.scrollTo({
                     y: scrollToY,
                     animated: true,
@@ -255,16 +258,16 @@ function BlocksHomeScreen() {
       copilotEvents.off('stepChange', handleStepChange);
     };
   }, [copilotEvents, markTourCompleted, updateCurrentStep, setIsTourActive]);
-
+  
   // Get user's wallet balance
   const balance = state.balance.usdc;
-
+  
   // Filter properties based on user's purchase power
   const { affordable, featured, midRange } = useMemo(() => {
     const allProperties = state.properties.filter(
       (p) => p.totalTokens > 0 && p.soldTokens < p.totalTokens // Only available properties
     );
-
+    
     // If user has no balance, show default properties (all properties)
     if (balance <= 0) {
       return {
@@ -308,21 +311,21 @@ function BlocksHomeScreen() {
           })),
       };
     }
-
+    
     // User has balance - filter by affordability
     // Affordable: Properties where user can buy at least 1 token (tokenPrice <= balance)
     const affordableProperties = allProperties.filter((p) => p.tokenPrice <= balance);
-
+    
     // Featured: High ROI properties user can afford (can buy at least 0.1 tokens)
     const featuredProperties = allProperties.filter(
       (p) => balance >= p.tokenPrice * 0.1 // Can buy at least 0.1 tokens
     );
-
+    
     // Mid-range: Properties where user can buy 0.1 to 1 tokens (balance * 0.1 <= tokenPrice <= balance)
     const midRangeProperties = allProperties.filter(
       (p) => p.tokenPrice >= balance * 0.1 && p.tokenPrice <= balance
     );
-
+    
     return {
       affordable: affordableProperties
         .sort((a, b) => a.tokenPrice - b.tokenPrice)
@@ -394,28 +397,28 @@ function BlocksHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar
+      <StatusBar 
         barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
         translucent={false}
       />
-
+      
       {/* Linear Gradient Background - 40% green top, black bottom */}
       <LinearGradient
         colors={
           isDarkColorScheme
-            ? [
+          ? [
                 '#00C896', // Teal green (top)
                 '#064E3B', // Deep emerald (40% mark)
-                '#032822',
-                '#021917',
-              ]
-            : [
-                '#F5F5F5', // Smoky light gray
-                '#EDEDED', // Soft ash
-                '#E0E0E0', // Gentle gray
+              '#032822',
+              '#021917',
+            ]
+          : [
+            '#F5F5F5', // Smoky light gray
+            '#EDEDED', // Soft ash
+            '#E0E0E0', // Gentle gray
                 '#FFFFFF', // Pure white
-              ]
+            ]
         }
         locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
         start={{ x: 0, y: 0 }}
@@ -428,21 +431,21 @@ function BlocksHomeScreen() {
           bottom: 0,
         }}
       />
-
+      
       {/* Grid pattern background - visible in both modes */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
         <SubtlePattern isDark={isDarkColorScheme} />
       </View>
 
       {/* Scrollable content with parallax */}
-      <Animated.ScrollView
+      <Animated.ScrollView 
         ref={scrollViewRef}
         className="flex-1"
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}>
         {/* Header with parallax */}
-        <Animated.View
+        <Animated.View 
           style={[
             headerParallaxStyle,
             {
@@ -462,14 +465,14 @@ function BlocksHomeScreen() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             {/* Marketplace Button */}
-            {!isGuest && isAuthenticated && (
+            {/* {!isGuest && isAuthenticated && (
               <TouchableOpacity
                 onPress={() => router.push('/marketplace')}
                 style={{
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 9999,
-                  backgroundColor: `${colors.primary}${isDarkColorScheme ? '30' : '20'}`,
+                  // backgroundColor: `${colors.primary}${isDarkColorScheme ? '30' : '20'}`,
                   borderWidth: 1,
                   borderColor: `${colors.primary}${isDarkColorScheme ? '50' : '40'}`,
                 }}
@@ -479,28 +482,28 @@ function BlocksHomeScreen() {
                   <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
                     Marketplace
                   </Text>
-                </View>
+          </View>
               </TouchableOpacity>
-            )}
-            <CopilotStep
-              text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
-              order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
+            )} */}
+          <CopilotStep
+            text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
+            order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
               name={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.name}>
-              <CopilotView
-                style={{
-                  // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 9999,
-                  borderWidth: 1,
-                  borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
+            <CopilotView 
+              style={{
+                // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 9999,
+                borderWidth: 1,
+                borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
                 }}>
                 <CopilotTouchableOpacity onPress={() => router.push('./wallet')}>
-                  <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
-                    ${balance.toFixed(2)}
-                  </Text>
-                </CopilotTouchableOpacity>
-              </CopilotView>
+              <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
+                ${balance.toFixed(2)}
+              </Text>
+              </CopilotTouchableOpacity>
+            </CopilotView>
             </CopilotStep>
           </View>
         </Animated.View>
@@ -512,12 +515,12 @@ function BlocksHomeScreen() {
               marginHorizontal: 16,
               marginTop: 16,
               marginBottom: 8,
-              backgroundColor: isDarkColorScheme
-                ? 'rgba(245, 158, 11, 0.15)'
+              backgroundColor: isDarkColorScheme 
+                ? 'rgba(245, 158, 11, 0.15)' 
                 : 'rgba(245, 158, 11, 0.1)',
               borderWidth: 1,
-              borderColor: isDarkColorScheme
-                ? 'rgba(245, 158, 11, 0.3)'
+              borderColor: isDarkColorScheme 
+                ? 'rgba(245, 158, 11, 0.3)' 
                 : 'rgba(245, 158, 11, 0.4)',
               borderRadius: 16,
               padding: 16,
@@ -530,8 +533,8 @@ function BlocksHomeScreen() {
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(245, 158, 11, 0.2)'
+                backgroundColor: isDarkColorScheme 
+                  ? 'rgba(245, 158, 11, 0.2)' 
                   : 'rgba(245, 158, 11, 0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -580,155 +583,155 @@ function BlocksHomeScreen() {
 
         {/* Hero Section - Typography Focus with Parallax */}
         {!isGuest ? null : (
-          <Animated.View
-            style={[
-              heroParallaxStyle,
-              {
+        <Animated.View 
+          style={[
+            heroParallaxStyle,
+            {
                 paddingTop: 48,
                 paddingBottom: 64,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 24,
               },
             ]}>
-            {/* Oversized Typography */}
+          {/* Oversized Typography */}
             <View style={{ alignItems: 'center', zIndex: 10 }}>
-              <Text
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: 'bold',
-                  letterSpacing: 3,
-                  textTransform: 'uppercase',
-                  marginBottom: 16,
+            <Text 
+              style={{
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: 'bold',
+                letterSpacing: 3,
+                textTransform: 'uppercase',
+                marginBottom: 16,
                 }}>
-                Real Estate. Reimagined.
-              </Text>
-
-              <View style={{ marginBottom: 8 }}>
-                <Text
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 60,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    lineHeight: 64,
-                    letterSpacing: -2,
-                  }}>
-                  Build Your
-                </Text>
-              </View>
-
-              <View style={{ position: 'relative' }}>
-                <Text
-                  style={{
-                    color: colors.primary,
-                    fontSize: 60,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    lineHeight: 64,
-                    letterSpacing: -2,
-                  }}>
-                  Future
-                </Text>
-              </View>
-
-              <View style={{ marginTop: 24, alignItems: 'center' }}>
-                <Text
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    lineHeight: 32,
-                    letterSpacing: -0.5,
-                  }}>
-                  Block by Block
-                </Text>
-                <LinearGradient
-                  colors={[colors.primary, colors.primarySoft, colors.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{
-                    width: 120,
-                    height: 4,
-                    borderRadius: 2,
-                    marginTop: 8,
-                  }}
-                />
-              </View>
-
-              <Text
+              Real Estate. Reimagined.
+            </Text>
+          
+            <View style={{ marginBottom: 8 }}>
+              <Text 
                 style={{
                   color: colors.textPrimary,
-                  fontSize: 16,
+                  fontSize: 60,
+                  fontWeight: '900',
                   textAlign: 'center',
-                  lineHeight: 24,
-                  marginTop: 32,
-                  maxWidth: 400,
+                  lineHeight: 64,
+                  letterSpacing: -2,
+                  }}>
+                Build Your
+              </Text>
+            </View>
+            
+            <View style={{ position: 'relative' }}>
+              <Text 
+                style={{
+                  color: colors.primary,
+                  fontSize: 60,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  lineHeight: 64,
+                  letterSpacing: -2,
+                  }}>
+                Future
+              </Text>
+            </View>
+        
+            <View style={{ marginTop: 24, alignItems: 'center' }}>
+              <Text 
+                style={{
+                  color: colors.textPrimary,
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  lineHeight: 32,
+                  letterSpacing: -0.5,
+                  }}>
+                Block by Block
+              </Text>
+              <LinearGradient
+                colors={[colors.primary, colors.primarySoft, colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{
+                  width: 120,
+                  height: 4,
+                  borderRadius: 2,
+                  marginTop: 8,
+                }}
+              />
+            </View>
+     
+            <Text 
+              style={{
+                color: colors.textPrimary,
+                fontSize: 16,
+                textAlign: 'center',
+                lineHeight: 24,
+                marginTop: 32,
+                maxWidth: 400,
                 }}>
-                Invest in tokenized real estate with as little as{' '}
+              Invest in tokenized real estate with as little as{' '}
                 <Text style={{ fontWeight: 'bold', color: colors.primary }}>$10</Text>. Own
                 fractional shares of premium properties worldwide.
-              </Text>
+            </Text>
 
-              {/* Minimal stats */}
-              <CopilotStep
-                text={TOUR_STEPS.HOME.STATS_SECTION.text}
-                order={TOUR_STEPS.HOME.STATS_SECTION.order}
+            {/* Minimal stats */}
+            <CopilotStep
+              text={TOUR_STEPS.HOME.STATS_SECTION.text}
+              order={TOUR_STEPS.HOME.STATS_SECTION.order}
                 name={TOUR_STEPS.HOME.STATS_SECTION.name}>
                 <CopilotView style={{ flexDirection: 'row', gap: 32, marginTop: 40 }}>
-                  <View style={{ alignItems: 'center' }}>
+                <View style={{ alignItems: 'center' }}>
                     <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
                       50+
                     </Text>
                     <Text
                       style={{
-                        fontSize: 12,
-                        color: colors.textPrimary,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
                         marginTop: 4,
-                      }}>
-                      Properties
-                    </Text>
-                  </View>
-                  <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-                  <View style={{ alignItems: 'center' }}>
+                  }}>
+                    Properties
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
                     <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
                       $2M+
                     </Text>
                     <Text
                       style={{
-                        fontSize: 12,
-                        color: colors.textPrimary,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
                         marginTop: 4,
-                      }}>
-                      Invested
-                    </Text>
-                  </View>
-                  <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-                  <View style={{ alignItems: 'center' }}>
+                  }}>
+                    Invested
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
                     <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
                       12%
                     </Text>
                     <Text
                       style={{
-                        fontSize: 12,
-                        color: colors.textPrimary,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
+                    fontSize: 12, 
+                    color: colors.textPrimary, 
+                    textTransform: 'uppercase', 
+                    letterSpacing: 1, 
                         marginTop: 4,
-                      }}>
-                      Avg ROI
-                    </Text>
-                  </View>
-                </CopilotView>
-              </CopilotStep>
-            </View>
-          </Animated.View>
+                  }}>
+                    Avg ROI
+                  </Text>
+                </View>
+              </CopilotView>
+            </CopilotStep>
+          </View>
+        </Animated.View>
         )}
 
         {/* Content sections with smooth entrance */}
@@ -748,110 +751,77 @@ function BlocksHomeScreen() {
           {/* Property Cards - Step 3 - Must be rendered BEFORE Guidance Card for correct order */}
           {/* Property Cards - Always render CopilotStep even if no featured properties */}
           <View style={{ marginTop: !isGuest ? -60 : 0 }}>
-            <CopilotStep
-              text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
-              order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
+          <CopilotStep
+            text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
+            order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
               name={TOUR_STEPS.HOME.PROPERTY_CARD.name}>
-              <CopilotView>
-                {featured.length > 0 ? (
-                  <FeaturedSection featured={featured} />
-                ) : (
-                  <View style={{ minHeight: 200, padding: 20 }}>
-                    <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                      No featured properties available
-                    </Text>
-                  </View>
-                )}
-              </CopilotView>
-            </CopilotStep>
+            <CopilotView>
+              {featured.length > 0 ? (
+                <FeaturedSection featured={featured} />
+              ) : (
+                <View style={{ minHeight: 200, padding: 20 }}>
+                  <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                    No featured properties available
+                  </Text>
+                </View>
+              )}
+            </CopilotView>
+          </CopilotStep>
           </View>
-
+          
           {affordable.length > 0 && <AffordableSection affordable={affordable} />}
           
-          {/* Marketplace Quick Access Card */}
+          {/* Marketplace Section */}
           {!isGuest && isAuthenticated && (
-            <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 16 }}>
-              <TouchableOpacity
-                onPress={() => router.push('/marketplace')}
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 20,
-                  padding: 20,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: isDarkColorScheme ? 0.3 : 0.1,
-                  shadowRadius: 12,
-                  elevation: 8,
-                }}
-                activeOpacity={0.8}>
-                <LinearGradient
-                  colors={
-                    isDarkColorScheme
-                      ? ['rgba(6, 78, 59, 0.3)', 'rgba(2, 44, 34, 0.5)']
-                      : ['rgba(236, 253, 245, 0.8)', 'rgba(209, 250, 229, 0.6)']
-                  }
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    borderRadius: 20,
-                  }}
-                />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                  <View
+            <View style={{ marginTop: 24, marginBottom: 16 }}>
+              {/* Section Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Text
                     style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: colors.primary + '20',
-                      justifyContent: 'center',
-                      alignItems: 'center',
+                      color: colors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: 'bold',
+                      marginBottom: 4,
                     }}>
-                    <Ionicons name="storefront" size={28} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        color: colors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: 'bold',
-                        marginBottom: 4,
-                      }}>
-                      Token Marketplace
-                    </Text>
-                    <Text
-                      style={{
-                        color: colors.textSecondary,
-                        fontSize: 14,
-                        lineHeight: 20,
-                      }}>
-                      Buy and sell property tokens with other users
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={24}
-                    color={colors.textMuted}
-                  />
+                    Marketplace
+                  </Text>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontSize: 14,
+                    }}>
+                    Buy & sell property tokens
+                  </Text>
                 </View>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push('/marketplace')}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                  }}>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                    View All
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Marketplace Preview Row */}
+              <MarketplacePreviewRow limit={6} />
             </View>
           )}
 
           {isGuest ? null : (
             <View style={{ marginBottom: -20, marginTop: 26 }}>
-              <CopilotStep
-                text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
-                order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
+            <CopilotStep
+              text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
+              order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
                 name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}>
-                <CopilotView>
-                  <GuidanceCard />
-                </CopilotView>
-              </CopilotStep>
+              <CopilotView>
+                <GuidanceCard />
+              </CopilotView>
+            </CopilotStep>
             </View>
           )}
           {midRange.length > 0 && (

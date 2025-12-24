@@ -742,7 +742,7 @@ export default function SellTokensScreen() {
         title={alertState.title}
         message={alertState.message}
         type={alertState.type}
-        onConfirm={alertState.onConfirm}
+        onConfirm={alertState.onConfirm || (() => {})}
       />
     </View>
   );

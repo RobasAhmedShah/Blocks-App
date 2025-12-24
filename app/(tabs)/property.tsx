@@ -17,6 +17,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
 import { propertyFilters } from '@/data/mockCommon';
 
+
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {

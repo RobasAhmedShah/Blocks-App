@@ -78,7 +78,7 @@ export default function PlanSavedScreen() {
                 borderRadius: 9999,
                 // backgroundColor: `${colors.primary}33`,
               }}>
-                <Ionicons name="checkmark-circle" size={48}  />
+                <Ionicons name="checkmark-circle" size={48} color={colors.textPrimary} />
               </View>
             </View>
 

@@ -6,7 +6,8 @@
     "scheme": "blocks",
     "platforms": [
       "ios",
-      "android"
+      "android",
+      "web"
     ],
     "web": {
       "bundler": "metro",

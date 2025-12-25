@@ -75,6 +75,14 @@ export const depositMethods: DepositMethod[] = [
     color: '#0fa0bd',
     route: '/wallet/deposit/bank-transfer',
   },
+  {
+    id: '1link-qr',
+    title: '1LINK QR Payment',
+    description: 'Pay via any Pakistani bank app',
+    icon: 'qr-code-2',
+    color: '#00A651',
+    route: '/wallet/deposit/1link-qr',
+  },
 ];
 
 export const quickAmounts: number[] = [100, 250, 500, 1000];

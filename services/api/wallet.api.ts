@@ -32,6 +32,21 @@ export interface DepositResponse {
   wallet: WalletBalance;
 }
 
+// 1LINK QR Payment Types
+export interface OneLinkQrRequest {
+  amountPkr: number;
+  purpose?: string; // Optional, default: "Wallet Top Up"
+}
+
+export interface OneLinkQrResponse {
+  depositId: string;
+  referenceId: string;
+  amountPkr: string;
+  qrCodeBase64: string;
+  qrCodeDataUri: string; // Ready to use in Image component
+  currency: string; // Always "PKR"
+}
+
 export const walletApi = {
   /**
    * Get wallet balance and summary
@@ -53,6 +68,14 @@ export const walletApi = {
    */
   depositBankTransfer: async (dto: BankTransferDepositRequest): Promise<DepositResponse> => {
     return apiClient.post<DepositResponse>('/api/mobile/wallet/deposit/bank-transfer', dto);
+  },
+
+  /**
+   * Generate 1LINK QR code for PKR deposit
+   * Returns a Base64 PNG QR code that can be scanned with any Pakistani bank app
+   */
+  generateOneLinkQr: async (dto: OneLinkQrRequest): Promise<OneLinkQrResponse> => {
+    return apiClient.post<OneLinkQrResponse>('/api/payments/1link/1qr', dto);
   },
 };
 

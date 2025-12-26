@@ -790,64 +790,6 @@ export default function BlocksProfileScreen() {
           </View>
         ))}
 
-        {/* Biometric Login Toggle */}
-        {isBiometricSupported && (
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderWidth: isDarkColorScheme ? 0 : 1,
-              borderColor: colors.border,
-              marginBottom: 16,
-            }}
-            className="rounded-xl shadow-sm overflow-hidden"
-          >
-            <View
-              style={{
-                backgroundColor: colors.card,
-              }}
-              className="flex-row items-center justify-between px-4 py-4"
-            >
-              <View className="flex-row items-center gap-4 flex-1">
-                <View
-                  style={{
-                    backgroundColor: isDarkColorScheme
-                      ? 'rgba(22, 163, 74, 0.15)'
-                      : 'rgba(22, 163, 74, 0.1)',
-                  }}
-                  className="w-10 h-10 rounded-lg items-center justify-center"
-                >
-                  <Ionicons name="finger-print" size={22} color={colors.primary} />
-                </View>
-                <View className="flex-1">
-                  <Text
-                    style={{ color: colors.textPrimary }}
-                    className="text-base font-medium"
-                  >
-                    Biometric Login
-                  </Text>
-                  <Text
-                    style={{ color: colors.textMuted }}
-                    className="text-xs mt-0.5"
-                  >
-                    {isBiometricEnrolled
-                      ? 'Face ID / Touch ID enabled'
-                      : 'Use Face ID or Touch ID to sign in'}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={isBiometricEnrolled}
-                onValueChange={handleBiometricToggle}
-                trackColor={{
-                  false: isDarkColorScheme ? '#374151' : '#d1d5db',
-                  true: colors.primary,
-                }}
-                thumbColor="#ffffff"
-                ios_backgroundColor={isDarkColorScheme ? '#374151' : '#d1d5db'}
-              />
-            </View>
-          </View>
-        )}
 
         {/* App Settings Section */}
         <View className="mb-8">

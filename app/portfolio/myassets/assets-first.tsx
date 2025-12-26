@@ -22,7 +22,6 @@ import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
 import { ASSETS_CONSTANTS } from '@/components/assets/constants';
 import EmeraldLoader from '@/components/EmeraldLoader';
 import { useKycCheck } from '@/hooks/useKycCheck';
-import InvestScreen from '@/app/invest/[id]';
 
 const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
@@ -39,8 +38,6 @@ export default function AssetsFirstScreen() {
   const [selectedInvestment, setSelectedInvestment] = useState<any>(null);
   const [isModalAtTop, setIsModalAtTop] = useState(true);
   const [selectedRange, setSelectedRange] = useState('6M');
-  const [showInvestModal, setShowInvestModal] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   // Modal animations
   const modalTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -452,8 +449,10 @@ export default function AssetsFirstScreen() {
             onPress={() => {
               if (currentInvestment) {
                 handleInvestPress(() => {
-                  setSelectedPropertyId(currentInvestment.property.id);
-                  setShowInvestModal(true);
+                  // Navigate to invest screen instead of showing modal
+                  router.push({
+                    pathname: `/invest/${currentInvestment.property.id}` as any,
+                  });
                 });
               }
             }}
@@ -521,16 +520,6 @@ export default function AssetsFirstScreen() {
         modalPanResponder={modalPanResponder}
       />
 
-      {/* Investment Modal */}
-      {showInvestModal && selectedPropertyId && (
-          <InvestScreen
-            propertyId={selectedPropertyId}
-            onClose={() => {
-              setShowInvestModal(false);
-              setSelectedPropertyId(null);
-            }}
-          /> 
-      )}
       
     </View>
   );

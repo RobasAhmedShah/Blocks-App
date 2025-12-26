@@ -61,30 +61,51 @@ export default function SellTokensScreen() {
   }, [selectedProperty]);
 
   const loadAvailableTokens = async () => {
-    if (!selectedProperty) return;
-    // Get propertyId from investment - mobile API returns property.id
-    const propertyId = selectedProperty.property?.id;
-    if (!propertyId) {
-      console.error('Property ID not found in investment:', {
-        selectedProperty,
-        hasProperty: !!selectedProperty.property,
-        propertyId: selectedProperty.property?.id,
-      });
+    if (!selectedProperty) {
       setAvailableTokens('0');
       return;
     }
+    
+    // Use tokens from investment directly instead of calling API
+    // The investment object already contains the user's token balance
+    const tokens = selectedProperty.tokens || 0;
+    setAvailableTokens(tokens.toString());
+    
+    // Optionally, we could subtract tokens that are already listed for sale
+    // But for now, we'll use the full token balance as available
     try {
       setLoadingAvailable(true);
-      console.log('Loading available tokens for propertyId:', propertyId);
-      const response = await marketplaceAPI.getAvailableTokens(propertyId);
-      setAvailableTokens(response.availableTokens);
+      // Check if there are any active listings for this property to calculate remaining tokens
+      const propertyId = selectedProperty.property?.id;
+      if (propertyId) {
+        try {
+          const myListings = await marketplaceAPI.getMyListings();
+          const activeListingsForProperty = myListings.filter(
+            (listing) => listing.propertyId === propertyId && listing.status === 'active'
+          );
+          
+          // Calculate total tokens already listed
+          const listedTokens = activeListingsForProperty.reduce(
+            (sum, listing) => sum + (listing.totalTokens - listing.remainingTokens),
+            0
+          );
+          
+          // Available tokens = owned tokens - tokens already listed
+          const available = Math.max(0, tokens - listedTokens);
+          setAvailableTokens(available.toString());
+        } catch (error) {
+          // If fetching listings fails, just use the full token balance
+          console.log('Could not fetch listings, using full token balance');
+          setAvailableTokens(tokens.toString());
+        }
+      } else {
+        setAvailableTokens(tokens.toString());
+      }
     } catch (error: any) {
-      console.error('Failed to load available tokens:', {
-        error: error.message || error,
-        propertyId,
-        selectedProperty: selectedProperty?.property?.id,
-      });
-      setAvailableTokens('0');
+      console.error('Failed to load available tokens:', error);
+      // Fallback to using investment tokens directly
+      const tokens = selectedProperty.tokens || 0;
+      setAvailableTokens(tokens.toString());
     } finally {
       setLoadingAvailable(false);
     }
@@ -576,7 +597,7 @@ export default function SellTokensScreen() {
                 {/* Summary */}
                 <View
                   style={{
-                    backgroundColor: colors.primary + '20',
+                    // backgroundColor: colors.primary + '20',
                     borderRadius: 16,
                     padding: 20,
                     marginBottom: 24,

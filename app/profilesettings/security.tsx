@@ -13,11 +13,13 @@ import { useRouter } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { SecuritySettings } from "@/types/profilesettings";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SecurityScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { state, updateSecuritySettings } = useApp();
+  const { enableBiometrics, disableBiometrics, isBiometricSupported, isBiometricEnrolled } = useAuth();
   const [settings, setSettings] = useState<SecuritySettings>(state.securitySettings);
 
   // Sync with context when it changes
@@ -32,9 +34,29 @@ export default function SecurityScreen() {
   };
 
   const handleToggleBiometric = async (value: boolean) => {
-    const newSettings = { ...settings, biometricLogin: value };
-    setSettings(newSettings);
-    await updateSecuritySettings({ biometricLogin: value });
+    try {
+      let success = false;
+      if (value) {
+        // Enabling biometrics
+        success = await enableBiometrics();
+        if (!success) {
+          // Could show an alert here if needed
+          return;
+        }
+      } else {
+        // Disabling biometrics
+        success = await disableBiometrics();
+      }
+      
+      // Update settings if successful
+      if (success) {
+        const newSettings = { ...settings, biometricLogin: value };
+        setSettings(newSettings);
+        await updateSecuritySettings({ biometricLogin: value });
+      }
+    } catch (error) {
+      console.error('Failed to toggle biometric:', error);
+    }
   };
 
   const handleChangePassword = () => {
@@ -163,30 +185,45 @@ export default function SecurityScreen() {
               <View style={{ height: 1, backgroundColor: colors.border }} className="mx-4" />
 
               {/* Biometric Login */}
-              <View className="flex-row items-center justify-between px-4 py-4 min-h-[56px]">
-                <View className="flex-row items-center gap-4 flex-1">
-                  <View 
-                    style={{ 
-                      backgroundColor: isDarkColorScheme 
-                        ? 'rgba(13, 165, 165, 0.15)' 
-                        : 'rgba(13, 165, 165, 0.1)' 
-                    }}
-                    className="w-10 h-10 items-center justify-center rounded-lg"
-                  >
-                    <Ionicons name="finger-print" size={22} color={colors.primary} />
+              {isBiometricSupported && (
+                <View className="flex-row items-center justify-between px-4 py-4 min-h-[56px]">
+                  <View className="flex-row items-center gap-4 flex-1">
+                    <View 
+                      style={{ 
+                        backgroundColor: isDarkColorScheme 
+                          ? 'rgba(22, 163, 74, 0.15)' 
+                          : 'rgba(22, 163, 74, 0.1)' 
+                      }}
+                      className="w-10 h-10 items-center justify-center rounded-lg"
+                    >
+                      <Ionicons name="finger-print" size={22} color={colors.primary} />
+                    </View>
+                    <View className="flex-1">
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
+                        Biometric Login
+                      </Text>
+                      <Text
+                        style={{ color: colors.textMuted }}
+                        className="text-xs mt-0.5"
+                      >
+                        {isBiometricEnrolled
+                          ? 'Face ID / Touch ID enabled'
+                          : 'Use Face ID or Touch ID to sign in'}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={{ color: colors.textPrimary }} className="flex-1 text-base font-medium">
-                    Biometric Login
-                  </Text>
+                  <Switch
+                    value={isBiometricEnrolled}
+                    onValueChange={handleToggleBiometric}
+                    trackColor={{
+                      false: isDarkColorScheme ? '#374151' : '#d1d5db',
+                      true: colors.primary,
+                    }}
+                    thumbColor="#ffffff"
+                    ios_backgroundColor={isDarkColorScheme ? '#374151' : '#d1d5db'}
+                  />
                 </View>
-                <Switch
-                  value={settings.biometricLogin}
-                  onValueChange={handleToggleBiometric}
-                  trackColor={{ false: "#3e4e4e", true: colors.primary }}
-                  thumbColor="#ffffff"
-                  ios_backgroundColor="#3e4e4e"
-                />
-              </View>
+              )}
             </View>
           </View>
 

@@ -173,7 +173,7 @@ export default function MarketplaceScreen() {
                 '#064E3B', // Deep emerald
                 '#022C22', // Darker green
                 '#011F1A', // Very dark green
-                '#000000', // Pure black (bottom)
+                '#022C22', // Darker green
               ]
             : [
               '#F0FDF4', // Very light green tint

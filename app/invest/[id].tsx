@@ -1,45 +1,77 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, PanResponder, Animated, TextInput, Alert, Keyboard, Platform, TouchableWithoutFeedback } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  StatusBar,
+  TextInput,
+  Alert,
+  Keyboard,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+  Animated,
+} from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useProperty } from '@/services/useProperty';
 import { useWallet } from '@/services/useWallet';
 import { useApp } from '@/contexts/AppContext';
-import { useColorScheme } from '@/lib/useColorScheme';
-import { KeyboardDismissButton } from '@/components/common/KeyboardDismissButton';
 import { useKycCheck } from '@/hooks/useKycCheck';
+import { normalizePropertyImages } from '@/utils/propertyUtils';
+import Constants from 'expo-constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { usePortfolio } from '@/services/usePortfolio';
+import { marketplaceAPI } from '@/services/api/marketplace.api';
 
-// Epsilon tolerance for floating-point comparison (1 cent)
+// Constants
 const BALANCE_EPSILON = 0.01;
-// Minimum investment: 0.1 tokens
 const MINIMUM_TOKENS = 0.1;
-// Effective token price (divided by 10 for fractional investments)
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
-interface InvestScreenProps {
-  propertyId?: string;
-  onClose?: () => void;
-  initialInvestmentAmount?: number; // Amount in USDT from calculator
-}
-
-export default function InvestScreen({ propertyId, onClose, initialInvestmentAmount }: InvestScreenProps = {}) {
-  const routeParams = useLocalSearchParams<{ id?: string; tokenCount?: string }>();
+export default function BuyTokensScreen() {
+  const routeParams = useLocalSearchParams<{ id?: string; tokenCount?: string; initialInvestmentAmount?: string }>();
   const router = useRouter();
-  const { colors, isDarkColorScheme } = useColorScheme();
-  const id = propertyId || routeParams.id || '';
-  const { property, loading } = useProperty(id);
+  const { colors, isDarkColorScheme} = useColorScheme();
+  const insets = useSafeAreaInsets();
+  const initialId = routeParams.id || '';
+  
+  // Property selection - must be declared before useProperty
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(initialId);
+  
+  const { property, loading: propertyLoading } = useProperty(selectedPropertyId || initialId);
   const { balance } = useWallet();
   const { invest } = useApp();
   const { isVerified, kycLoading } = useKycCheck();
   
-  // Redirect to KYC if not verified
-  useEffect(() => {
-    if (!kycLoading && !isVerified) {
-      router.replace('../profilesettings/kyc');
-    }
-  }, [isVerified, kycLoading, router]);
+  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
   
-  // Calculate initial token count from initialInvestmentAmount if provided
+  // Get initialInvestmentAmount from route params
+  const initialInvestmentAmount = routeParams.initialInvestmentAmount ? parseFloat(routeParams.initialInvestmentAmount) : undefined;
+  
+  // Input mode: 'tokens' or 'amount'
+  const [inputMode, setInputMode] = useState<'tokens' | 'amount'>('tokens');
+  // Active tab: 'buy' or 'sell'
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  
+  // Property selection
+  const [showPropertySelector, setShowPropertySelector] = useState(false);
+  
+  // Sell mode state
+  const { investments, loadInvestments } = usePortfolio();
+  const [tokensToSell, setTokensToSell] = useState<string>('');
+  const [sellingPrice, setSellingPrice] = useState<string>('');
+  
+  // Animation for digit dial reveal
+  const digitAnimation = useRef(new Animated.Value(1)).current;
+  
+  // Calculate initial token count
   const getInitialTokenCount = () => {
     if (initialInvestmentAmount && property) {
       const effectivePrice = getEffectiveTokenPrice(property.tokenPrice);
@@ -56,64 +88,16 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
   const [tokenInput, setTokenInput] = useState<string>(initialTokenCount > 0 ? initialTokenCount.toFixed(2) : '');
   const [priceInput, setPriceInput] = useState<string>(initialInvestmentAmount && initialInvestmentAmount > 0 ? initialInvestmentAmount.toFixed(2) : '');
   const [isInvesting, setIsInvesting] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
-  // Pan gesture for drag to close (bottom to top OR top to bottom)
-  const pan = useRef(new Animated.Value(0)).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only respond to vertical gestures
-        return Math.abs(gestureState.dy) > 5;
-      },
-      onPanResponderGrant: () => {
-        setIsDragging(true);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Allow dragging in both directions (down = positive, up = negative)
-        // But we want to close on swipe down (positive dy)
-        if (gestureState.dy > 0) {
-          pan.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        setIsDragging(false);
-        
-        // Close if:
-        // 1. Swiped down more than 150px
-        // 2. OR velocity is > 0.5 (fast swipe down)
-        if (gestureState.dy > 150 || gestureState.vy > 0.5) {
-          // Animate out and close
-          Animated.timing(pan, {
-            toValue: 500, // Slide down off screen
-            duration: 250,
-            useNativeDriver: true,
-          }).start(() => {
-            handleClose();
-          });
-        } else {
-          // Spring back to original position
-          Animated.spring(pan, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 40,
-            friction: 7,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  const handleClose = () => {
-    if (onClose) {
-      onClose();
-    } else {
-      router.back();
+  // Redirect to KYC if not verified
+  useEffect(() => {
+    if (!kycLoading && !isVerified) {
+      router.replace('../profilesettings/kyc');
     }
-  };
+  }, [isVerified, kycLoading, router]);
 
-  // Effect to update inputs when initialInvestmentAmount changes (e.g., from calculator)
+  // Update inputs when initialInvestmentAmount changes
   useEffect(() => {
     if (initialInvestmentAmount && initialInvestmentAmount > 0 && property) {
       const effectivePrice = getEffectiveTokenPrice(property.tokenPrice);
@@ -127,59 +111,250 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
     }
   }, [initialInvestmentAmount, property]);
 
-  if (loading || !property) {
+  // Auto-focus input on mount (but don't show system keyboard)
+  useEffect(() => {
+    setTimeout(() => {
+      // Focus the input but system keyboard won't show due to showSoftInputOnFocus={false}
+      inputRef.current?.focus();
+      // Ensure system keyboard is dismissed
+      Keyboard.dismiss();
+    }, 300);
+  }, []);
+
+  // Load investments for Sell tab
+  useEffect(() => {
+    if (activeTab === 'sell') {
+      loadInvestments();
+    }
+  }, [activeTab, loadInvestments]);
+
+  // Get owned properties for Sell tab
+  const ownedProperties = investments.filter(inv => inv.tokens > 0);
+
+  // Get available tokens based on mode
+  const getAvailableTokens = () => {
+    if (activeTab === 'sell') {
+      const investment = investments.find(inv => inv.property?.id === selectedPropertyId);
+      return investment?.tokens || 0;
+    }
+    return property ? property.totalTokens - property.soldTokens : 0;
+  };
+
+  const availableTokens = getAvailableTokens();
+  const effectiveTokenPrice = property ? getEffectiveTokenPrice(property.tokenPrice) : 0;
+  const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
+
+  if (propertyLoading || (activeTab === 'buy' && !property)) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: colors.textPrimary }}>Loading...</Text>
-      </View>
+      <LinearGradient colors={['#064E3B', '#022C22', '#000']} style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text style={{ color: '#fff', marginTop: 16 }}>Loading...</Text>
+        </View>
+      </LinearGradient>
     );
   }
-
-  const availableTokens = property.totalTokens - property.soldTokens;
-  const effectiveTokenPrice = getEffectiveTokenPrice(property.tokenPrice);
-  const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
   
   const totalAmount = (tokenCount || 0) * effectiveTokenPrice;
   const transactionFee = totalAmount * 0.02; // 2% fee
   const totalInvestment = totalAmount + transactionFee;
   
-  // Calculate progress based on available tokens
-  const sliderValue = Math.min((tokenCount / Math.max(availableTokens, 1)) * 100, 100);
-
-  // Check if user has sufficient balance (with epsilon tolerance)
+  // Check if user has sufficient balance
   const hasSufficientBalance = balance.usdc >= (totalInvestment - BALANCE_EPSILON);
   
-  // Check if investment meets minimum token requirement (0.1 tokens)
+  // Check if investment meets minimum token requirement
   const meetsMinimumTokens = tokenCount >= MINIMUM_TOKENS;
 
-  // Synchronized update function for tokens
-  const updateFromTokens = (tokens: number) => {
-    // Validate max tokens
-    const validTokens = Math.min(Math.max(0, tokens), availableTokens);
-    
-    setTokenCount(validTokens);
-    setTokenInput(validTokens > 0 ? validTokens.toFixed(2) : '');
-    
-    // Update price with 2 decimals using effective price
-    const calculatedPrice = validTokens * effectiveTokenPrice;
-    setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
+  // Helper to get property image URL
+  const getPropertyImageUrl = (images: any): string | null => {
+    if (!images) return null;
+    const imageArray = normalizePropertyImages(images);
+    if (imageArray.length === 0) return null;
+    const firstImage = imageArray[0];
+    if (!firstImage) return null;
+    if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+      return firstImage;
+    }
+    if (firstImage.startsWith('/')) {
+      return `${API_BASE_URL}${firstImage}`;
+    }
+    return `${API_BASE_URL}/${firstImage}`;
   };
 
-  // Synchronized update function for price
-  const updateFromPrice = (price: number) => {
-    // Validate max price
-    const validPrice = Math.min(Math.max(0, price), maxInvestmentAmount);
+  // Handle numeric keypad input
+  const handleKeypadInput = (key: string) => {
+    const currentInput = inputMode === 'tokens' ? tokenInput : priceInput;
+    let newInput = currentInput;
+
+    if (key === 'backspace') {
+      newInput = currentInput.slice(0, -1);
+    } else if (key === '.') {
+      if (!currentInput.includes('.')) {
+        newInput = currentInput === '' ? '0.' : currentInput + '.';
+      }
+    } else {
+      // Number input
+      if (currentInput === '0' && key !== '.') {
+        newInput = key;
+      } else {
+        newInput = currentInput + key;
+      }
+    }
+
+    // Apply validation
+    if (newInput === '') {
+      if (inputMode === 'tokens') {
+        setTokenInput('');
+        setTokenCount(0);
+        setPriceInput('');
+      } else {
+        setPriceInput('');
+        setTokenCount(0);
+        setTokenInput('');
+      }
+      return;
+    }
+
+    if (newInput === '.') {
+      if (inputMode === 'tokens') {
+        setTokenInput(newInput);
+      } else {
+        setPriceInput(newInput);
+      }
+      return;
+    }
+
+    const cleaned = newInput.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+
+    if (parts.length === 2 && parts[1].length > 2) {
+      return;
+    }
+
+    // Update based on input mode
+    if (inputMode === 'tokens') {
+      setTokenInput(cleaned);
+      const num = parseFloat(cleaned);
+      if (!isNaN(num) && num >= 0) {
+        const validNum = Math.min(num, availableTokens);
+        setTokenCount(validNum);
+        const calculatedPrice = validNum * effectiveTokenPrice;
+        setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
+      } else if (cleaned === '.') {
+        setTokenCount(0);
+        setPriceInput('');
+      }
+    } else {
+      setPriceInput(cleaned);
+      const priceNum = parseFloat(cleaned);
+      if (!isNaN(priceNum) && priceNum >= 0 && effectiveTokenPrice > 0) {
+        const validPrice = Math.min(priceNum, maxInvestmentAmount);
+        const calculatedTokens = validPrice / effectiveTokenPrice;
+        setTokenCount(calculatedTokens);
+        setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
+      } else if (cleaned === '.') {
+        setTokenCount(0);
+        setTokenInput('');
+      }
+    }
+  };
+
+  // Handle TextInput change
+  const handleInputChange = (text: string) => {
+    if (text === '') {
+      if (inputMode === 'tokens') {
+        setTokenInput('');
+        setTokenCount(0);
+        setPriceInput('');
+      } else {
+        setPriceInput('');
+        setTokenCount(0);
+        setTokenInput('');
+      }
+      return;
+    }
     
-    setPriceInput(validPrice > 0 ? validPrice.toFixed(2) : '');
+    if (text === '.') {
+      if (inputMode === 'tokens') {
+        setTokenInput(text);
+      } else {
+        setPriceInput(text);
+      }
+      return;
+    }
     
-    // Update tokens with 2 decimals using effective price
-    const calculatedTokens = validPrice / effectiveTokenPrice;
-    setTokenCount(calculatedTokens);
-    setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+    
+    if (parts.length === 2 && parts[1].length > 2) {
+      return;
+    }
+    
+    if (inputMode === 'tokens') {
+      setTokenInput(cleaned);
+      const num = parseFloat(cleaned);
+      if (!isNaN(num) && num >= 0) {
+        const validNum = Math.min(num, availableTokens);
+        setTokenCount(validNum);
+        const calculatedPrice = validNum * effectiveTokenPrice;
+        setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
+      }
+    } else {
+      setPriceInput(cleaned);
+      const priceNum = parseFloat(cleaned);
+      if (!isNaN(priceNum) && priceNum >= 0 && effectiveTokenPrice > 0) {
+        const validPrice = Math.min(priceNum, maxInvestmentAmount);
+        const calculatedTokens = validPrice / effectiveTokenPrice;
+        setTokenCount(calculatedTokens);
+        setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
+      }
+    }
   };
 
   const handleConfirm = async () => {
-    // Validation
+    if (activeTab === 'sell') {
+      // Sell flow validation
+      if (!property) {
+        Alert.alert('Error', 'Please select a property to sell');
+        return;
+      }
+
+      if (tokenCount < MINIMUM_TOKENS) {
+        Alert.alert(
+          'Minimum Tokens Required',
+          `Minimum ${MINIMUM_TOKENS} tokens required to sell`
+        );
+        return;
+      }
+
+      if (tokenCount > availableTokens) {
+        Alert.alert(
+          'Exceeds Available Tokens',
+          `You only have ${availableTokens.toFixed(2)} tokens available`
+        );
+        return;
+      }
+
+      // Navigate to sell review screen
+      router.push({
+        pathname: `/invest/${selectedPropertyId}/sell-review` as any,
+        params: {
+          tokenCount: tokenCount.toString(),
+          propertyId: selectedPropertyId,
+          propertyTitle: property.title,
+          pricePerToken: effectiveTokenPrice.toString(),
+        },
+      } as any);
+      return;
+    }
+
+    // Buy flow validation
     if (tokenCount < MINIMUM_TOKENS) {
       Alert.alert(
         'Minimum Investment Required', 
@@ -198,7 +373,6 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
 
     if (!hasSufficientBalance) {
       const shortfall = totalInvestment - balance.usdc;
-      handleClose();
       router.push({
         pathname: '/wallet/deposit/card',
         params: { amount: shortfall.toFixed(2) },
@@ -206,17 +380,14 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
       return;
     }
 
-    // Ensure tokenCount is valid before investing
     const finalTokenCount = tokenCount;
     const finalTotalAmount = finalTokenCount * effectiveTokenPrice;
     const finalTransactionFee = finalTotalAmount * 0.02;
     const finalTotalInvestment = finalTotalAmount + finalTransactionFee;
 
-    // Double-check with epsilon tolerance
     const hasFinalSufficientBalance = balance.usdc >= (finalTotalInvestment - BALANCE_EPSILON);
     if (!hasFinalSufficientBalance) {
       const shortfall = finalTotalInvestment - balance.usdc;
-      handleClose();
       router.push({
         pathname: '/wallet/deposit/card',
         params: { amount: shortfall.toFixed(2) },
@@ -224,591 +395,760 @@ export default function InvestScreen({ propertyId, onClose, initialInvestmentAmo
       return;
     }
 
-    setIsInvesting(true);
-    try {
-      await invest(finalTotalInvestment, property.id, finalTokenCount);
-      
-      // Navigate to confirmation with investment details
-      router.replace({
-        pathname: `/invest/${id}/confirm` as any,
-        params: {
-          tokenCount: finalTokenCount.toString(),
-          totalAmount: finalTotalAmount.toFixed(2),
-          totalInvestment: finalTotalInvestment.toFixed(2),
-          propertyTitle: property.title,
-        },
-      } as any);
-    } catch (error) {
-      console.error('Investment failed:', error);
-      setIsInvesting(false);
+    // Navigate to review screen
+    if (!property) {
+      Alert.alert('Error', 'Property not found');
+      return;
     }
+
+    router.push({
+      pathname: `/invest/${selectedPropertyId}/review` as any,
+      params: {
+        tokenCount: finalTokenCount.toString(),
+        totalAmount: finalTotalAmount.toFixed(2),
+        transactionFee: finalTransactionFee.toFixed(2),
+        totalInvestment: finalTotalInvestment.toFixed(2),
+        propertyTitle: property.title,
+        propertyId: selectedPropertyId,
+      },
+    } as any);
   };
 
+  const propertyImage = property ? getPropertyImageUrl(property.images) : null;
+  const displayValue = inputMode === 'tokens' ? (tokenInput || '0') : (priceInput || '0');
+  const displayLabel = inputMode === 'tokens' ? (property?.tokenSymbol || 'TKN') : 'USDT';
+  const conversionText = inputMode === 'tokens' 
+    ? `≈ $${totalAmount.toFixed(2)}`
+    : `≈ ${tokenCount.toFixed(2)} ${property?.tokenSymbol || 'tokens'}`;
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  const handleToggleInputMode = () => {
+    const newMode = inputMode === 'tokens' ? 'amount' : 'tokens';
+    
+    // Animate digit dial reveal
+    Animated.sequence([
+      Animated.timing(digitAnimation, {
+        toValue: 0.3,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(digitAnimation, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    setInputMode(newMode);
+  };
+
+  const handlePropertySelect = (propertyId: string) => {
+    setSelectedPropertyId(propertyId);
+    setShowPropertySelector(false);
+    // Reset inputs when property changes
+    setTokenInput('');
+    setPriceInput('');
+    setTokenCount(0);
+  };
   return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
+    <LinearGradient
+      colors={['#064E3B', '#022C22', '#000']}
+      style={[styles.container, { paddingTop: insets.top }]}
     >
-      <TouchableOpacity 
-        style={{ 
-          flex: 1, 
-          backgroundColor: 'rgba(0, 0, 0, 0.51)', 
-          justifyContent: 'flex-end',
-          // paddingBottom: -100
-        }}
-        activeOpacity={1}
-        onPress={handleClose}
-      >
-        <TouchableOpacity 
-        // className='border border-gray-200 mb-[-50px]'
-          activeOpacity={1} 
-          onPress={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <Animated.View 
-              style={{ 
-                backgroundColor: colors.card, 
-                borderTopLeftRadius: 50, 
-                borderTopRightRadius: 50,
-                transform: [{ translateY: pan }],
-              }}
-            >
-            {/* iOS Keyboard Dismiss Button */}
-            <KeyboardDismissButton inputAccessoryViewID="tokenInputAccessory" />
-            <KeyboardDismissButton inputAccessoryViewID="priceInputAccessory" />
-            
-            {/* Handle - Drag to close indicator */}
-            <View 
-              style={{ 
-                height: 32, 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                paddingTop: 12, 
-                paddingBottom: 8 
-              }}
-              {...panResponder.panHandlers}
-            >
-              <View style={{ 
-                height: 5, 
-                width: 40, 
-                borderRadius: 9999, 
-                backgroundColor: isDragging ? colors.primary : colors.muted,
-                opacity: isDragging ? 0.8 : 1,
-              }} />
-              {/* Optional: Add instruction text */}
-            
-            </View>
-
+      <StatusBar barStyle="light-content" />
+      <View style={{ flex: 1, justifyContent: 'space-between' }}>
+        {/* Content Area - Compressed */}
+        <View style={{ flexShrink: 1 }}>
           {/* Header */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
-            <Text style={{ 
-              color: colors.textPrimary, 
-              fontSize: 28, 
-              fontWeight: 'bold', 
-              letterSpacing: -0.5 
-            }}>
-              Invest in {property.title}
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 14, paddingTop: 4 }}>
-              {property.tokenSymbol} - ${effectiveTokenPrice.toFixed(2)}/token (Min: {MINIMUM_TOKENS} tokens)
-            </Text>
-          </View>
-
-          {/* Token and Price Input */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16, gap: 12 }}>
-            {/* Token Input */}
-            <View style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              gap: 16, 
-              backgroundColor: colors.border,
-              paddingHorizontal: 16, 
-              minHeight: 56, 
-              justifyContent: 'space-between', 
-              borderRadius: 8 
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
-                <Ionicons name="cube-outline" size={24} color={colors.primary} />
-                <Text style={{ color: colors.textPrimary, fontSize: 16, flex: 1 }}>Number of Tokens</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity 
-                  onPress={() => {
-                    const newValue = Math.max(0, tokenCount - 1);
-                    updateFromTokens(newValue);
-                  }}
-                  style={{ 
-                    width: 32, 
-                    height: 32, 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    borderRadius: 9999, 
-                    backgroundColor: colors.card
-                  }}
-                >
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
-                </TouchableOpacity>
-                <TextInput
-                  inputAccessoryViewID={Platform.OS === 'ios' ? 'tokenInputAccessory' : undefined}
-                  value={tokenInput}
-                  onChangeText={(text: string) => {
-                    // Allow empty string
-                    if (text === '') {
-                      setTokenInput('');
-                      setTokenCount(0);
-                      setPriceInput('');
-                      return;
-                    }
-                    
-                    // Allow single dot or valid decimal numbers
-                    if (text === '.') {
-                      setTokenInput(text);
-                      return;
-                    }
-                    
-                    // Remove any non-numeric characters except decimal point
-                    const cleaned = text.replace(/[^0-9.]/g, '');
-                    
-                    // Prevent multiple decimal points
-                    const parts = cleaned.split('.');
-                    if (parts.length > 2) {
-                      return;
-                    }
-                    
-                    // Limit to 2 decimal places
-                    if (parts.length === 2 && parts[1].length > 2) {
-                      return; // Don't allow more than 2 decimal places
-                    }
-                    
-                    // Set raw input
-                    setTokenInput(cleaned);
-                    
-                    // Parse and validate the number
-                    const num = parseFloat(cleaned);
-                    if (!isNaN(num) && num >= 0) {
-                      // Check max limit
-                      const validNum = Math.min(num, availableTokens);
-                      
-                      if (num > availableTokens) {
-                        // Show warning but still allow typing
-                        setTokenInput(cleaned);
-                      }
-                      
-                      setTokenCount(validNum);
-                      
-                      // Sync price with 2 decimals using effective price
-                      const calculatedPrice = validNum * effectiveTokenPrice;
-                      setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
-                    } else if (cleaned === '.') {
-                      setTokenCount(0);
-                      setPriceInput('');
-                    }
-                  }}
-                  onBlur={() => {
-                    // On blur, format and validate
-                    if (tokenInput === '' || tokenInput === '.') {
-                      setTokenInput('');
-                      setTokenCount(0);
-                      setPriceInput('');
-                      return;
-                    }
-                    
-                    const num = parseFloat(tokenInput);
-                    if (!isNaN(num) && num > 0) {
-                      // Enforce max limit on blur
-                      const validNum = Math.min(num, availableTokens);
-                      
-                      if (num > availableTokens) {
-                        Alert.alert(
-                          'Maximum Tokens Exceeded',
-                          `Only ${availableTokens.toFixed(2)} tokens are available. Your input has been adjusted.`,
-                          [{ text: 'OK' }]
-                        );
-                      }
-                      
-                      const formatted = validNum.toFixed(2);
-                      setTokenCount(parseFloat(formatted));
-                      setTokenInput(formatted);
-                      
-                      // Sync price with 2 decimals using effective price
-                      const calculatedPrice = validNum * effectiveTokenPrice;
-                      setPriceInput(calculatedPrice.toFixed(2));
-                    } else {
-                      setTokenInput('');
-                      setTokenCount(0);
-                      setPriceInput('');
-                    }
-                  }}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textMuted}
-                  returnKeyType="done"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: '500',
-                    width: 80,
-                    textAlign: 'center',
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
-                    paddingVertical: 4,
-                  }}
-                />
-                <TouchableOpacity
-                  onPress={() => {
-                    const newValue = tokenCount + 1;
-                    updateFromTokens(newValue);
-                  }}
-                  style={{ 
-                    width: 32, 
-                    height: 32, 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    borderRadius: 9999, 
-                    backgroundColor: colors.card
-                  }}
-                >
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Price Input */}
-            <View style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              gap: 16, 
-              backgroundColor: colors.border,
-              paddingHorizontal: 16, 
-              minHeight: 56, 
-              justifyContent: 'space-between', 
-              borderRadius: 8 
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
-                <Ionicons name="cash-outline" size={24} color={colors.primary} />
-                <Text style={{ color: colors.textPrimary, fontSize: 16, flex: 1 }}>Investment Amount</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity 
-                  onPress={() => {
-                    const newAmount = Math.max(0, totalAmount - effectiveTokenPrice);
-                    updateFromPrice(newAmount);
-                  }}
-                  style={{ 
-                    width: 32, 
-                    height: 32, 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    borderRadius: 9999, 
-                    backgroundColor: colors.card
-                  }}
-                >
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>-</Text>
-                </TouchableOpacity>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 16, fontWeight: '500' }}>$</Text>
-                  <TextInput
-                    inputAccessoryViewID={Platform.OS === 'ios' ? 'priceInputAccessory' : undefined}
-                    value={priceInput}
-                    onChangeText={(text: string) => {
-                      // Allow empty string
-                      if (text === '') {
-                        setPriceInput('');
-                        setTokenCount(0);
-                        setTokenInput('');
-                        return;
-                      }
-                      
-                      // Allow single dot or valid decimal numbers
-                      if (text === '.') {
-                        setPriceInput(text);
-                        return;
-                      }
-                      
-                      // Remove any non-numeric characters except decimal point
-                      const cleaned = text.replace(/[^0-9.]/g, '');
-                      
-                      // Prevent multiple decimal points
-                      const parts = cleaned.split('.');
-                      if (parts.length > 2) {
-                        return;
-                      }
-                      
-                      // Limit to 2 decimal places
-                      if (parts.length === 2 && parts[1].length > 2) {
-                        return; // Don't allow more than 2 decimal places
-                      }
-                      
-                      // Set raw input
-                      setPriceInput(cleaned);
-                      
-                      // Calculate tokens from price
-                      const priceNum = parseFloat(cleaned);
-                      if (!isNaN(priceNum) && priceNum >= 0 && effectiveTokenPrice > 0) {
-                        // Check max limit
-                        const validPrice = Math.min(priceNum, maxInvestmentAmount);
-                        
-                        if (priceNum > maxInvestmentAmount) {
-                          // Show warning but still allow typing
-                          setPriceInput(cleaned);
-                        }
-                        
-                        const calculatedTokens = validPrice / effectiveTokenPrice;
-                        setTokenCount(calculatedTokens);
-                        
-                        // Sync tokens with 2 decimals
-                        setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
-                      } else if (cleaned === '.') {
-                        setTokenCount(0);
-                        setTokenInput('');
-                      }
-                    }}
-                    onBlur={() => {
-                      // On blur, format and validate
-                      if (priceInput === '' || priceInput === '.') {
-                        setPriceInput('');
-                        setTokenCount(0);
-                        setTokenInput('');
-                        return;
-                      }
-                      
-                      const priceNum = parseFloat(priceInput);
-                      if (!isNaN(priceNum) && priceNum > 0 && effectiveTokenPrice > 0) {
-                        // Enforce max limit on blur
-                        const validPrice = Math.min(priceNum, maxInvestmentAmount);
-                        
-                        if (priceNum > maxInvestmentAmount) {
-                          Alert.alert(
-                            'Maximum Investment Exceeded',
-                            `Maximum investment amount is $${maxInvestmentAmount.toFixed(2)} (${availableTokens.toFixed(2)} tokens). Your input has been adjusted.`,
-                            [{ text: 'OK' }]
-                          );
-                        }
-                        
-                        const formatted = validPrice.toFixed(2);
-                        setPriceInput(formatted);
-                        
-                        const calculatedTokens = validPrice / effectiveTokenPrice;
-                        setTokenCount(calculatedTokens);
-                        setTokenInput(calculatedTokens.toFixed(2));
-                      } else {
-                        setPriceInput('');
-                        setTokenCount(0);
-                        setTokenInput('');
-                      }
-                    }}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={colors.textMuted}
-                    returnKeyType="done"
-                    onSubmitEditing={() => Keyboard.dismiss()}
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: '500',
-                      width: 80,
-                      textAlign: 'center',
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border,
-                      paddingVertical: 4,
-                    }}
-                  />
-                </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    const newAmount = totalAmount + effectiveTokenPrice;
-                    updateFromPrice(newAmount);
-                  }}
-                  style={{ 
-                    width: 32, 
-                    height: 32, 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    borderRadius: 9999, 
-                    backgroundColor: colors.card
-                  }}
-                >
-                  <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '500' }}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Warning if below minimum */}
-            {tokenCount > 0 && tokenCount < MINIMUM_TOKENS && (
-              <View 
-                style={{ 
-                  backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)',
-                  borderWidth: 1,
-                  borderColor: colors.destructive,
-                  borderRadius: 8,
-                  padding: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
+          <View
+            style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+            className="flex-row items-center px-4 py-3"
+          >
+            <View className="flex-row items-center justify-between w-full">
+              <TouchableOpacity 
+                className="w-10 h-10 items-center justify-center"
+                onPress={() => router.back()}
               >
-                <Ionicons name="warning" size={20} color={colors.destructive} />
-                <Text style={{ color: colors.destructive, fontSize: 12, flex: 1 }}>
-                  Minimum investment is {MINIMUM_TOKENS} tokens (${(MINIMUM_TOKENS * effectiveTokenPrice).toFixed(2)})
-                </Text>
-              </View>
-            )}
-            
-            {/* Warning if exceeds available */}
-            {tokenCount > availableTokens && (
-              <View 
-                style={{ 
-                  backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)',
-                  borderWidth: 1,
-                  borderColor: colors.destructive,
-                  borderRadius: 8,
-                  padding: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <Ionicons name="warning" size={20} color={colors.destructive} />
-                <Text style={{ color: colors.destructive, fontSize: 12, flex: 1 }}>
-                  Exceeds available tokens! Maximum: {availableTokens.toFixed(2)} tokens (${maxInvestmentAmount.toFixed(2)})
-                </Text>
-              </View>
-            )}
+                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
 
-            {/* Slider */}
-            <View style={{ paddingTop: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <View style={{ 
-                  flex: 1, 
-                  height: 6, 
-                  borderRadius: 9999, 
-                  backgroundColor: colors.border 
-                }}>
-                  <View
-                    style={{ 
-                      height: '100%', 
-                      borderRadius: 9999, 
-                      backgroundColor: tokenCount > availableTokens ? colors.destructive : colors.primary,
-                      width: `${Math.min(sliderValue, 100)}%` 
-                    }}
-                  />
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {tokenCount.toFixed(2)} of {availableTokens.toFixed(2)} available
-                </Text>
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {sliderValue.toFixed(1)}%
+              <View className="flex-1 items-center">
+                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+                  Investment
                 </Text>
               </View>
+
+              <View className="w-10" />
             </View>
           </View>
 
-          {/* Financial Summary */}
-          <View style={{ paddingHorizontal: 20, paddingVertical: 16, gap: 12 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Available Balance</Text>
-              <Text
-                style={{
-                  color: !hasSufficientBalance && tokenCount > 0
-                    ? colors.destructive
-                    : colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: '500',
-                }}
-              >
-                ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Transaction Fee</Text>
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '500' }}>
-                ${transactionFee.toFixed(2)}
-              </Text>
-            </View>
-            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
-                Total Investment
-              </Text>
-              <Text
-                style={{
-                  color: !hasSufficientBalance && tokenCount > 0
-                    ? colors.destructive
-                    : colors.primary,
-                  fontSize: 20,
-                  fontWeight: 'bold',
-                }}
-              >
-                ${totalInvestment.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-            </View>
-          </View>
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'buy' && styles.tabActive]}
+            onPress={() => {
+              setActiveTab('buy');
+              setInputMode('tokens');
+              if (!selectedPropertyId) {
+                setSelectedPropertyId(initialId);
+              }
+            }}
+          >
+            <Text style={activeTab === 'buy' ? styles.tabTextActive : styles.tabText}>Buy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'sell' && styles.tabActive]}
+            onPress={() => {
+              setActiveTab('sell');
+              setInputMode('tokens');
+              setTokenInput('');
+              setPriceInput('');
+              setTokenCount(0);
+            }}
+          >
+            <Text style={activeTab === 'sell' ? styles.tabTextActive : styles.tabText}>Sell</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* CTA Button */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 }}>
-            <TouchableOpacity
-              onPress={handleConfirm}
-              style={{
-                width: '100%',
-                paddingVertical: 16,
-                paddingHorizontal: 16,
-                borderRadius: 12,
-                backgroundColor: (hasSufficientBalance && tokenCount <= availableTokens && meetsMinimumTokens) ? colors.primary : colors.muted,
-                opacity: (hasSufficientBalance && !isInvesting && tokenCount <= availableTokens && meetsMinimumTokens) ? 1 : 0.5,
-              }}
-              disabled={!hasSufficientBalance || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens}
-            >
-              <Text style={{ 
-                color: (hasSufficientBalance && tokenCount <= availableTokens && meetsMinimumTokens) ? colors.primaryForeground : colors.textMuted, 
-                fontSize: 16, 
-                fontWeight: 'bold', 
-                textAlign: 'center' 
-              }}>
-                {isInvesting
-                  ? 'Processing...'
-                  : !meetsMinimumTokens
-                  ? `Minimum ${MINIMUM_TOKENS} tokens required`
-                  : tokenCount > availableTokens
-                  ? 'Exceeds Available Tokens'
-                  : !hasSufficientBalance
-                  ? 'Insufficient Balance'
-                  : 'Confirm Investment'}
-              </Text>
-            </TouchableOpacity>
-            {!hasSufficientBalance && tokenCount > 0 && tokenCount <= availableTokens && (
-              <TouchableOpacity
-                onPress={() => {
-                  const shortfall = totalInvestment - balance.usdc;
-                  handleClose();
-                  router.push({
-                    pathname: '/wallet/deposit/card',
-                    params: { amount: shortfall.toFixed(2) },
-                  } as any);
+          {/* Amount */}
+          <View style={styles.amountContainer}>
+            <Animated.View style={[styles.amountRow, { opacity: digitAnimation }]}>
+              <TextInput
+                ref={inputRef}
+                value={displayValue === '0' ? '' : displayValue}
+                onChangeText={handleInputChange}
+                placeholder="0.00"
+                placeholderTextColor="#6B7280"
+                keyboardType="default"
+                showSoftInputOnFocus={false}
+                style={styles.amountValueInput}
+                selectTextOnFocus={true}
+                onFocus={() => {
+                  // Dismiss any system keyboard that might try to open
+                  Keyboard.dismiss();
                 }}
-                style={{ marginTop: 12 }}
+                onPressIn={() => {
+                  // Prevent system keyboard from opening
+                  Keyboard.dismiss();
+                }}
+              />
+              <Text style={styles.amountUnit}>{displayLabel}</Text>
+            </Animated.View>
+
+            {activeTab === 'buy' && (
+              <TouchableOpacity 
+                style={styles.convertRow}
+                onPress={handleToggleInputMode}
+                activeOpacity={0.7}
               >
-                <Text style={{ 
-                  color: colors.primary, 
-                  textAlign: 'center', 
-                  fontSize: 14, 
-                  fontWeight: '600' 
-                }}>
-                  Add ${(totalInvestment - balance.usdc).toFixed(2)} to your wallet
-                </Text>
+                <MaterialIcons name="swap-vert" size={16} color="#10B981" />
+                <Text style={styles.convertText}>{conversionText}</Text>
               </TouchableOpacity>
             )}
           </View>
-          </Animated.View>
-          </TouchableWithoutFeedback>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+
+          {/* Action Cards */}
+          <View style={styles.card}>
+            {/* Property */}
+            <TouchableOpacity 
+              style={styles.row} 
+              activeOpacity={0.7}
+              onPress={() => {
+                if (activeTab === 'buy') {
+                  // Navigate to property listing screen
+                  router.push('/(tabs)/property');
+                } else {
+                  // Show modal for Sell tab
+                  setShowPropertySelector(true);
+                }
+              }}
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  {propertyImage ? (
+                    <Image
+                      source={{ uri: propertyImage }}
+                      style={{ width: 48, height: 48, borderRadius: 24 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <MaterialIcons name="apartment" size={24} color="#fff" />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>{activeTab === 'buy' ? 'Buy' : 'Sell'}</Text>
+                  <Text style={styles.rowValue} numberOfLines={1}>
+                    {property 
+                      ? (activeTab === 'buy' ? property.title : property.title)
+                      : (activeTab === 'buy' ? 'Select Property' : 'Select Property to Sell')
+                    }
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* Wallet */}
+            <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+              <View style={styles.rowLeft}>
+                <View style={styles.walletCircle}>
+                  <Text style={styles.walletText}>USD</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>Pay with</Text>
+                  <Text style={styles.rowValue}>My Wallet</Text>
+                </View>
+              </View>
+
+              <View style={{ alignItems: 'flex-end', marginRight: 8 }}>
+                <Text style={styles.balance}>
+                  ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <Text style={styles.balanceLabel}>Available</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Warnings */}
+          {tokenCount > 0 && tokenCount < MINIMUM_TOKENS && (
+            <View style={styles.warning}>
+              <Ionicons name="warning" size={14} color="#fca5a5" />
+              <Text style={styles.warningText}>
+                Minimum {MINIMUM_TOKENS} tokens required
+              </Text>
+            </View>
+          )}
+          
+          {tokenCount > availableTokens && (
+            <View style={styles.warning}>
+              <Ionicons name="warning" size={14} color="#fca5a5" />
+              <Text style={styles.warningText}>
+                Max: {availableTokens.toFixed(2)} tokens
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* CTA - Fixed above keyboard */}
+        <View style={styles.ctaContainerWrapper}>
+          <View style={styles.ctaContainer}>
+          <TouchableOpacity 
+            style={[
+              styles.cta,
+              ((activeTab === 'buy' && (!hasSufficientBalance || !meetsMinimumTokens || tokenCount > availableTokens || isInvesting)) ||
+               (activeTab === 'sell' && (!meetsMinimumTokens || tokenCount > availableTokens || isInvesting))) && styles.ctaDisabled
+            ]}
+            onPress={handleConfirm}
+            disabled={
+              activeTab === 'buy' 
+                ? (!hasSufficientBalance || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens)
+                : (isInvesting || !meetsMinimumTokens || tokenCount > availableTokens)
+            }
+          >
+            <Text style={styles.ctaText}>
+              {isInvesting
+                ? 'Processing...'
+                : !meetsMinimumTokens
+                ? `Minimum ${MINIMUM_TOKENS} tokens required`
+                : tokenCount > availableTokens
+                ? activeTab === 'sell'
+                  ? `Exceeds Owned Tokens (${availableTokens.toFixed(2)} available)`
+                  : 'Exceeds Available Tokens'
+                : activeTab === 'sell'
+                ? 'Review order'
+                : !hasSufficientBalance
+                ? 'Insufficient Balance'
+                : 'Review order'}
+            </Text>
+          </TouchableOpacity>
+
+          {!hasSufficientBalance && tokenCount > 0 && tokenCount <= availableTokens && (
+            <TouchableOpacity
+              onPress={() => {
+                const shortfall = totalInvestment - balance.usdc;
+                router.push({
+                  pathname: '/wallet/deposit/card',
+                  params: { amount: shortfall.toFixed(2) },
+                } as any);
+              }}
+              style={styles.addFundsButton}
+            >
+              <Text style={styles.addFundsText}>
+                Add ${(totalInvestment - balance.usdc).toFixed(2)} to your wallet
+              </Text>
+            </TouchableOpacity>
+          )}
+          </View>
+        </View>
+
+      {/* Keypad */}
+      <View style={[styles.keypadContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.keypadBorder} />
+        <View style={styles.keypad}>
+          {['1','2','3','4','5','6','7','8','9','.','0','⌫'].map((k) => (
+            <TouchableOpacity 
+              key={k} 
+              style={styles.key}
+              onPress={() => {
+                if (k === '⌫') {
+                  handleKeypadInput('backspace');
+                } else {
+                  handleKeypadInput(k);
+                }
+              }}
+              onLongPress={k === '⌫' ? () => {
+                if (inputMode === 'tokens') {
+                  setTokenInput('');
+                  setTokenCount(0);
+                  setPriceInput('');
+                } else {
+                  setPriceInput('');
+                  setTokenCount(0);
+                  setTokenInput('');
+                }
+              } : undefined}
+              activeOpacity={0.5}
+            >
+              {k === '⌫' ? (
+                <Ionicons name="arrow-back" size={24} color="rgba(255, 255, 255, 0.95)" />
+              ) : (
+                <Text style={styles.keyText}>{k}</Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      </View>
+
+      {/* Property Selector Modal */}
+      <Modal
+        visible={showPropertySelector}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPropertySelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select Property to Sell
+              </Text>
+              <TouchableOpacity onPress={() => setShowPropertySelector(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {ownedProperties.length === 0 ? (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <MaterialIcons name="apartment" size={48} color="rgba(255,255,255,0.3)" />
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 16, fontSize: 16 }}>
+                    No properties to sell
+                  </Text>
+                </View>
+              ) : (
+                  ownedProperties.map((investment) => {
+                    const prop = investment.property;
+                    const propImage = getPropertyImageUrl(prop?.images);
+                    return (
+                      <View
+                        key={investment.id}
+                        style={[
+                          styles.propertyOption,
+                          selectedPropertyId === prop?.id && styles.propertyOptionSelected,
+                        ]}
+                      >
+                        <TouchableOpacity
+                          style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                          onPress={() => handlePropertySelect(prop?.id || '')}
+                        >
+                          {propImage ? (
+                            <Image
+                              source={{ uri: propImage }}
+                              style={styles.propertyOptionImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={[styles.propertyOptionImage, { backgroundColor: '#10B981' }]}>
+                              <MaterialIcons name="apartment" size={24} color="#fff" />
+                            </View>
+                          )}
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={styles.propertyOptionTitle}>{prop?.title}</Text>
+                            <Text style={styles.propertyOptionSubtitle}>
+                              {prop?.city} • ${prop?.tokenPrice?.toFixed(2)} per token
+                            </Text>
+                            <Text style={styles.propertyOptionTokens}>
+                              {investment.tokens.toFixed(2)} tokens owned
+                            </Text>
+                          </View>
+                          {selectedPropertyId === prop?.id && (
+                            <Ionicons name="checkmark-circle" size={24} color="#10B981" style={{ marginRight: 8 }} />
+                          )}
+                        </TouchableOpacity>
+                        
+                        {/* My Assets Icon */}
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (prop?.id) {
+                              router.push({
+                                pathname: '/portfolio/myassets/assets-first',
+                                params: { propertyId: prop.id },
+                              } as any);
+                            }
+                          }}
+                          style={styles.assetsIconButton}
+                        >
+                          <Ionicons name="cube" size={20} color="#10B981" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })
+                )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </LinearGradient>
   );
 }
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+
+  // headerPill: {
+  //   flexDirection: 'row',
+  //   backgroundColor: 'rgba(255,255,255,0.08)',
+  //   paddingHorizontal: 12,
+  //   paddingVertical: 6,
+  //   borderRadius: 999,
+  //   alignItems: 'center',
+  //   gap: 6,
+  // },
+
+  // headerPillText: { color: '#fff', fontWeight: '500' },
+
+  tabs: {
+    marginHorizontal: 16,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    marginTop: 12,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+
+  tabActive: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '500' },
+  tabTextActive: { color: '#fff', fontWeight: '600', fontSize: 14 },
+
+  amountContainer: {
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
+
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+  },
+
+  amountValue: {
+    fontSize: 64,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  amountValueInput: {
+    fontSize: 56,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.95)',
+    minWidth: 80,
+    textAlign: 'center',
+    letterSpacing: -1,
+  },
+
+  amountUnit: {
+    fontSize: 24,
+    color: 'rgba(255,255,255,0.5)',
+    marginLeft: 10,
+    fontWeight: '500',
+  },
+
+  convertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+
+  convertText: { color: '#10B981', fontWeight: '500', fontSize: 14 },
+
+  card: {
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginTop: 12,
+  },
+
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+    minHeight: 52,
+  },
+
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 },
+
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  walletCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  walletText: { color: '#fff', fontWeight: '700', fontSize: 11, letterSpacing: 0.5 },
+
+  rowLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  rowValue: { color: 'rgba(255,255,255,0.95)', fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+
+  balance: { color: 'rgba(255,255,255,0.95)', fontWeight: '700', fontSize: 17, letterSpacing: -0.3 },
+  balanceLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 3, fontWeight: '500' },
+
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 8,
+    marginLeft: 0,
+  },
+
+  cta: {
+    backgroundColor: '#10B981',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
+    minHeight: 50,
+  },
+
+  ctaText: { color: '#fff', fontWeight: '700', fontSize: 17, letterSpacing: 0.5 },
+
+  keypadContainer: {
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: 'transparent',
+  },
+  keypadBorder: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginHorizontal: 0,
+    marginBottom: 12,
+  },
+  keypad: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+
+  key: {
+    width: '30%',
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+  },
+
+  keyText: {
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 26,
+    fontWeight: '400',
+    letterSpacing: 0,
+  },
+  warning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 10,
+    padding: 8,
+    marginHorizontal: 16,
+    marginTop: 6,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  warningText: {
+    color: '#fca5a5',
+    fontSize: 12,
+    flex: 1,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  ctaContainerWrapper: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'transparent',
+  },
+  ctaContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 25,
+    paddingBottom: 10,
+    backgroundColor: 'transparent',
+  },
+  ctaDisabled: {
+    opacity: 0.5,
+  },
+  addFundsButton: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  addFundsText: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#022C22',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalScroll: {
+    padding: 16,
+  },
+  propertyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  propertyOptionSelected: {
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  propertyOptionImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+  },
+  propertyOptionTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  propertyOptionSubtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  propertyOptionTokens: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  assetsIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+});

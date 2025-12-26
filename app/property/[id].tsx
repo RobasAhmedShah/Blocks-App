@@ -22,7 +22,6 @@ import { useApp } from "@/contexts/AppContext";
 import * as Linking from "expo-linking";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
-import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 import { useKycCheck } from "@/hooks/useKycCheck";
@@ -52,7 +51,6 @@ export default function PropertyDetailScreen() {
   const { toggleBookmark, isBookmarked } = useApp();
   const [activeTab, setActiveTab] = useState<"Financials" | "Calculator" | "Documents" | "Location">("Financials");
   const [imageIndex, setImageIndex] = useState(0);
-  const [showInvestModal, setShowInvestModal] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [initialInvestmentAmount, setInitialInvestmentAmount] = useState<number | null>(null);
@@ -157,7 +155,15 @@ export default function PropertyDetailScreen() {
     }
 
     handleInvestPress(() => {
-      setShowInvestModal(true);
+      // Navigate to invest screen instead of showing modal
+      if (initialInvestmentAmount) {
+        router.push({
+          pathname: `/invest/${id}`,
+          params: { initialInvestmentAmount: initialInvestmentAmount.toString() },
+        } as any);
+      } else {
+        router.push(`/invest/${id}` as any);
+      }
     });
   };
 
@@ -1139,7 +1145,13 @@ export default function PropertyDetailScreen() {
                 onInvest={(investmentAmount) => {
                   setInitialInvestmentAmount(investmentAmount);
                   setActiveTab("Financials");
-                  setShowInvestModal(true);
+                  // Navigate to invest screen with initial amount
+                  if (id) {
+                    router.push({
+                      pathname: `/invest/${id}`,
+                      params: { initialInvestmentAmount: investmentAmount.toString() },
+                    } as any);
+                  }
                 }}
               />
             </View>
@@ -1718,7 +1730,7 @@ export default function PropertyDetailScreen() {
           gap: 8,
         }}
       >
-        {!isGuest && isAuthenticated && (
+        {/* {!isGuest && isAuthenticated && (
           <TouchableOpacity
             onPress={() => router.push(`/marketplace?propertyId=${id}`)}
             style={{
@@ -1734,7 +1746,7 @@ export default function PropertyDetailScreen() {
           >
             <Ionicons name="storefront" size={20} color={colors.primary} />
           </TouchableOpacity>
-        )}
+        )} */}
         <TouchableOpacity
           onPress={handleInvest}
           style={{
@@ -1801,17 +1813,7 @@ export default function PropertyDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Investment Modal */}
-      {showInvestModal && id && property && (
-        <InvestScreen
-          propertyId={id}
-          initialInvestmentAmount={initialInvestmentAmount || undefined}
-          onClose={() => {
-            setShowInvestModal(false);
-            setInitialInvestmentAmount(null);
-          }}
-        />
-      )}
+      {/* Investment Modal - Removed, now using navigation to full screen */}
 
       {/* Chatbot Modal */}
       {property && (

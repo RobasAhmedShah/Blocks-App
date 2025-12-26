@@ -41,13 +41,13 @@ export default function AffordableSection({ affordable }: { affordable: any[] })
             {/* Image Background */}
             <View style={styles.imageContainer}>
               {item.image ? (
-                <Image
-                  source={{ uri: item.image }}
+              <Image
+                source={{ uri: item.image }}
                   style={styles.image}
-                  resizeMode="cover"
-                />
+                resizeMode="cover"
+              />
               ) : (
-                <View
+            <View
                   style={[
                     styles.image,
                     {
@@ -55,11 +55,11 @@ export default function AffordableSection({ affordable }: { affordable: any[] })
                         ? 'rgba(34, 197, 94, 0.15)'
                         : 'rgba(34, 197, 94, 0.1)',
                       justifyContent: 'center',
-                      alignItems: 'center',
+                alignItems: 'center',
                     },
                   ]}>
                   <Ionicons name="home" size={48} color={colors.primary} />
-                </View>
+              </View>
               )}
 
               {/* Top-Right Icon Button */}

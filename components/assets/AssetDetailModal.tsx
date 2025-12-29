@@ -235,29 +235,38 @@ export function AssetDetailModal({
   })) || [];
   const timeRanges = ASSETS_CONSTANTS.TIME_RANGES;
   
-  // Get certificates from investment (array of certificate URLs)
-  const certificates = investment.certificates || [];
+  // Get certificate path from investment (single certificate per property)
+  const certificatePath = investment.certificatePath || null;
   
-  if (certificates.length > 0) {
-    console.log(`[AssetDetailModal] Found ${certificates.length} certificate(s) for investment ${investment.id}`);
+  if (certificatePath) {
+    console.log(`[AssetDetailModal] Found certificate for property ${investment.property.id}: ${certificatePath}`);
   } else {
-    console.log(`[AssetDetailModal] No certificates found for investment ${investment.id}`);
+    console.log(`[AssetDetailModal] No certificate found for property ${investment.property.id}`);
   }
   
   
   // Handle PDF download/viewing
-  const handleDownloadPDF = async (certificateUrl: string, index: number) => {
+  const handleDownloadPDF = async (certificateUrl: string) => {
     try {
-      const docName = `Certificate ${index + 1}`;
       setDownloadingDoc(certificateUrl);
       
+      // Add cache-busting parameter to ensure we get the latest certificate
+      // This is important because the certificate path is fixed and overwrites on update
+      // The backend regenerates the certificate when tokens change, so we need to bypass cache
+      const cacheBuster = `?t=${Date.now()}`;
+      const urlWithCacheBust = certificateUrl.includes('?') 
+        ? `${certificateUrl}&t=${Date.now()}`
+        : `${certificateUrl}${cacheBuster}`;
+      
+      console.log(`[AssetDetailModal] Opening certificate with cache-busting: ${urlWithCacheBust}`);
+      
       // First, try to open with device's default PDF viewer using deep linking
-      const canOpen = await Linking.canOpenURL(certificateUrl);
+      const canOpen = await Linking.canOpenURL(urlWithCacheBust);
       
       if (canOpen) {
         try {
           // Try to open with OS default PDF viewer
-          await Linking.openURL(certificateUrl);
+          await Linking.openURL(urlWithCacheBust);
           return; // Successfully opened, exit function
         } catch (openError) {
           console.log('Failed to open with default viewer, trying Google Drive...');
@@ -266,7 +275,7 @@ export function AssetDetailModal({
       }
       
       // Fallback: Use Google Drive viewer
-      const encodedUrl = encodeURIComponent(certificateUrl);
+      const encodedUrl = encodeURIComponent(urlWithCacheBust);
       const googleDriveViewerUrl = `https://drive.google.com/viewer?url=${encodedUrl}`;
       
       // Open in WebBrowser which will use Google Drive's viewer
@@ -619,92 +628,87 @@ export function AssetDetailModal({
                   }}
                   className="rounded-2xl p-4"
                 >
-                  {certificates.length > 0 ? (
-                    <View className="gap-3">
-                      {certificates.map((certificateUrl: string, index: number) => (
-                        <View
-                          key={index}
-                          style={{
-                            backgroundColor: isDarkColorScheme 
-                              ? 'rgba(22, 163, 74, 0.1)' 
-                              : 'rgba(22, 163, 74, 0.05)',
-                            borderColor: colors.border,
-                            borderWidth: 1,
-                          }}
-                          className="rounded-xl p-4"
-                        >
-                          <View className="flex-row items-center justify-between mb-3">
-                            <View className="flex-row items-center gap-3 flex-1">
-                              <View
-                                style={{
-                                  backgroundColor: isDarkColorScheme
-                                    ? 'rgba(22, 163, 74, 0.2)'
-                                    : 'rgba(22, 163, 74, 0.15)',
-                                }}
-                                className="w-12 h-12 items-center justify-center rounded-xl"
-                              >
-                                <Ionicons name="document-text" size={24} color={colors.primary} />
-                              </View>
-                              <View className="flex-1">
-                                <Text style={{ color: colors.textPrimary }} className="font-bold text-base">
-                                  Ownership Certificate {index + 1}
-                                </Text>
-                                <Text style={{ color: colors.textSecondary }} className="text-sm mt-0.5">
-                                  Investment #{index + 1}
-                                </Text>
-                              </View>
-                            </View>
-                            <View
-                              style={{
-                                backgroundColor: isDarkColorScheme
-                                  ? 'rgba(22, 163, 74, 0.2)'
-                                  : 'rgba(22, 163, 74, 0.1)',
-                              }}
-                              className="px-3 py-1.5 rounded-full"
-                            >
-                              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => handleDownloadPDF(certificateUrl, index)}
-                            disabled={downloadingDoc === certificateUrl}
+                  {certificatePath ? (
+                    <View
+                      style={{
+                        backgroundColor: isDarkColorScheme 
+                          ? 'rgba(22, 163, 74, 0.1)' 
+                          : 'rgba(22, 163, 74, 0.05)',
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                      }}
+                      className="rounded-xl p-4"
+                    >
+                      <View className="flex-row items-center justify-between mb-3">
+                        <View className="flex-row items-center gap-3 flex-1">
+                          <View
                             style={{
-                              backgroundColor: downloadingDoc === certificateUrl 
-                                ? colors.muted 
-                                : colors.primary,
-                              paddingVertical: 12,
-                              borderRadius: 12,
-                              width: '100%',
-                              alignItems: 'center',
-                              shadowColor: colors.primary,
-                              shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: downloadingDoc === certificateUrl ? 0 : 0.3,
-                              shadowRadius: 4,
-                              elevation: downloadingDoc === certificateUrl ? 0 : 3,
-                              opacity: downloadingDoc === certificateUrl ? 0.6 : 1,
+                              backgroundColor: isDarkColorScheme
+                                ? 'rgba(22, 163, 74, 0.2)'
+                                : 'rgba(22, 163, 74, 0.15)',
                             }}
-                            activeOpacity={0.8}
+                            className="w-12 h-12 items-center justify-center rounded-xl"
                           >
-                            <View className="flex-row items-center gap-2">
-                              {downloadingDoc === certificateUrl ? (
-                                <>
-                                  <ActivityIndicator size="small" color={colors.primaryForeground} />
-                                  <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
-                                    Opening...
-                                  </Text>
-                                </>
-                              ) : (
-                                <>
-                                  <Ionicons name="download-outline" size={18} color={colors.primaryForeground} />
-                                  <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
-                                    View PDF
-                                  </Text>
-                                </>
-                              )}
-                            </View>
-                          </TouchableOpacity>
+                            <Ionicons name="document-text" size={24} color={colors.primary} />
+                          </View>
+                          <View className="flex-1">
+                            <Text style={{ color: colors.textPrimary }} className="font-bold text-base">
+                              Ownership Certificate
+                            </Text>
+                            <Text style={{ color: colors.textSecondary }} className="text-sm mt-0.5">
+                              Total Tokens: {investment.tokens.toFixed(3)}
+                            </Text>
+                          </View>
                         </View>
-                      ))}
+                        <View
+                          style={{
+                            backgroundColor: isDarkColorScheme
+                              ? 'rgba(22, 163, 74, 0.2)'
+                              : 'rgba(22, 163, 74, 0.1)',
+                          }}
+                          className="px-3 py-1.5 rounded-full"
+                        >
+                          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDownloadPDF(certificatePath)}
+                        disabled={downloadingDoc === certificatePath}
+                        style={{
+                          backgroundColor: downloadingDoc === certificatePath 
+                            ? colors.muted 
+                            : colors.primary,
+                          paddingVertical: 12,
+                          borderRadius: 12,
+                          width: '100%',
+                          alignItems: 'center',
+                          shadowColor: colors.primary,
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: downloadingDoc === certificatePath ? 0 : 0.3,
+                          shadowRadius: 4,
+                          elevation: downloadingDoc === certificatePath ? 0 : 3,
+                          opacity: downloadingDoc === certificatePath ? 0.6 : 1,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View className="flex-row items-center gap-2">
+                          {downloadingDoc === certificatePath ? (
+                            <>
+                              <ActivityIndicator size="small" color={colors.primaryForeground} />
+                              <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                Opening...
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              <Ionicons name="download-outline" size={18} color={colors.primaryForeground} />
+                              <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
+                                View Certificate
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View className="py-8 items-center justify-center">

@@ -40,7 +40,17 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+    const fullUrl = `${this.baseURL}${endpoint}`;
+    
+    // Log request for debugging (only in development)
+    if (__DEV__) {
+      console.log(`[API] ${options.method || 'GET'} ${fullUrl}`);
+      if (options.body) {
+        console.log(`[API] Body:`, options.body);
+      }
+    }
+
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
     });
@@ -59,16 +69,38 @@ class ApiClient {
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
+      let errorDetails: any = {};
+      
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorData.errorMessage || errorMessage;
+        const errorText = await response.text();
+        if (__DEV__) {
+          console.error(`[API] Error response (${response.status}):`, errorText);
+        }
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorData.error || errorData.errorMessage || errorMessage;
+          errorDetails = errorData;
+        } catch {
+          // If not JSON, use the text as error message
+          errorMessage = errorText || response.statusText || errorMessage;
+        }
       } catch {
         // If response is not JSON, use status text or default message
         errorMessage = response.statusText || errorMessage;
       }
+      
+      // Provide more context for 404/405 errors
+      if (response.status === 404) {
+        errorMessage = `Endpoint not found: ${endpoint}. Check if the route exists on the backend.`;
+      } else if (response.status === 405) {
+        errorMessage = `Method not allowed: ${options.method || 'GET'} ${endpoint}. The endpoint may not support this HTTP method.`;
+      }
+      
       const error = new Error(errorMessage);
       (error as any).status = response.status;
       (error as any).response = response;
+      (error as any).details = errorDetails;
       throw error;
     }
 

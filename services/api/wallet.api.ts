@@ -73,6 +73,9 @@ export const walletApi = {
   /**
    * Generate 1LINK QR code for PKR deposit
    * Returns a Base64 PNG QR code that can be scanned with any Pakistani bank app
+   * 
+   * Note: This endpoint is at /api/payments/1link/1qr (not /api/mobile/)
+   * because it's in a separate payments module, not the mobile module
    */
   generateOneLinkQr: async (dto: OneLinkQrRequest): Promise<OneLinkQrResponse> => {
     return apiClient.post<OneLinkQrResponse>('/api/payments/1link/1qr', dto);

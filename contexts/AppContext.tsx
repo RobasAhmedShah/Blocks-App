@@ -732,20 +732,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ? (totalMonthlyRentalIncome * 12 / totalInvestedAmount) * 100 
           : 0;
         
-        // Collect all certificate paths from all investments for this property
-        const certificates = sortedInvestments
-          .map((inv) => {
-            const certPath = inv.certificatePath || null;
-            if (certPath) {
-              console.log(`[AppContext] Found certificate for investment ${inv.id}: ${certPath}`);
-            }
-            return certPath;
-          })
-          .filter((path): path is string => {
+        // Get the shared certificate path for this property
+        // All investments for the same property share the same certificatePath
+        // The backend regenerates the certificate when tokens change (buy/sell),
+        // overwriting the file at the fixed path: ownership/{userId}/{propertyId}.pdf
+        const certificatePath = sortedInvestments
+          .map((inv) => inv.certificatePath)
+          .find((path): path is string => {
             return !!path && typeof path === 'string' && path.trim() !== '';
-          });
+          }) || null;
         
-        console.log(`[AppContext] Property ${propertyId}: Collected ${certificates.length} certificate(s) from ${sortedInvestments.length} investment(s)`);
+        if (certificatePath) {
+          console.log(`[AppContext] Property ${propertyId}: Found shared certificate path from ${sortedInvestments.length} investment(s): ${certificatePath}`);
+          console.log(`[AppContext] Property ${propertyId}: Total tokens aggregated: ${totalTokens.toFixed(3)} (certificate should reflect this total)`);
+        } else {
+          console.log(`[AppContext] Property ${propertyId}: No certificate path found for ${sortedInvestments.length} investment(s)`);
+        }
         
         // Find property from state - it should exist since properties are loaded first
         const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
@@ -796,7 +798,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           roi: mergedROI,
           rentalYield: mergedRentalYield,
           monthlyRentalIncome: totalMonthlyRentalIncome,
-          certificates: certificates, // Include all certificates from merged investments
+          certificatePath: certificatePath, // Single certificate path shared by all investments for this property
         };
       });
 

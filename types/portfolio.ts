@@ -9,6 +9,6 @@ export interface Investment {
   roi: number;
   rentalYield: number;
   monthlyRentalIncome: number;
-  certificates?: string[]; // Array of certificate URLs from all investments for this property
+  certificatePath?: string | null; // Single certificate path shared by all investments for this property
 }
 

@@ -762,8 +762,7 @@ export default function BuyTokensScreen() {
                         style={[
                           styles.propertyOption,
                           selectedPropertyId === prop?.id && styles.propertyOptionSelected,
-                        ]}
-                      >
+                        ]} >
                         <TouchableOpacity
                           style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
                           onPress={() => handlePropertySelect(prop?.id || '')}

@@ -452,7 +452,7 @@ export default function ListingDetailScreen() {
                         marginRight: 12,
                       }}
                     >
-                      <Ionicons name="calendar" size={20} color={colors.primary} />
+                      <Ionicons name="calendar" size={20} color={colors.textPrimary} />
                     </View>
                     <View className="flex-1">
                       <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -475,7 +475,7 @@ export default function ListingDetailScreen() {
                         marginRight: 12,
                       }}
                     >
-                      <Ionicons name="calendar-sharp" size={20} color={colors.primary} />
+                      <Ionicons name="calendar-sharp" size={20} color={colors.textPrimary} />
                     </View>
                     <View className="flex-1">
                       <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -1039,7 +1039,7 @@ function PropertyInfoContent({
                   marginRight: 12,
                 }}
               >
-                <Ionicons name="calendar" size={20} color={colors.primary} />
+                <Ionicons name="calendar" size={20} color={colors.textPrimary} />
               </View>
               <View>
                 <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -1062,7 +1062,7 @@ function PropertyInfoContent({
                   marginRight: 12,
                 }}
               >
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={20} color={colors.textPrimary} />
               </View>
               <View>
                 <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -1085,7 +1085,7 @@ function PropertyInfoContent({
                   marginRight: 12,
                 }}
               >
-                <Ionicons name="calendar-sharp" size={20} color={colors.primary} />
+                <Ionicons name="calendar-sharp" size={20} color={colors.textPrimary} />
               </View>
               <View>
                 <Text style={{ color: colors.textMuted }} className="text-xs">
@@ -1140,7 +1140,7 @@ function PropertyInfoContent({
             </Text>
           </View>
           <View className="flex-row justify-between mb-3">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
+            <Text style={{ color: colors.textPrimary }} className="text-sm">
               Price per Token
             </Text>
             <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">

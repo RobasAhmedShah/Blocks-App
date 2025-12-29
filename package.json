@@ -1,6 +1,6 @@
 {
   "name": "Blocks",
-  "version": "1.0.0",
+  "version": "1.1.25",
   "main": "expo-router/entry",
   "scripts": {
     "android": "expo run:android",

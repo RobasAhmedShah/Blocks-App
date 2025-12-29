@@ -1,33 +1,12 @@
 // Utility functions for assets components
 
 /**
- * Smart currency formatter that adapts to value size
- * - Shows exact values with 2 decimals for amounts < $1,000 (e.g., "$50.00", "$99.50")
- * - Shows "k" format for amounts >= $1,000 and < $1,000,000 (e.g., "$1.2k", "$5.5k")
- * - Shows "M" format for amounts >= $1,000,000 (e.g., "$1.5M")
+ * Currency formatter that shows full values with 2 decimal places
+ * - Always displays the complete value with 2 decimal points (e.g., "$1,234.56", "$50,000.00", "$1,234,567.89")
+ * - No abbreviations (no "k" or "M")
  */
 export const formatCurrency = (value: number): string => {
-  if (value < 1000) {
-    // Show exact value with 2 decimals for small amounts
-    return `$${value.toFixed(2)}`;
-  } else if (value < 1000000) {
-    // Show in thousands with 1 decimal
-    const thousands = value / 1000;
-    // If it's a whole number, show without decimal
-    if (thousands % 1 === 0) {
-      return `$${thousands.toFixed(0)}k`;
-    }
-    return `$${thousands.toFixed(1)}k`;
-  } else {
-    // Show in millions with 1-2 decimals
-    const millions = value / 1000000;
-    if (millions % 1 === 0) {
-      return `$${millions.toFixed(0)}M`;
-    }
-    // Show 1 decimal if less than 10M, 2 decimals if more
-    const decimals = millions < 10 ? 1 : 2;
-    return `$${millions.toFixed(decimals)}M`;
-  }
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 export const getTierInfo = (roi: number) => {

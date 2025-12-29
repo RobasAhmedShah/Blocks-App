@@ -226,7 +226,7 @@ export default function AssetSecondScreen() {
     
     try {
       const result = await Share.share({
-        message: `📊 Investment Performance\n\n🏢 ${property.title}\n📍 ${property.location}\n\n💰 Value: $${investment.currentValue.toLocaleString()}\n📈 ROI: ${investment.roi.toFixed(1)}%\n💵 Monthly: $${investment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest with Blocks!`,
+        message: `📊 Investment Performance\n\n🏢 ${property.title}\n📍 ${property.location}\n\n💰 Value: ${formatCurrency(investment.currentValue)}\n📈 ROI: ${investment.roi.toFixed(1)}%\n💵 Monthly: $${investment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest with Blocks!`,
         title: `${property.title} - Investment`,
       });
       

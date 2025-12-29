@@ -58,9 +58,60 @@ export default function PortfolioScreen() {
 
   // Calculate stats
   const totalInvested = investments.reduce((sum, inv) => sum + inv.investedAmount, 0);
-  const totalEarnings = totalValue - totalInvested;
+  
+  // Calculate total earnings from rental income and rewards only (not from property appreciation)
+  // This ensures earnings persist even if tokens are sold
+  const totalEarnings = transactions
+    .filter(tx => 
+      (tx.type === 'rental_income' || tx.type === 'rental') && 
+      tx.status === 'completed'
+    )
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  
+  // Calculate this month's earnings from actual rental income and rewards transactions
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  
+  const thisMonthEarnings = transactions
+    .filter(tx => {
+      if ((tx.type !== 'rental_income' && tx.type !== 'rental') || tx.status !== 'completed') {
+        return false;
+      }
+      try {
+        const txDate = new Date(tx.date);
+        return txDate.getMonth() === currentMonth && 
+               txDate.getFullYear() === currentYear;
+      } catch {
+        return false;
+      }
+    })
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  
+  // Calculate last month's earnings for comparison
+  const lastMonthEarnings = transactions
+    .filter(tx => {
+      if ((tx.type !== 'rental_income' && tx.type !== 'rental') || tx.status !== 'completed') {
+        return false;
+      }
+      try {
+        const txDate = new Date(tx.date);
+        return txDate.getMonth() === lastMonth && 
+               txDate.getFullYear() === lastMonthYear;
+      } catch {
+        return false;
+      }
+    })
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  
+  // Calculate percentage change from last month
+  const earningsGrowthPercent = lastMonthEarnings > 0
+    ? ((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100
+    : 0;
+  
   const averageMonthly = monthlyRentalIncome;
-  const thisMonthEarnings = monthlyRentalIncome * 1.12; // Simulated 12% growth
   const nextPayoutDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
   
   // Find best performing property
@@ -354,15 +405,19 @@ export default function PortfolioScreen() {
                 }}>
                 <Ionicons name="calendar" size={18} color={colors.primary} />
               </View>
-              <View
-                style={{
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 8,
-                }}>
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>+12%</Text>
-              </View>
+              {lastMonthEarnings > 0 && earningsGrowthPercent !== 0 && (
+                <View
+                  style={{
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 8,
+                  }}>
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
+                    {earningsGrowthPercent >= 0 ? '+' : ''}{earningsGrowthPercent.toFixed(1)}%
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
               This Month

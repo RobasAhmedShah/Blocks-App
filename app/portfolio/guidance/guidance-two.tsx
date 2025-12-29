@@ -552,7 +552,7 @@ export default function GuidedInvestmentScreen() {
                                   name="information-circle-outline"
                                   size={20}
                                   color={colors.primary}
-                                />
+                                /> 
                               </TouchableOpacity>
                               {isSelected && (
                                 <Ionicons
@@ -682,7 +682,7 @@ export default function GuidedInvestmentScreen() {
             modalAnimatedStyle,
           ]}
         >
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+          <View style={{ flex: 1 }} pointerEvents="box-none">
             <SafeAreaView style={{ flex: 1 }}>
               {/* Modal Header */}
               <View
@@ -697,6 +697,7 @@ export default function GuidedInvestmentScreen() {
                   borderBottomWidth: 1,
                   borderBottomColor: colors.border,
                 }}
+                pointerEvents="box-none"
               >
                 <Text
                   style={{
@@ -729,7 +730,9 @@ export default function GuidedInvestmentScreen() {
                   contentContainerStyle={{ padding: 20, paddingBottom: 20 }}
                   showsVerticalScrollIndicator={true}
                   nestedScrollEnabled={true}
-                  bounces={false}
+                  bounces={true}
+                  scrollEnabled={true}
+                  alwaysBounceVertical={false}
                 >
                   {/* Property Image */}
                   <Image
@@ -1235,6 +1238,7 @@ export default function GuidedInvestmentScreen() {
                   borderTopColor: colors.border,
                   backgroundColor: colors.background,
                 }}
+                pointerEvents="box-none"
               >
                 <TouchableOpacity
                   onPress={() => {
@@ -1264,7 +1268,7 @@ export default function GuidedInvestmentScreen() {
                 </TouchableOpacity>
               </View>
             </SafeAreaView>
-          </Pressable>
+          </View>
         </Animated.View>
       </Modal>
     </SafeAreaView>

@@ -20,6 +20,7 @@ import { usePortfolio } from '@/services/usePortfolio';
 import { PropertyCard } from '@/components/assets/PropertyCard';
 import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
 import { ASSETS_CONSTANTS } from '@/components/assets/constants';
+import { formatCurrency } from '@/components/assets/utils';
 import EmeraldLoader from '@/components/EmeraldLoader';
 import { useKycCheck } from '@/hooks/useKycCheck';
 
@@ -234,7 +235,7 @@ export default function AssetsFirstScreen() {
     
     try {
       const result = await Share.share({
-        message: `Check out my investment in ${property.title}! 🏢\n\nOwnership: ${ownershipPercentage}%\nCurrent Value: $${investment.currentValue.toLocaleString()}\nROI: ${investment.roi.toFixed(1)}%\n\nInvest in real estate with Blocks!`,
+        message: `Check out my investment in ${property.title}! 🏢\n\nOwnership: ${ownershipPercentage}%\nCurrent Value: ${formatCurrency(investment.currentValue)}\nROI: ${investment.roi.toFixed(1)}%\n\nInvest in real estate with Blocks!`,
         title: `My Investment: ${property.title}`,
       });
       
@@ -256,7 +257,7 @@ export default function AssetsFirstScreen() {
     
     try {
       const result = await Share.share({
-        message: `📊 My Investment Performance:\n\n🏢 ${prop.title}\n📍 ${prop.location}\n\n💰 Current Value: $${selectedInvestment.currentValue.toLocaleString()}\n📈 ROI: ${selectedInvestment.roi.toFixed(1)}%\n💵 Monthly Income: $${selectedInvestment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest in real estate with Blocks!`,
+        message: `📊 My Investment Performance:\n\n🏢 ${prop.title}\n📍 ${prop.location}\n\n💰 Current Value: ${formatCurrency(selectedInvestment.currentValue)}\n📈 ROI: ${selectedInvestment.roi.toFixed(1)}%\n💵 Monthly Income: $${selectedInvestment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest in real estate with Blocks!`,
         title: `Investment Performance: ${prop.title}`,
       });
       

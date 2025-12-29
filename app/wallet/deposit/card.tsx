@@ -222,7 +222,7 @@ export default function CardDepositScreen() {
 
   // Calculate fees
   const amountNum = parseFloat(amount || '0');
-  const processingFee = amountNum * 0.029;
+  const processingFee = amountNum * 0.00;
   const youReceive = amountNum - processingFee;
   const isAmountValid = validateAmount(amount).isValid;
 
@@ -491,7 +491,7 @@ export default function CardDepositScreen() {
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={{ color: colors.textSecondary }}>
-              Processing Fee (2.9%)
+              Processing Fee (0.0%)
             </Text>
             <Text style={{ color: colors.textPrimary, fontWeight: '500' }}>
               ${processingFee.toFixed(2)}

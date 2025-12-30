@@ -375,7 +375,7 @@ export default function AssetsFirstScreen() {
           }}
         >
             <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => router.push('/portfolio')} 
             className="flex-row items-center"
             style={{ flex: 1 }}
           >

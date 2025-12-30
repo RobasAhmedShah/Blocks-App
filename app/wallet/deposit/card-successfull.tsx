@@ -21,10 +21,26 @@ export default function DepositConfirmationLight() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { transactions } = useWallet();
-  const { amount, method, cardLast4 } = useLocalSearchParams<{
+  const { 
+    amount, 
+    method, 
+    cardLast4,
+    returnTo,
+    returnPropertyId,
+    returnTokenCount,
+    returnTotalAmount,
+    returnTransactionFee,
+    returnTotalInvestment,
+  } = useLocalSearchParams<{
     amount?: string;
     method?: string;
     cardLast4?: string;
+    returnTo?: string;
+    returnPropertyId?: string;
+    returnTokenCount?: string;
+    returnTotalAmount?: string;
+    returnTransactionFee?: string;
+    returnTotalInvestment?: string;
   }>();
 
   // Get the latest deposit transaction
@@ -212,41 +228,92 @@ export default function DepositConfirmationLight() {
         elevation: 4,
       }}>
         <View style={{ maxWidth: 448, width: '100%', alignSelf: 'center', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/wallet')}
-            style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primarySoft]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ borderRadius: 9999 }}
-            >
-              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-                <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+          {/* If returnTo exists, show "Continue Investment" button, otherwise show default buttons */}
+          {returnTo && returnPropertyId ? (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  // Navigate back to investment screen with all the preserved params
+                  router.replace({
+                    pathname: returnTo as any,
+                    params: {
+                      id: returnPropertyId,
+                      tokenCount: returnTokenCount || '',
+                      totalAmount: returnTotalAmount || '',
+                      transactionFee: returnTransactionFee || '',
+                      totalInvestment: returnTotalInvestment || '',
+                    },
+                  } as any);
+                }}
+                style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primarySoft]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: 9999 }}
+                >
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+                      Continue Investment
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => router.push('/(tabs)/wallet')}
+                style={{
+                  width: '100%',
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
                   View Wallet
                 </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/wallet')}
+                style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primarySoft]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: 9999 }}
+                >
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+                      View Wallet
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={() => router.push('/(tabs)/home')}
-            style={{
-              width: '100%',
-              borderRadius: 9999,
-              borderWidth: 1,
-              borderColor: colors.primary,
-              paddingVertical: 12,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
-              Return to Home
-            </Text>
-          </TouchableOpacity>
-
-        
+              <TouchableOpacity 
+                onPress={() => router.push('/(tabs)/home')}
+                style={{
+                  width: '100%',
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
+                  Return to Home
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>

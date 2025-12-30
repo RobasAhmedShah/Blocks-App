@@ -10,6 +10,7 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ import { propertyFilters } from '@/data/mockCommon';
 
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 48) / 2; // 2 columns with 16px padding on each side + 16px gap
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -93,30 +95,109 @@ export default function HomeScreen() {
       (property.location && property.location.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const renderPropertyCard = ({ item: property,index }: { item: any,index: number }) => {
+    const propertyImage = (property.images && property.images.length > 0 && property.images[0]) 
+      ? property.images[0] 
+      : property.image 
+      ? property.image
+      : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800';
+
+    // Format price like "€3.76m" or "$3.76m"
+    const formatPrice = (price: number) => {
+      if (price >= 1000000) {
+        return `$${(price / 1000000).toFixed(2)}m`;
+      } else if (price >= 1000) {
+        return `$${(price / 1000).toFixed(0)}k`;
+      }
+      return `$${price.toFixed(2)}`;
+    };
+
+    // Get area in square meters
+    const area = property.features?.area || 0;
+    const areaText = area > 0 ? `${area.toLocaleString('en-US', { maximumFractionDigits: 0 })} M²` : '';
+
+    return (
+      <TouchableOpacity
+        onPress={() => router.push(`/property/${property.id}`)}
+        style={{
+          width: CARD_WIDTH,
+          // backgroundColor: 'rgba(255, 255, 255, 0.06)',
+          borderRadius: 16,
+          // overflow: 'hidden',
+          marginBottom: 16,
+          // borderWidth: 1,
+          // borderColor: 'rgba(255, 255, 255, 0.10)',
+          paddingHorizontal: 10,
+          marginTop: index % 2 === 0 ? -20 : 20,
+        }}
+        activeOpacity={0.9}
+      >
+        {/* Property Image - Rounded corners */}
+        <View style={{ position: 'relative', height: CARD_WIDTH * 1 }}>
+          <Image
+            source={{ uri: propertyImage }}
+            style={{ width: '100%', height: '100%', borderRadius: 30 }}
+            resizeMode="cover"
+            defaultSource={require('@/assets/blank.png')}
+            onError={(error) => {
+              console.log('Image load error for property:', property.title, error.nativeEvent);
+            }}
+          />
+        </View>
+
+        {/* Card Content - Matching image layout */}
+        <View style={{ padding: 14 }}>
+          {/* Price - First, large and bold */}
+          <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin',fontWeight: 'bold', fontStyle: 'italic', fontSize: 20, marginBottom: 6 }}>
+            ${property.tokenPrice.toFixed(2)}
+          </Text>
+          
+          {/* Property Name - Second, smaller */}
+          <Text 
+            style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '400', marginBottom: 4 }}
+            numberOfLines={2}
+          >
+            {property.title}
+          </Text>
+          
+          {/* Size - Third, small gray with arrow icon */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            {areaText ? (
+              <Text style={{ color: 'rgba(255, 255, 255, 0.55)', fontSize: 12 }}>
+                {areaText}
+              </Text>
+            ) : (
+              <View />
+            )}
+            <Ionicons name="arrow-forward" size={16} color="rgba(255, 255, 255, 0.55)" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
-      
+    <View style={{ flex: 1, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
+    {/* // <View style={{ flex: 1, backgroundColor: colors.background }}> */}
+      <StatusBar barStyle="light-content" />
       
       {/* Header */}
       <View
         style={{ 
-          backgroundColor: isDarkColorScheme ? 'rgba(1, 42, 36, 0.8)' : 'rgba(248, 247, 245, 0.8)',
+          backgroundColor: 'rgba(22, 22, 22, 1)',
           paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
+          paddingBottom: 16,
         }}
-        className="px-4 pb-3"
+        className="px-4"
       >
-        <View className="flex-row items-center justify-between mb-4">
-          <TouchableOpacity 
-            className="w-10 h-10 items-center justify-center"
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+        <View className="flex-row items-center justify-between mb-3">
 
-          <View className="flex-1 items-center">
-            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-              Properties
+          <View className="flex-1 mt-4 ml-4">
+            <Text style={{ color: 'rgba(255, 255, 255, 0.55)' }} className="text-lg font-light">
+              Find Your
+            </Text>
+            <Text style={{ color: '#FFFFFF' }} className="text-2xl font-bold">
+              Investment
             </Text>
           </View>
 
@@ -124,39 +205,38 @@ export default function HomeScreen() {
             onPress={() => router.push('/marketplace')}
             className="w-10 h-10 items-center justify-center"
           >
-            <Ionicons name="storefront" size={24} color={colors.primary} />
+            <Ionicons name="options-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <View
-          style={{ backgroundColor: colors.card }}
-          className="flex-row items-center rounded-2xl px-4 py-2 shadow-sm"
+        {/* <View
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.10)' }}
+          className="flex-row items-center rounded-xl px-4 py-3"
         >
           <MaterialIcons
             name="search"
             size={20}
-            color={colors.textMuted}
+            color="rgba(255, 255, 255, 0.55)"
           />
           <TextInput
             placeholder="Search by city, address..."
-            placeholderTextColor={colors.textMuted}
-            style={{ color: colors.textPrimary }}
+            placeholderTextColor="rgba(255, 255, 255, 0.35)"
+            style={{ color: '#FFFFFF' }}
             className="flex-1 ml-3 text-base"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-        </View>
+        </View> */}
       </View>
 
-      {/* Filter Pills */}
-      <View className="mx-auto">
+      {/* Filter Pills - Reduced Prominence */}
+      {/* <View style={{ backgroundColor: 'rgba(22, 22, 22, 1)', paddingVertical: 8 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ 
             paddingHorizontal: 16,
-            paddingVertical: 12,
             gap: 8 
           }}
         >
@@ -165,210 +245,94 @@ export default function HomeScreen() {
               key={filter}
               onPress={() => setActiveFilter(filter)}
               style={{
-                backgroundColor: activeFilter === filter ? colors.primary : colors.card,
+                backgroundColor: activeFilter === filter ? '#9EDC5A' : 'rgba(255, 255, 255, 0.06)',
                 borderWidth: activeFilter === filter ? 0 : 1,
-                borderColor: colors.border,
+                borderColor: 'rgba(255, 255, 255, 0.10)',
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 20,
               }}
-              className="px-5 py-2 rounded-full"
             >
               <Text
                 style={{
-                  color: activeFilter === filter ? '#FFFFFF' : colors.textPrimary,
+                  color: activeFilter === filter ? '#0B1A12' : 'rgba(255, 255, 255, 0.55)',
                   fontWeight: activeFilter === filter ? '600' : '400',
+                  fontSize: 12,
                 }}
-                className="text-sm"
               >
                 {filter}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
-      </View>
+      </View> */}
 
-      {/* Property Cards */}
-      <ScrollView
-        className="flex-1 px-4"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || isLoadingProperties}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Loading State */}
-        {isLoadingProperties && !refreshing && filteredProperties.length === 0 && (
-          <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base">
-              Loading properties...
-            </Text>
-          </View>
-        )}
-
-        {/* Error State */}
-        {propertiesError && !isLoadingProperties && filteredProperties.length === 0 && (
-          <View className="flex-1 items-center justify-center py-20 px-4">
-            <MaterialIcons name="error-outline" size={48} color={colors.textMuted} />
-            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
-              {propertiesError}
-            </Text>
-            <TouchableOpacity
-              onPress={onRefresh}
-              style={{ backgroundColor: colors.primary }}
-              className="mt-6 px-6 py-3 rounded-full"
-            >
-              <Text className="text-white font-semibold">Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Empty State */}
-        {!isLoadingProperties && !propertiesError && filteredProperties.length === 0 && (
-          <View className="flex-1 items-center justify-center py-20 px-4">
-            <MaterialIcons 
-              name={activeFilter === 'Bookmarks' ? 'bookmark-border' : 'search-off'} 
-              size={48} 
-              color={colors.textMuted} 
-            />
-            <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
-              {searchQuery 
-                ? 'No properties found matching your search' 
-                : activeFilter === 'Bookmarks' 
-                  ? 'No bookmarked properties yet' 
-                  : 'No properties available'}
-            </Text>
-            {activeFilter === 'Bookmarks' && (
-              <Text style={{ color: colors.textMuted }} className="mt-2 text-sm text-center px-8">
-                Tap the bookmark icon on properties to save them here
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Properties List */}
-        {filteredProperties.map((property) => (
+      {/* Property Cards - 2 Column Grid */}
+      {isLoadingProperties && !refreshing && filteredProperties.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+          <ActivityIndicator size="large" color="#9EDC5A" />
+          <Text style={{ color: 'rgba(255, 255, 255, 0.55)', marginTop: 16, fontSize: 15 }}>
+            Loading properties...
+          </Text>
+        </View>
+      ) : propertiesError && !isLoadingProperties && filteredProperties.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 16 }}>
+          <MaterialIcons name="error-outline" size={48} color="rgba(255, 255, 255, 0.55)" />
+          <Text style={{ color: 'rgba(255, 255, 255, 0.55)', marginTop: 16, fontSize: 15, textAlign: 'center' }}>
+            {propertiesError}
+          </Text>
           <TouchableOpacity
-            key={property.id}
-            onPress={() => router.push(`/property/${property.id}`)}
-            style={{ backgroundColor: colors.card }}
-            className="mb-6 rounded-2xl overflow-hidden shadow-lg"
-            activeOpacity={0.9}
+            onPress={onRefresh}
+            style={{ backgroundColor: '#9EDC5A', marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
           >
-            {/* Property Image */}
-            <View className="relative">
-              <Image
-                source={{ 
-                  uri: (property.images && property.images.length > 0 && property.images[0]) 
-                    ? property.images[0] 
-                    : property.image 
-                    ? property.image
-                    : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800'
-                }}
-                className="w-full h-56"
-                resizeMode="cover"
-                defaultSource={require('@/assets/blank.png')}
-                onError={(error) => {
-                  console.log('Image load error for property:', property.title, error.nativeEvent);
-                }}
-              />
-              {/* Status Badge */}
-              <View 
-                style={{ backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.9)' : 'rgba(22, 163, 74, 0.9)' }}
-                className="absolute top-4 left-4 px-3 py-1.5 rounded-full"
-              >
-                <Text className="text-white text-xs font-semibold capitalize">
-                  {property.status.replace('-', ' ')}
-                </Text>
-              </View>
-              
-              {/* Bookmark Button with functionality */}
-              <TouchableOpacity 
-                className="absolute top-4 right-4 w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isBookmarked(property.id) 
-                    ? 'rgba(13, 165, 165, 0.9)' 
-                    : 'rgba(0, 0, 0, 0.4)',
-                }}
-                onPress={(e) => handleBookmarkToggle(property.id, e)}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons 
-                  name={isBookmarked(property.id) ? "bookmark" : "bookmark-border"} 
-                  size={20} 
-                  color="white" 
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Property Details */}
-            <View className="p-4">
-              <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-1">
-                {property.title}
-              </Text>
-              <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
-                ${typeof property.valuation === 'number' 
-                  ? property.valuation.toLocaleString() 
-                  : property.valuation} Valuation
-              </Text>
-
-              {/* Investment Info */}
-              <View
-                style={{ borderTopColor: colors.border }}
-                className="flex-row justify-between items-center pt-3 border-t"
-              >
-                <View>
-                  <Text style={{ color: colors.textSecondary }} className="text-xs">
-                    Tokens from
-                  </Text>
-                  <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-                    ${property.tokenPrice.toFixed(2)}
-                  </Text>
-                </View>
-                <View className="items-end">
-                  <Text style={{ color: colors.textSecondary }} className="text-xs">
-                    Est. Return
-                  </Text>
-                  <Text style={{ color: colors.primary }} className="text-lg font-bold">
-                    {property.estimatedROI}%
-                  </Text>
-                </View>
-              </View>
-
-              {/* Progress Bar */}
-              {property.totalTokens > 0 && (
-                <View className="mt-3">
-                  <View className="flex-row justify-between mb-1.5">
-                    <Text style={{ color: colors.textSecondary }} className="text-xs">
-                      Funding Progress
-                    </Text>
-                    <Text style={{ color: colors.textPrimary }} className="text-xs font-semibold">
-                      {((property.soldTokens / property.totalTokens) * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View 
-                    style={{ backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }}
-                    className="w-full h-2 rounded-full"
-                  >
-                    <View
-                      style={{ 
-                        backgroundColor: colors.primary,
-                        width: `${Math.min((property.soldTokens / property.totalTokens) * 100, 100)}%`
-                      }}
-                      className="h-2 rounded-full"
-                    />
-                  </View>
-                  <Text style={{ color: colors.textSecondary }} className="text-xs mt-1.5">
-                    {property.soldTokens.toLocaleString()} / {property.totalTokens.toLocaleString()} Tokens
-                  </Text>
-                </View>
-              )}
-            </View>
+            <Text style={{ color: '#0B1A12', fontWeight: '600' }}>Retry</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+      ) : !isLoadingProperties && !propertiesError && filteredProperties.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 16 }}>
+          <MaterialIcons 
+            name={activeFilter === 'Bookmarks' ? 'bookmark-border' : 'search-off'} 
+            size={48} 
+            color="rgba(255, 255, 255, 0.55)" 
+          />
+          <Text style={{ color: 'rgba(255, 255, 255, 0.55)', marginTop: 16, fontSize: 15, textAlign: 'center' }}>
+            {searchQuery 
+              ? 'No properties found matching your search' 
+              : activeFilter === 'Bookmarks' 
+                ? 'No bookmarked properties yet' 
+                : 'No properties available'}
+          </Text>
+          {activeFilter === 'Bookmarks' && (
+            <Text style={{ color: 'rgba(255, 255, 255, 0.35)', marginTop: 8, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 }}>
+              Tap the bookmark icon on properties to save them here
+            </Text>
+          )}
+        </View>
+      ) : (
+        <FlatList
+          data={filteredProperties}
+          renderItem={renderPropertyCard}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={{ 
+            paddingHorizontal: 16,
+            justifyContent: 'space-between',
+          }}
+          contentContainerStyle={{
+            marginTop: 20,
+            paddingTop: 16,
+            paddingBottom: 100,
+          }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing || isLoadingProperties}
+              onRefresh={onRefresh}
+              tintColor="#9EDC5A"
+            />
+          }
+        />
+      )}
     </View>
   );
 }

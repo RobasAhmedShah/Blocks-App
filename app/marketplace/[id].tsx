@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,14 @@ import {
   Image,
   StatusBar,
   ActivityIndicator,
-  Modal,
-  Platform,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { marketplaceAPI, MarketplaceListing } from '@/services/api/marketplace.api';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppAlert } from '@/components/AppAlert';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
-import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/services/api/auth.api';
 import * as SecureStore from 'expo-secure-store';
 import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
@@ -31,7 +27,6 @@ export default function ListingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [showInfoModal, setShowInfoModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Check if this is the user's own listing
@@ -281,7 +276,7 @@ export default function ListingDetailScreen() {
 
         {/* Content */}
         <View className="px-4 py-6">
-          {/* Property Title with Info Button */}
+          {/* Property Title */}
           <View className="flex-row items-center justify-between mb-2">
             <Text
               style={{ color: colors.textPrimary }}
@@ -289,19 +284,6 @@ export default function ListingDetailScreen() {
             >
               {listing.property.title}
             </Text>
-            <TouchableOpacity
-              onPress={() => setShowInfoModal(true)}
-              style={{
-                // backgroundColor: colors.primary + '20',
-                borderWidth: 1,
-                borderColor: colors.primary,
-                borderRadius: 20,
-                padding: 8,
-                marginLeft: 12,
-              }}
-            >
-              <Ionicons name="information-circle" size={24} color={colors.primary} />
-            </TouchableOpacity>
           </View>
 
           {/* Location */}
@@ -615,7 +597,7 @@ export default function ListingDetailScreen() {
                     borderTopColor: colors.border,
                   }}
                 >
-                  {projections.slice(0, 3).map((projection, index) => (
+                  {projections.map((projection, index) => (
                     <View key={index} style={{ alignItems: 'center' }}>
                       <Text style={{ color: colors.textMuted }} className="text-xs">
                         Year {projection.year}
@@ -626,6 +608,73 @@ export default function ListingDetailScreen() {
                     </View>
                   ))}
                 </View>
+              </View>
+            );
+          })()}
+
+          {/* 5-Year Projection Table */}
+          {(() => {
+            const years = [1, 2, 3, 4, 5];
+            const baseROI = listing.property.expectedROI || 0;
+            const pricePerToken = listing.pricePerToken;
+            
+            const projections = years.map((year) => {
+              const annualReturn = (baseROI / 100) * pricePerToken;
+              const totalReturn = annualReturn * year;
+              const projectedValue = pricePerToken + totalReturn;
+              const roiPercentage = ((projectedValue - pricePerToken) / pricePerToken) * 100;
+              
+              return {
+                year,
+                projectedValue,
+                roiPercentage,
+              };
+            });
+
+            return (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+                  5-Year Projection Details
+                </Text>
+                {projections.map((projection, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      borderBottomWidth: index < projections.length - 1 ? 1 : 0,
+                      borderBottomColor: colors.border,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Year {projection.year}
+                      </Text>
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                        ${projection.projectedValue.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        ROI
+                      </Text>
+                      <Text style={{ color: colors.primary }} className="text-base font-bold">
+                        +{projection.roiPercentage.toFixed(1)}%
+                      </Text>
+                    </View>
+                  </View>
+                ))}
               </View>
             );
           })()}
@@ -680,12 +729,28 @@ export default function ListingDetailScreen() {
                 {listing.remainingTokens.toFixed(2)} tokens
               </Text>
             </View>
-            <View className="flex-row justify-between">
+            <View className="flex-row justify-between mb-2">
               <Text style={{ color: colors.textMuted }} className="text-sm">
                 Property Code
               </Text>
               <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
                 {listing.property.displayCode}
+              </Text>
+            </View>
+            <View className="flex-row justify-between mb-2">
+              <Text style={{ color: colors.textMuted }} className="text-sm">
+                Minimum Order
+              </Text>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                ${listing.minOrderUSDT.toFixed(2)}
+              </Text>
+            </View>
+            <View className="flex-row justify-between">
+              <Text style={{ color: colors.textMuted }} className="text-sm">
+                Maximum Order
+              </Text>
+              <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                ${listing.maxOrderUSDT.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -799,428 +864,8 @@ export default function ListingDetailScreen() {
         }}
       />
 
-      {/* Info Modal with Detailed Information */}
-      <Modal
-        visible={showInfoModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowInfoModal(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.background,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              maxHeight: '90%',
-              paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-            }}
-          >
-            {/* Header */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: 20,
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border,
-              }}
-            >
-              <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
-                Property Details
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowInfoModal(false)}
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 20,
-                  padding: 8,
-                }}
-              >
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {listing && <PropertyInfoContent listing={listing} colors={colors} isDarkColorScheme={isDarkColorScheme} />}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
-// Property Info Content Component
-function PropertyInfoContent({ 
-  listing, 
-  colors, 
-  isDarkColorScheme 
-}: { 
-  listing: MarketplaceListing; 
-  colors: any; 
-  isDarkColorScheme: boolean;
-}) {
-  // Calculate ROI projections for the next 5 years
-  const roiProjections = useMemo(() => {
-    const years = [1, 2, 3, 4, 5];
-    const baseROI = listing.property.expectedROI || 0;
-    const pricePerToken = listing.pricePerToken;
-    
-    return years.map((year) => {
-      // Compound ROI calculation
-      const annualReturn = (baseROI / 100) * pricePerToken;
-      const totalReturn = annualReturn * year;
-      const projectedValue = pricePerToken + totalReturn;
-      const roiPercentage = ((projectedValue - pricePerToken) / pricePerToken) * 100;
-      
-      return {
-        year,
-        projectedValue,
-        roiPercentage,
-        totalReturn,
-      };
-    });
-  }, [listing.property.expectedROI, listing.pricePerToken]);
-
-  // Calculate expected returns
-  const expectedReturns = useMemo(() => {
-    const roi = listing.property.expectedROI || 0;
-    const pricePerToken = listing.pricePerToken;
-    const tokens = listing.remainingTokens;
-    
-    const investmentValue = pricePerToken * tokens;
-    const annualReturn = (roi / 100) * investmentValue;
-    const monthlyReturn = annualReturn / 12;
-    const dailyReturn = annualReturn / 365;
-    
-    return {
-      investmentValue,
-      annualReturn,
-      monthlyReturn,
-      dailyReturn,
-    };
-  }, [listing]);
-
-  // Generate chart data for ROI projection
-  const chartData = useMemo(() => {
-    const maxValue = Math.max(...roiProjections.map(p => p.projectedValue), listing.pricePerToken);
-    return roiProjections.map((projection) => ({
-      ...projection,
-      height: (projection.projectedValue / maxValue) * 100,
-    }));
-  }, [roiProjections, listing.pricePerToken]);
-
-  return (
-    <View style={{ padding: 20 }}>
-      {/* ROI Projection Graph */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
-          ROI Projection (5 Years)
-        </Text>
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          {/* Chart */}
-          <View
-            style={{
-              height: 180,
-              flexDirection: 'row',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              marginBottom: 16,
-              paddingBottom: 8,
-            }}
-          >
-            {chartData.map((data, index) => (
-              <View
-                key={index}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  marginHorizontal: 4,
-                }}
-              >
-                <View
-                  style={{
-                    width: '100%',
-                    height: `${data.height}%`,
-                    backgroundColor: colors.primary,
-                    borderRadius: 8,
-                    minHeight: 20,
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    paddingBottom: 4,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: '#ffffff',
-                      fontSize: 10,
-                      fontWeight: 'bold',
-                    }}
-                    numberOfLines={1}
-                  >
-                    ${data.projectedValue.toFixed(0)}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    color: colors.textMuted,
-                    fontSize: 11,
-                    marginTop: 8,
-                    fontWeight: '600',
-                  }}
-                >
-                  Y{data.year}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Chart Legend */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-around',
-              paddingTop: 12,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
-            }}
-          >
-            {roiProjections.map((projection, index) => (
-              <View key={index} style={{ alignItems: 'center' }}>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  Year {projection.year}
-                </Text>
-                <Text style={{ color: colors.primary }} className="text-sm font-bold">
-                  {projection.roiPercentage.toFixed(1)}%
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      {/* Expected Returns Breakdown */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
-          Expected Returns
-        </Text>
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <View className="flex-row justify-between items-center mb-3">
-            <View className="flex-row items-center">
-              <View
-                style={{
-                  backgroundColor: colors.primary + '20',
-                  borderRadius: 8,
-                  padding: 8,
-                  marginRight: 12,
-                }}
-              >
-                <Ionicons name="calendar" size={20} color={colors.textPrimary} />
-              </View>
-              <View>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  Daily Return
-                </Text>
-                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
-                  ${expectedReturns.dailyReturn.toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View className="flex-row justify-between items-center mb-3">
-            <View className="flex-row items-center">
-              <View
-                style={{
-                  backgroundColor: colors.primary + '20',
-                  borderRadius: 8,
-                  padding: 8,
-                  marginRight: 12,
-                }}
-              >
-                <Ionicons name="calendar-outline" size={20} color={colors.textPrimary} />
-              </View>
-              <View>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  Monthly Return
-                </Text>
-                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
-                  ${expectedReturns.monthlyReturn.toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View className="flex-row justify-between items-center mb-3">
-            <View className="flex-row items-center">
-              <View
-                style={{
-                  backgroundColor: colors.primary + '20',
-                  borderRadius: 8,
-                  padding: 8,
-                  marginRight: 12,
-                }}
-              >
-                <Ionicons name="calendar-sharp" size={20} color={colors.textPrimary} />
-              </View>
-              <View>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  Annual Return
-                </Text>
-                <Text style={{ color: colors.textPrimary }} className="text-base font-bold">
-                  ${expectedReturns.annualReturn.toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: colors.border,
-              marginVertical: 12,
-            }}
-          />
-
-          <View className="flex-row justify-between items-center">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
-              Total Investment Value
-            </Text>
-            <Text style={{ color: colors.primary }} className="text-lg font-bold">
-              ${expectedReturns.investmentValue.toFixed(2)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Detailed Metrics */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
-          Investment Metrics
-        </Text>
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <View className="flex-row justify-between mb-3">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
-              Expected ROI (APY)
-            </Text>
-            <Text style={{ color: colors.primary }} className="text-sm font-bold">
-              {listing.property.expectedROI}%
-            </Text>
-          </View>
-          <View className="flex-row justify-between mb-3">
-            <Text style={{ color: colors.textPrimary }} className="text-sm">
-              Price per Token
-            </Text>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              ${listing.pricePerToken.toFixed(2)}
-            </Text>
-          </View>
-          <View className="flex-row justify-between mb-3">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
-              Available Tokens
-            </Text>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              {listing.remainingTokens.toFixed(2)}
-            </Text>
-          </View>
-          <View className="flex-row justify-between mb-3">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
-              Minimum Order
-            </Text>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              ${listing.minOrderUSDT.toFixed(2)}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text style={{ color: colors.textMuted }} className="text-sm">
-              Maximum Order
-            </Text>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              ${listing.maxOrderUSDT.toFixed(2)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 5-Year Projection Table */}
-      <View>
-        <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
-          5-Year Projection
-        </Text>
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: 16,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          {roiProjections.map((projection, index) => (
-            <View
-              key={index}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingVertical: 12,
-                borderBottomWidth: index < roiProjections.length - 1 ? 1 : 0,
-                borderBottomColor: colors.border,
-              }}
-            >
-              <View>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  Year {projection.year}
-                </Text>
-                <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
-                  ${projection.projectedValue.toFixed(2)}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: colors.textMuted }} className="text-xs">
-                  ROI
-                </Text>
-                <Text style={{ color: colors.primary }} className="text-base font-bold">
-                  +{projection.roiPercentage.toFixed(1)}%
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
 

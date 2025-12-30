@@ -272,7 +272,7 @@ export function SimpleLineGraph({
   const gradientId = `lineGraphGradient-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <View style={{ alignItems: 'center' }}>
+    <View style={{ alignItems: 'center', margin:50}}>
       <View
         style={{ 
           position: 'relative',
@@ -457,7 +457,7 @@ export function SimpleLineGraph({
           flexDirection: 'row', 
           justifyContent: 'space-between', 
           width: chartWidth, 
-          marginTop: selectedPoint ? 65 : 12,
+          // marginTop: selectedPoint ? 65 : 12,
           paddingHorizontal: 4,
         }}>
           {data.map((item, index) => {

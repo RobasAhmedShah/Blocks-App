@@ -672,9 +672,18 @@ export default function BuyTokensScreen() {
             <TouchableOpacity
               onPress={() => {
                 const shortfall = totalInvestment - balance.usdc;
+                const propertyId = selectedPropertyId || initialId;
                 router.push({
                   pathname: '/wallet/deposit/card',
-                  params: { amount: shortfall.toFixed(2) },
+                  params: { 
+                    amount: shortfall.toFixed(2),
+                    returnTo: `/invest/${propertyId}`,
+                    returnPropertyId: propertyId,
+                    returnTokenCount: tokenCount.toString(),
+                    returnTotalAmount: totalAmount.toFixed(2),
+                    returnTransactionFee: transactionFee.toFixed(2),
+                    returnTotalInvestment: totalInvestment.toFixed(2),
+                  },
                 } as any);
               }}
               style={styles.addFundsButton}

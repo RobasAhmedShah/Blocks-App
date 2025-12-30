@@ -1,9 +1,19 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image, Animated, PanResponder, Dimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Animated,
+  PanResponder,
+  Dimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useProperty } from '@/services/useProperty';
-import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
 import { useWallet } from '@/services/useWallet';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
@@ -13,399 +23,432 @@ import { LinearGradient } from 'expo-linear-gradient';
 const BALANCE_EPSILON = 0.01;
 
 export default function InvestmentReviewScreen() {
-    const { id, tokenCount, totalAmount, transactionFee, totalInvestment, propertyTitle, propertyId } = useLocalSearchParams<{
-        id: string;
-        tokenCount: string;
-        totalAmount: string;
-        transactionFee: string;
-        totalInvestment: string;
-        propertyTitle: string;
-        propertyId: string;
-    }>();
-    const router = useRouter();
-    const { property } = useProperty(id || propertyId || '');
-    const { colors } = useColorScheme();
-    const { invest } = useApp();
-    const { balance } = useWallet();
-    const [isProcessing, setIsProcessing] = useState(false);
+  const {
+    id,
+    tokenCount,
+    totalAmount,
+    transactionFee,
+    totalInvestment,
+    propertyTitle,
+    propertyId,
+  } = useLocalSearchParams<any>();
+
+  const router = useRouter();
+  const { property } = useProperty(id || propertyId || '');
+  const { invest } = useApp();
+  const { balance } = useWallet();
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isGestureActive, setIsGestureActive] = useState(false); // NEW: Track gesture state
+
+  /* ================== VALUES ================== */
+  const tokens = parseFloat(tokenCount || '0');
+  const amount = parseFloat(totalAmount || '0');
+  const fee = parseFloat(transactionFee || '0');
+  const investment = parseFloat(totalInvestment || '0');
+  const title = propertyTitle || property?.title || 'Property';
+
+  const API_BASE_URL =
+    Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+
+  const getImage = () => {
+    if (!property?.images) return null;
+    const imgs = normalizePropertyImages(property.images);
+    if (!imgs.length) return null;
+    const img = imgs[0];
+    return img.startsWith('http') ? img : `${API_BASE_URL}${img}`;
+  };
+
+  /* ================== SWIPE LOGIC (PERFECT FIX) ================== */
+  const SCREEN_WIDTH = Dimensions.get('window').width;
+  const SLIDER_WIDTH = SCREEN_WIDTH - 32;
+  const THUMB_SIZE = 52;
+  const MAX_X = SLIDER_WIDTH - THUMB_SIZE - 4;
+  const TRIGGER_X = MAX_X * 0.7; // Easier trigger point
+
+  const translateX = useRef(new Animated.Value(0)).current;
+  const progressWidth = useRef(new Animated.Value(THUMB_SIZE)).current;
+  
+  // Track states properly
+  const isAnimating = useRef(false);
+  const isResetting = useRef(false);
+  const gestureState = useRef({ dx: 0, vx: 0 });
+
+  // PERFECT FIX: Single animation controller
+  const resetThumb = (immediate = false) => {
+    if (isResetting.current) return; // Prevent double resets
+    isResetting.current = true;
     
-    const screenWidth = Dimensions.get('window').width;
-    const swipeThreshold = screenWidth * 0.7; // 70% of screen width
-    const translateX = useRef(new Animated.Value(0)).current;
-    const glowOpacity = useRef(new Animated.Value(0)).current;
-    const [isSwiping, setIsSwiping] = useState(false);
+    if (immediate) {
+      translateX.setValue(0);
+      progressWidth.setValue(THUMB_SIZE);
+      setIsGestureActive(false);
+      isAnimating.current = false;
+      isResetting.current = false;
+      gestureState.current = { dx: 0, vx: 0 };
+      return;
+    }
 
-    const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+    // Use spring for smoother reset
+    isAnimating.current = true;
+    Animated.spring(translateX, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 10,
+    }).start(({ finished }) => {
+      if (finished) {
+        translateX.setValue(0);
+        progressWidth.setValue(THUMB_SIZE);
+        isAnimating.current = false;
+        isResetting.current = false;
+        setIsGestureActive(false);
+        gestureState.current = { dx: 0, vx: 0 };
+      }
+    });
+  };
 
-    const tokens = tokenCount ? parseFloat(tokenCount) : 0;
-    const amount = totalAmount ? parseFloat(totalAmount) : 0;
-    const fee = transactionFee ? parseFloat(transactionFee) : 0;
-    const investment = totalInvestment ? parseFloat(totalInvestment) : 0;
-    const title = propertyTitle || property?.title || 'Property';
-
-    // Helper to get property image URL
-    const getPropertyImageUrl = (images: any): string | null => {
-        if (!images) return null;
-        const imageArray = normalizePropertyImages(images);
-        if (imageArray.length === 0) return null;
-        const firstImage = imageArray[0];
-        if (!firstImage) return null;
-        if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
-            return firstImage;
-        }
-        if (firstImage.startsWith('/')) {
-            return `${API_BASE_URL}${firstImage}`;
-        }
-        return `${API_BASE_URL}/${firstImage}`;
+  // FIX 2: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      translateX.stopAnimation();
+      progressWidth.stopAnimation();
+      translateX.setValue(0);
+      progressWidth.setValue(THUMB_SIZE);
     };
+  }, []);
 
-    const propertyImage = property ? getPropertyImageUrl(property.images) : null;
+  // FIX 3: Reset if processing state changes unexpectedly
+  useEffect(() => {
+    if (!isProcessing && isGestureActive) {
+      resetThumb(true);
+    }
+  }, [isProcessing]);
 
-    const panResponder = useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !isProcessing && investment <= balance.usdc,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          return Math.abs(gestureState.dx) > 10 && !isProcessing && investment <= balance.usdc;
-        },
-        onPanResponderGrant: () => {
-          setIsSwiping(true);
-          translateX.setOffset((translateX as any)._value || 0);
-          translateX.setValue(0);
-        },
-        onPanResponderMove: (_, gestureState) => {
-          const dx = Math.max(0, Math.min(gestureState.dx, screenWidth - 60));
-          translateX.setValue(dx);
-          
-          // Update glow opacity based on swipe progress
-          const progress = dx / swipeThreshold;
-          glowOpacity.setValue(Math.min(progress, 1));
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          translateX.flattenOffset();
-          setIsSwiping(false);
-          
-          if (gestureState.dx >= swipeThreshold) {
-            // Swipe completed - trigger investment
-            handleConfirmInvestment();
-            // Reset animation
-            Animated.parallel([
-              Animated.timing(translateX, {
-                toValue: screenWidth,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-              Animated.timing(glowOpacity, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              translateX.setValue(0);
-            });
-          } else {
-            // Reset to start
-            Animated.parallel([
-              Animated.spring(translateX, {
-                toValue: 0,
-                useNativeDriver: true,
-                tension: 50,
-                friction: 7,
-              }),
-              Animated.timing(glowOpacity, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-              }),
-            ]).start();
-          }
-        },
-      })
-    ).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      // PERFECT: Always allow gesture start, check conditions in move
+      onStartShouldSetPanResponder: () => true,
 
-    const handleConfirmInvestment = async () => {
-        // Final validation
-        if (investment > balance.usdc + BALANCE_EPSILON) {
-            const shortfall = investment - balance.usdc;
-            Alert.alert(
-                'Insufficient Balance',
-                `You need $${shortfall.toFixed(2)} more. Would you like to add funds?`,
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                        text: 'Add Funds',
-                        onPress: () => {
-                            router.push({
-                                pathname: '/wallet/deposit/card',
-                                params: { amount: shortfall.toFixed(2) },
-                            } as any);
-                        },
-                    },
-                ]
-            );
-            return;
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (isProcessing || isAnimating.current || isResetting.current) {
+          return false;
+        }
+        
+        const insufficientBalance = investment > balance.usdc + BALANCE_EPSILON;
+        if (insufficientBalance) return false;
+        
+        // Require clear horizontal movement (5px minimum)
+        const isHorizontalSwipe = Math.abs(g.dx) > 5 && Math.abs(g.dx) > Math.abs(g.dy);
+        return isHorizontalSwipe;
+      },
+
+      onPanResponderGrant: () => {
+        // Stop any existing animations
+        translateX.stopAnimation();
+        progressWidth.stopAnimation();
+        
+        setIsGestureActive(true);
+        isAnimating.current = false;
+        isResetting.current = false;
+        
+        // Store initial state
+        gestureState.current = { dx: 0, vx: 0 };
+      },
+
+      onPanResponderMove: (_, g) => {
+        if (isProcessing || isAnimating.current || isResetting.current) {
+          return;
+        }
+        
+        gestureState.current = { dx: g.dx, vx: g.vx };
+        
+        // Only allow right swipe
+        let dx = Math.max(0, g.dx);
+
+        // Smooth resistance curve
+        if (dx > MAX_X * 0.85) {
+          const overDrag = dx - MAX_X * 0.85;
+          dx = MAX_X * 0.85 + overDrag * 0.2;
         }
 
-        setIsProcessing(true);
-        try {
-            await invest(investment, propertyId || id, tokens);
+        const clampedDx = Math.min(dx, MAX_X);
+        
+        // Update both animations smoothly
+        translateX.setValue(clampedDx);
+        // CRITICAL: Sync progress width with translate
+        const newWidth = THUMB_SIZE + clampedDx;
+        progressWidth.setValue(newWidth);
+      },
 
-            // Navigate to confirmation screen
-            router.replace({
-                pathname: `/invest/${id}/confirm` as any,
-                params: {
-                    tokenCount: tokens.toString(),
-                    totalAmount: amount.toFixed(2),
-                    totalInvestment: investment.toFixed(2),
-                    propertyTitle: title,
-                },
-            } as any);
-        } catch (error) {
-            console.error('Investment failed:', error);
-            setIsProcessing(false);
-            Alert.alert('Investment Failed', 'Please try again.');
+      onPanResponderRelease: (_, g) => {
+        const { dx, vx } = gestureState.current;
+        
+        if (isProcessing || isResetting.current) {
+          resetThumb(true);
+          return;
         }
-    };
 
-    return (
-        <LinearGradient
-            colors={['#064E3B', '#022C22', '#064E3B']}
-            style={{ flex: 1 }}
+        // Consider velocity for better UX
+        const hasVelocity = vx > 0.5;
+        const pastTrigger = dx >= TRIGGER_X;
+        const shouldComplete = pastTrigger || (hasVelocity && dx > TRIGGER_X * 0.5);
+        
+        if (shouldComplete && !isProcessing) {
+          // Complete the swipe
+          isAnimating.current = true;
+          setIsGestureActive(true);
+          
+          // Animate to end
+          Animated.spring(translateX, {
+            toValue: MAX_X,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 10,
+          }).start(async ({ finished }) => {
+            if (finished && !isProcessing) {
+              // Keep the button at the end while processing
+              await handleConfirmInvestment();
+            }
+          });
+        } else {
+          // Reset back
+          resetThumb();
+        }
+      },
+
+      onPanResponderTerminate: () => {
+        if (!isProcessing) {
+          resetThumb(true);
+        }
+      },
+
+      onPanResponderTerminationRequest: () => false, // Don't allow termination during swipe
+    })
+  ).current;
+
+  /* ================== INVEST ================== */
+  const handleConfirmInvestment = async () => {
+    // FIX 10: Double-check balance
+    if (investment > balance.usdc + BALANCE_EPSILON) {
+      const shortfall = investment - balance.usdc;
+      setIsGestureActive(false);
+      resetThumb(true);
+      
+      Alert.alert(
+        'Insufficient Balance',
+        `You need $${shortfall.toFixed(2)} more.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Funds',
+            onPress: () =>
+              router.push({
+                pathname: '/wallet/deposit/card',
+                params: { amount: shortfall.toFixed(2) },
+              } as any),
+          },
+        ]
+      );
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await invest(investment, propertyId || id, tokens);
+      
+      // FIX 11: Navigate without resetting (we're leaving the screen)
+      router.replace({
+        pathname: `/invest/${id}/confirm`,
+        params: {
+          tokenCount: tokens.toString(),
+          totalAmount: amount.toFixed(2),
+          totalInvestment: investment.toFixed(2),
+          propertyTitle: title,
+        },
+      } as any);
+    } catch (error) {
+      console.error('Investment error:', error);
+      setIsProcessing(false);
+      setIsGestureActive(false);
+      resetThumb(true);
+      Alert.alert('Investment Failed', 'Please try again.');
+    }
+  };
+
+  // FIX 12: Calculate if button should be disabled
+  const isDisabled = investment > balance.usdc + BALANCE_EPSILON || isProcessing;
+
+  /* ================== UI ================== */
+  return (
+    <LinearGradient colors={['#064E3B', '#022C22', '#064E3B']} style={{ flex: 1 }}>
+      <View className="flex-1">
+        {/* HEADER */}
+        <View className="flex-row items-center px-4 pt-12 pb-4">
+          <TouchableOpacity 
+            onPress={() => router.back()}
+            disabled={isProcessing}
+          >
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text className="flex-1 text-center text-white font-semibold">
+            Review Investment
+          </Text>
+          <View className="w-6" />
+        </View>
+
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!isGestureActive} // FIX 13: Disable scroll during gesture
         >
-            <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-
-       
-
-                {/* Header */}
-                <View className="flex-row items-center px-4 pt-10 pb-4">
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        className="w-10 h-10 items-center justify-center rounded-full bg-white/5"
-                    >
-                        <Ionicons name="arrow-back" size={20} color="#fff" />
-                    </TouchableOpacity>
-
-                    <Text className="flex-1 text-center text-lg font-semibold text-white">
-                        Review Investment
-                    </Text>
-
-                    <View className="w-10" />
-                </View>
-
-
-                <View className="px-6 mb-6">
-                    <LinearGradient
-                        colors={['rgba(16,185,129,0.25)', 'transparent']}
-                        className="rounded-3xl p-6"
-                    >
-                        <Text className="text-gray-300 text-sm mb-1">
-                            Total Investment
-                        </Text>
-
-                        <Text className="text-white text-4xl font-extrabold">
-                            ${investment.toLocaleString()}
-                        </Text>
-
-                        <Text className="text-emerald-400 mt-2 text-sm font-medium">
-                            You will receive {tokens.toFixed(2)} tokens
-                        </Text>
-                    </LinearGradient>
-                </View>
-
-
-
-                <ScrollView
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{
-                        paddingHorizontal: 16,
-                        paddingTop: 24,
-                        paddingBottom: 32
-                    }}
-                >
-                    {/* Property Card */}
-                    <View className="mx-4 mb-5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden">
-                        {propertyImage && (
-                            <Image
-                                source={{ uri: propertyImage }}
-                                className="w-full h-36"
-                                resizeMode="cover"
-                            />
-                        )}
-
-                        <View className="p-4">
-                            <Text className="text-xs text-gray-400 mb-1">Property</Text>
-                            <Text className="text-white text-lg font-semibold">
-                                {title}
-                            </Text>
-
-                            {property?.displayCode && (
-                                <Text className="text-gray-400 text-xs mt-1">
-                                    {property.displayCode}
-                                </Text>
-                            )}
-                        </View>
-                    </View>
-
-
-                    {/* Investment Details Card */}
-                    <View className="mx-4 mb-5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-4">
-                        <Text className="text-white font-semibold text-base mb-4">
-                            Investment Breakdown
-                        </Text>
-
-                        {[
-                            ['Tokens', `${tokens.toFixed(2)}`],
-                            ['Token Price', `$${property?.tokenPrice?.toFixed(2)}`],
-                            ['Subtotal', `$${amount.toFixed(2)}`],
-                            ['Transaction Fee', `$${fee.toFixed(2)}`],
-                        ].map(([label, value]) => (
-                            <View key={label} className="flex-row justify-between py-2">
-                                <Text className="text-gray-400 text-sm">{label}</Text>
-                                <Text className="text-white text-sm font-medium">{value}</Text>
-                            </View>
-                        ))}
-
-                        <View className="h-px bg-white/10 my-3" />
-
-                        <View className="flex-row justify-between">
-                            <Text className="text-white text-base font-semibold">
-                                Total
-                            </Text>
-                            <Text className="text-emerald-400 text-xl font-bold">
-                                ${investment.toFixed(2)}
-                            </Text>
-                        </View>
-                    </View>
-
-
-                    {/* Payment Method Card */}
-                    <View className="mx-4 mb-4 rounded-2xl shadow-lg shadow-emerald-500/20  bg-white/5 backdrop-blur-xl border border-white/10 p-4">
-                        <Text className="text-white font-semibold mb-3 ">
-                            Payment Method
-                        </Text>
-
-                        <View className="flex-row items-center">
-                            <View className="w-12 h-12 rounded-full bg-indigo-600 items-center justify-center mr-4">
-                                <Text className="text-white font-bold text-xs">USDC</Text>
-                            </View>
-
-                            <View className="flex-1">
-                                <Text className="text-white font-medium">
-                                    USDC Wallet
-                                </Text>
-                                <Text className="text-gray-400 text-xs mt-1">
-                                    ${balance.usdc.toFixed(2)} available
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-
-
-                    {/* Balance Warning */}
-                    {investment > balance.usdc && (
-                        <View style={{
-                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                            borderRadius: 12,
-                            padding: 12,
-                            marginBottom: 16,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 8,
-                        }}>
-                            <Ionicons name="warning" size={20} color="#ef4444" />
-                            <Text style={{ color: '#ef4444', fontSize: 12, flex: 1 }}>
-                                Insufficient balance. You need ${(investment - balance.usdc).toFixed(2)} more.
-                            </Text>
-                        </View>
-                    )}
-                </ScrollView>
-
-                {/* Swipe to Invest Button */}
-                <View className="px-4 pb-8">
-                    <View style={{ position: 'relative', overflow: 'hidden', borderRadius: 16 }}>
-                        {/* Glow effect */}
-                        <Animated.View
-                            style={{
-                                position: 'absolute',
-                                left: 0,
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                backgroundColor: '#10B981',
-                                opacity: glowOpacity.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [0, 0.6],
-                                }),
-                                borderRadius: 16,
-                            }}
-                        />
-                        
-                        {/* Swipeable button */}
-                        <Animated.View
-                            {...panResponder.panHandlers}
-                            style={{
-                                transform: [{ translateX }],
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                backgroundColor: investment > balance.usdc ? 'rgba(16, 185, 129, 0.4)' : '#10B981',
-                                borderRadius: 16,
-                                paddingVertical: 16,
-                                paddingHorizontal: 20,
-                                minHeight: 56,
-                            }}
-                        >
-                            <View style={{ flex: 1, alignItems: 'center' }}>
-                                {isProcessing ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : investment > balance.usdc ? (
-                                    <Text className="text-white text-lg font-bold">
-                                        Insufficient Balance
-                                    </Text>
-                                ) : (
-                                    <Text className="text-white text-lg font-bold">
-                                        Swipe to Invest →
-                                    </Text>
-                                )}
-                            </View>
-                            
-                            {/* Thumb indicator */}
-                            <Animated.View
-                                style={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: 20,
-                                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    position: 'absolute',
-                                    left: 10,
-                                }}
-                            >
-                                <Ionicons name="arrow-forward" size={20} color="#fff" />
-                            </Animated.View>
-                        </Animated.View>
-                    </View>
-
-                    {investment > balance.usdc && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                const shortfall = investment - balance.usdc;
-                                router.push({
-                                    pathname: '/wallet/deposit/card',
-                                    params: { amount: shortfall.toFixed(2) },
-                                } as any);
-                            }}
-                            className="mt-4 items-center"
-                        >
-                            <Text className="text-emerald-400 font-semibold">
-                                Add ${(investment - balance.usdc).toFixed(2)} to wallet
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-
+          {/* PROPERTY */}
+          <View className="mx-4 mb-6 rounded-2xl overflow-hidden">
+            {getImage() && (
+              <Image source={{ uri: getImage()! }} className="h-44 w-full" />
+            )}
+            <View className="absolute bottom-0 w-full p-4 bg-black/70">
+              <Text className="text-gray-300 text-xs">Investing in</Text>
+              <Text className="text-white text-lg font-semibold">{title}</Text>
             </View>
-        </LinearGradient>
-    );
-}
+          </View>
 
+          {/* HERO */}
+          <View className="mx-4 mb-8">
+            <Text className="text-gray-400 text-sm">Total investment</Text>
+            <Text className="text-white text-4xl font-bold">
+              ${investment.toFixed(2)}
+            </Text>
+            <Text className="text-emerald-400 mt-2">
+              {tokens.toFixed(2)} property tokens
+            </Text>
+          </View>
+
+          {/* BREAKDOWN */}
+          <View className="mx-4 mb-8 rounded-xl bg-zinc-900 p-4">
+            {[
+              ['Token price', `$${property?.tokenPrice?.toFixed(2)}`],
+              ['Subtotal', `$${amount.toFixed(2)}`],
+              ['Transaction fee', `$${fee.toFixed(2)}`],
+            ].map(([k, v]) => (
+              <View key={k} className="flex-row justify-between py-2">
+                <Text className="text-gray-400">{k}</Text>
+                <Text className="text-white">{v}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* WALLET */}
+          <View className="mx-4 mb-10">
+            <Text className="text-gray-400 text-sm">Paying from</Text>
+            <Text className="text-white font-medium">USDC Wallet</Text>
+            <Text className="text-gray-400 text-sm">
+              Balance: ${balance.usdc.toFixed(2)}
+            </Text>
+          </View>
+        </ScrollView>
+
+        {/* SWIPE CONFIRM - PERFECT VERSION */}
+        <View className="px-4 pb-10">
+          <View 
+            className="h-14 rounded-full bg-zinc-900 justify-center overflow-hidden relative"
+            style={{ opacity: isDisabled ? 0.6 : 1 }}
+          >
+            {/* Progress fill - separate from thumb for better performance */}
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                right: 0,
+                backgroundColor: 'transparent',
+                overflow: 'hidden',
+              }}
+              pointerEvents="none"
+            >
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: progressWidth,
+                  backgroundColor: isDisabled 
+                    ? 'rgba(127,127,127,0.3)' 
+                    : 'rgba(16,185,129,0.3)',
+                }}
+              />
+            </View>
+
+            {/* Swipable thumb with FULL touch area */}
+            <Animated.View
+              {...(!isDisabled ? panResponder.panHandlers : {})}
+              style={{
+                transform: [{ translateX }],
+                position: 'absolute',
+                left: 2,
+                top: 2,
+                bottom: 2,
+                width: THUMB_SIZE,
+                height: THUMB_SIZE - 4,
+                borderRadius: 25,
+                backgroundColor: isDisabled ? '#6b7280' : '#10b981',
+                alignItems: 'center',
+                justifyContent: 'center',
+                // CRITICAL: Ensure touch events work
+                zIndex: 10,
+              }}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Ionicons 
+                  name="arrow-forward" 
+                  size={20} 
+                  color="#fff"
+                  style={{ pointerEvents: 'none' }} 
+                />
+              )}
+            </Animated.View>
+
+            {/* Text label - must not block touches */}
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                zIndex: 5,
+              }}
+            >
+              <Text 
+                className="text-center text-white font-semibold"
+                style={{ 
+                  marginLeft: 20, // Offset for thumb
+                  pointerEvents: 'none',
+                }}
+              >
+                {isDisabled
+                  ? investment > balance.usdc 
+                    ? 'Insufficient balance'
+                    : 'Processing...'
+                  : isGestureActive
+                  ? 'Keep swiping...'
+                  : 'Swipe to confirm investment'}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Helper text */}
+          {!isDisabled && (
+            <Text className="text-center text-gray-400 text-xs mt-2">
+              Swipe the button right to complete your investment
+            </Text>
+          )}
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}

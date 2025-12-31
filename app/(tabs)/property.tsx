@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   Image,
   TouchableOpacity,
-  TextInput,
   Dimensions,
   StatusBar,
   RefreshControl,
@@ -17,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
 import { propertyFilters } from '@/data/mockCommon';
+import PropertyFilterModal, { PropertyFilterState, SortOption } from '@/components/property/PropertyFilterModal';
 
 
 const { width } = Dimensions.get('window');
@@ -38,8 +37,60 @@ export default function HomeScreen() {
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Filter modal state
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [filterState, setFilterState] = useState<PropertyFilterState>({
+    sortBy: 'newest',
+    tokenPriceRange: [0, 1000], // Keep for backward compatibility
+    tokenPriceValue: null, // Single investment amount
+    roiRange: [0, 30], // Keep for backward compatibility
+    roiValue: null, // Single ROI target
+    selectedPropertyTypes: [],
+    selectedLocations: [],
+    activeOnly: false,
+  });
+
   // Add "All" filter at the beginning
   const filters = ['All', ...propertyFilters, 'Bookmarks'] as const;
+
+  // Calculate min/max values from properties for sliders
+  const { minTokenPrice, maxTokenPrice, minROI, maxROI, availableCities, availablePropertyTypes } = useMemo(() => {
+    if (state.properties.length === 0) {
+      return {
+        minTokenPrice: 0,
+        maxTokenPrice: 1000,
+        minROI: 0,
+        maxROI: 30,
+        availableCities: [],
+        availablePropertyTypes: [],
+      };
+    }
+
+    const tokenPrices = state.properties.map(p => p.tokenPrice).filter(p => p > 0);
+    const rois = state.properties.map(p => p.estimatedROI).filter(r => r > 0);
+    const cities = Array.from(new Set(state.properties.map(p => p.city).filter(Boolean))) as string[];
+    const types = Array.from(new Set(state.properties.map(p => p.type).filter(Boolean))) as string[];
+
+    return {
+      minTokenPrice: tokenPrices.length > 0 ? Math.floor(Math.min(...tokenPrices)) : 0,
+      maxTokenPrice: tokenPrices.length > 0 ? Math.ceil(Math.max(...tokenPrices)) : 1000,
+      minROI: rois.length > 0 ? Math.floor(Math.min(...rois)) : 0,
+      maxROI: rois.length > 0 ? Math.ceil(Math.max(...rois)) : 30,
+      availableCities: cities.sort(),
+      availablePropertyTypes: types.sort(),
+    };
+  }, [state.properties]);
+
+  // Initialize ranges when properties load (for backward compatibility)
+  React.useEffect(() => {
+    if (state.properties.length > 0 && filterState.tokenPriceRange[1] === 1000) {
+      setFilterState((prev) => ({
+        ...prev,
+        tokenPriceRange: [minTokenPrice, maxTokenPrice],
+        roiRange: [minROI, maxROI],
+      }));
+    }
+  }, [state.properties.length, minTokenPrice, maxTokenPrice, minROI, maxROI]);
 
   // Handle refresh
   const onRefresh = async () => {
@@ -88,12 +139,133 @@ export default function HomeScreen() {
     );
   }
 
-  const filteredProperties = propertiesToShow.filter(
-    (property) =>
+  // Apply advanced filters
+  let filteredProperties = propertiesToShow.filter((property) => {
+    // Search filter
+    const matchesSearch = 
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (property.city && property.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (property.location && property.location.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+      (property.location && property.location.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    // Token price value filter - check if tokens are buyable at this investment amount
+    if (filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0) {
+      const MINIMUM_TOKENS = 0.1; // Minimum tokens required to invest
+      const tokensBuyable = filterState.tokenPriceValue / property.tokenPrice;
+      const availableTokens = property.totalTokens - property.soldTokens;
+      
+      // Property is buyable if:
+      // 1. We can buy at least minimum tokens with the investment
+      // 2. Property has available tokens
+      if (tokensBuyable < MINIMUM_TOKENS || availableTokens <= 0) {
+        return false;
+      }
+    }
+    // If tokenPriceValue is null, don't filter by token price (show all)
+
+    // ROI value filter - check if property ROI matches target
+    if (filterState.roiValue !== null && filterState.roiValue > 0) {
+      // Allow some tolerance (e.g., ±0.5%)
+      const tolerance = 0.5;
+      if (Math.abs(property.estimatedROI - filterState.roiValue) > tolerance) {
+        return false;
+      }
+    }
+    // If roiValue is null, don't filter by ROI (show all)
+
+    // Property type filter
+    if (filterState.selectedPropertyTypes.length > 0 && property.type) {
+      if (!filterState.selectedPropertyTypes.includes(property.type)) {
+        return false;
+      }
+    }
+
+    // Location filter
+    if (filterState.selectedLocations.length > 0 && property.city) {
+      if (!filterState.selectedLocations.includes(property.city)) {
+        return false;
+      }
+    }
+
+    // Active only filter
+    if (filterState.activeOnly) {
+      if (property.status !== 'funding' && property.status !== 'construction') {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Apply sorting
+  filteredProperties = [...filteredProperties].sort((a, b) => {
+    switch (filterState.sortBy) {
+      case 'newest':
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      case 'price-low':
+        return a.tokenPrice - b.tokenPrice;
+      case 'price-high':
+        return b.tokenPrice - a.tokenPrice;
+      case 'roi-high':
+        return b.estimatedROI - a.estimatedROI;
+      default:
+        return 0;
+    }
+  });
+
+  // Calculate property investment details based on filter values (similar to guidance-two)
+  const calculatePropertyDetails = (property: any) => {
+    const tokenPrice = property.tokenPrice;
+    const estimatedROI = property.estimatedROI;
+    const estimatedYield = property.estimatedYield;
+
+    // Check if specific values are set
+    const isTokenValueSet = filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0;
+    const isROIValueSet = filterState.roiValue !== null && filterState.roiValue > 0;
+
+    let tokensCount: number | null = null;
+    let investmentAmount: number | null = null;
+    let monthlyEarnings: number | null = null;
+    let investmentNeeded: number | null = null;
+
+    // Priority: ROI value takes precedence if both are set
+    if (isROIValueSet) {
+      // ROI-based calculation (similar to goal-based mode in guidance-two)
+      // Calculate investment needed to achieve monthly earning based on ROI target
+      // Formula from guidance-two: investment = (monthlyGoal * 12 * 100) / estimatedYield
+      const referenceMonthlyEarning = 100; // Reference monthly earning to calculate from
+      
+      // Calculate investment needed using the ROI target
+      investmentNeeded = (referenceMonthlyEarning * 12 * 100) / filterState.roiValue!;
+      
+      // Calculate tokens for this investment
+      tokensCount = investmentNeeded / tokenPrice;
+      
+      // Calculate actual monthly earnings using the property's actual yield
+      // Formula from guidance-two: monthlyIncome = (investment * estimatedYield) / 100 / 12
+      monthlyEarnings = (investmentNeeded * estimatedYield) / 100 / 12;
+    } else if (isTokenValueSet) {
+      // Token price value-based calculation (similar to amount-based mode in guidance-two)
+      investmentAmount = filterState.tokenPriceValue!;
+      
+      // Calculate tokens you can buy with this specific investment
+      tokensCount = investmentAmount / tokenPrice;
+      
+      // Calculate monthly earnings from this investment
+      // Formula from guidance-two: monthlyIncome = (investment * estimatedYield) / 100 / 12
+      monthlyEarnings = (investmentAmount * estimatedYield) / 100 / 12;
+    }
+
+    return {
+      tokensCount,
+      investmentAmount,
+      monthlyEarnings,
+      investmentNeeded,
+      isTokenValueSet,
+      isROIValueSet,
+    };
+  };
 
   const renderPropertyCard = ({ item: property,index }: { item: any,index: number }) => {
     const propertyImage = (property.images && property.images.length > 0 && property.images[0]) 
@@ -102,15 +274,8 @@ export default function HomeScreen() {
       ? property.image
       : 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800';
 
-    // Format price like "€3.76m" or "$3.76m"
-    const formatPrice = (price: number) => {
-      if (price >= 1000000) {
-        return `$${(price / 1000000).toFixed(2)}m`;
-      } else if (price >= 1000) {
-        return `$${(price / 1000).toFixed(0)}k`;
-      }
-      return `$${price.toFixed(2)}`;
-    };
+    // Calculate investment details based on filter ranges
+    const investmentDetails = calculatePropertyDetails(property);
 
     // Get area in square meters
     const area = property.features?.area || 0;
@@ -121,12 +286,8 @@ export default function HomeScreen() {
         onPress={() => router.push(`/property/${property.id}`)}
         style={{
           width: CARD_WIDTH,
-          // backgroundColor: 'rgba(255, 255, 255, 0.06)',
           borderRadius: 16,
-          // overflow: 'hidden',
           marginBottom: 16,
-          // borderWidth: 1,
-          // borderColor: 'rgba(255, 255, 255, 0.10)',
           paddingHorizontal: 10,
           marginTop: index % 2 === 0 ? -20 : 20,
         }}
@@ -145,22 +306,57 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Card Content - Matching image layout */}
-        <View style={{ padding: 14 }}>
-          {/* Price - First, large and bold */}
-          <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin',fontWeight: 'bold', fontStyle: 'italic', fontSize: 20, marginBottom: 6 }}>
-            ${property.tokenPrice.toFixed(2)}
-          </Text>
-          
-          {/* Property Name - Second, smaller */}
+        {/* Price Block - Directly below image, largest text */}
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 }}>
+          {(investmentDetails.isTokenValueSet || investmentDetails.isROIValueSet) ? (
+            <>
+              {/* Investment Amount - Largest text */}
+              <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
+                ${investmentDetails.isROIValueSet && investmentDetails.investmentNeeded !== null
+                  ? investmentDetails.investmentNeeded.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                  : investmentDetails.investmentAmount !== null
+                  ? investmentDetails.investmentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                  : property.tokenPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </Text>
+              {/* Starting price label */}
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginBottom: 8 }}>
+                Starting price
+              </Text>
+            </>
+          ) : (
+            <>
+              {/* Price - Largest text */}
+              <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
+                ${property.tokenPrice.toFixed(2)}
+              </Text>
+              {/* Starting price label */}
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12,fontWeight:'bold', marginBottom: 0 }}>
+                Starting price
+              </Text>
+            </>
+          )}
+        </View>
+
+        {/* Card Content */}
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+          {/* Property Name - Below price, smaller font */}
           <Text 
-            style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '400', marginBottom: 4 }}
+            style={{ color: 'rgba(255, 255, 255)', fontSize: 14, fontWeight: 'bold',includeFontPadding:true, marginBottom: 0 }}
             numberOfLines={2}
           >
             {property.title}
           </Text>
+
+          {/* Tokens display when filters are active */}
+          {(investmentDetails.isTokenValueSet || investmentDetails.isROIValueSet) && investmentDetails.tokensCount !== null && (
+            <Text 
+              style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontFamily: 'sans-serif-thin', marginBottom: 0 }}
+            >
+              {investmentDetails.tokensCount.toFixed(3)} tokens
+            </Text>
+          )}
           
-          {/* Size - Third, small gray with arrow icon */}
+          {/* Size - Small gray with arrow icon */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             {areaText ? (
               <Text style={{ color: 'rgba(255, 255, 255, 0.55)', fontSize: 12 }}>
@@ -202,7 +398,7 @@ export default function HomeScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push('/marketplace')}
+            onPress={() => setIsFilterModalVisible(true)}
             className="w-10 h-10 items-center justify-center"
           >
             <Ionicons name="options-outline" size={24} color="#FFFFFF" />
@@ -333,6 +529,32 @@ export default function HomeScreen() {
           }
         />
       )}
+
+      {/* Filter Modal */}
+      <PropertyFilterModal
+        visible={isFilterModalVisible}
+        onClose={() => setIsFilterModalVisible(false)}
+        filterState={filterState}
+        onFilterChange={setFilterState}
+        onClearFilters={() => {
+          setFilterState({
+            sortBy: 'newest',
+            tokenPriceRange: [minTokenPrice, maxTokenPrice],
+            tokenPriceValue: null, // Reset to null so slider uses default middle value
+            roiRange: [minROI, maxROI],
+            roiValue: null, // Reset to null so slider uses default middle value
+            selectedPropertyTypes: [],
+            selectedLocations: [],
+            activeOnly: false,
+          });
+        }}
+        minTokenPrice={minTokenPrice}
+        maxTokenPrice={maxTokenPrice}
+        minROI={minROI}
+        maxROI={maxROI}
+        availableCities={availableCities}
+        availablePropertyTypes={availablePropertyTypes}
+      />
     </View>
   );
 }

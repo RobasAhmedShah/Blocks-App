@@ -27,6 +27,7 @@ import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCal
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useAuth } from "@/contexts/AuthContext";
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
+import { apiClient } from '@/services/api/apiClient';
 
 // In the current backend, tokenPrice and minInvestment are already “real” prices.
 // No more /10 scaling.
@@ -34,14 +35,18 @@ const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
 const { width } = Dimensions.get("window");
 
-// Token price trend data (sample data - can be replaced with real data)
-const tokenPriceData: LineGraphDataPoint[] = [
-  { date: new Date('2025-01-01'), value: 10 },
-  { date: new Date('2025-01-02'), value: 18 },
-  { date: new Date('2025-01-03'), value: 14 },
-  { date: new Date('2025-01-04'), value: 22 },
-  { date: new Date('2025-01-05'), value: 19 },
-];
+// Interface for daily candle data from API
+interface DailyCandle {
+  date: string; // YYYY-MM-DD format
+  propertyId: string;
+  priceSource: 'base' | 'marketplace';
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
+  closePrice: number;
+  volume: number;
+  tradeCount: number;
+}
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -58,12 +63,52 @@ export default function PropertyDetailScreen() {
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
+  const [loadingCandles, setLoadingCandles] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
   const { isGuest, exitGuestMode, isAuthenticated } = useAuth();
 
   const bookmarked = id ? isBookmarked(id) : false;
+
+  // Fetch daily candles data for the property
+  useEffect(() => {
+    const fetchDailyCandles = async () => {
+      if (!id) return;
+
+      try {
+        setLoadingCandles(true);
+        const candles: DailyCandle[] = await apiClient.get<DailyCandle[]>(
+          `/api/mobile/price-history/candles/${id}?priceSource=marketplace`
+        );
+
+        // Transform candles data: calculate average of high and low for each day
+        const transformedData: LineGraphDataPoint[] = candles.map((candle) => {
+          // Calculate average of high and low: (highPrice + lowPrice) / 2
+          const averagePrice = (candle.highPrice + candle.lowPrice) / 2;
+          
+          return {
+            date: new Date(candle.date), // Convert YYYY-MM-DD string to Date
+            value: averagePrice,
+          };
+        });
+
+        // Sort by date to ensure chronological order
+        transformedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        setCandlesData(transformedData);
+      } catch (error) {
+        console.error('Error fetching daily candles:', error);
+        // On error, set empty array (graph will show "No data available")
+        setCandlesData([]);
+      } finally {
+        setLoadingCandles(false);
+      }
+    };
+
+    fetchDailyCandles();
+  }, [id]);
 
   // Geocode property location to coordinates using OpenStreetMap Nominatim API
   useEffect(() => {
@@ -579,11 +624,20 @@ export default function PropertyDetailScreen() {
                 >
                   Token Price Trend
                 </Text>
-                <SimpleLineGraph 
-                  data={tokenPriceData}
-                  lineColor={colors.primary}
-                  gradientColor={colors.primary}
-                />
+                {loadingCandles ? (
+                  <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.textMuted, marginTop: 8, fontSize: 12 }}>
+                      Loading price data...
+                    </Text>
+                  </View>
+                ) : (
+                  <SimpleLineGraph 
+                    data={candlesData.length > 0 ? candlesData : []}
+                    lineColor={colors.primary}
+                    gradientColor={colors.primary}
+                  />
+                )}
               </View>
 
               {/* Key Facts */}

@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { View, Text, Dimensions, StatusBar, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Dimensions, StatusBar, TouchableOpacity, ScrollView, Image, ActivityIndicator, TextInput } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -11,7 +11,8 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import FeaturedSection, { Stat as FeaturedStat } from '@/components/home/FeaturedSection';
 import AffordableSection from '@/components/home/AffordableSection';
 import InvestmentSection from '@/components/home/InvestmentSection';
@@ -28,45 +29,33 @@ import { TOUR_STEPS } from '@/utils/tourHelpers';
 import { useKycCheck } from '@/hooks/useKycCheck';
 import { useAuth } from '@/contexts/AuthContext';
 import { MarketplacePreviewRow } from '@/components/marketplace/MarketplacePreviewRow';
+import Constants from 'expo-constants';
+import { Defs, RadialGradient, Rect, Stop, Svg } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('window');
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
-// Subtle grid pattern that doesn't overwhelm - matches portfolio aesthetic
-const SubtlePattern = ({ isDark }: { isDark: boolean }) => (
-  <Svg
-    height="100%"
-    width="100%"
-    style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      opacity: isDark ? 0.4 : 0.3,
-    }}
-    preserveAspectRatio="xMidYMid slice">
-    <Defs>
-      <Pattern id="subtleGrid" patternUnits="userSpaceOnUse" width="80" height="80">
-        {/* Horizontal line */}
-        <Rect 
-          x="0" 
-          y="0" 
-          width="80" 
-          height="3" 
-          fill={isDark ? 'rgb(80, 74, 74)' : 'rgba(0, 0, 0, 0.6)'}
-        />
-        {/* Vertical line */}
-        <Rect 
-          x="0" 
-          y="0" 
-          width="3" 
-          height="80" 
-          fill={isDark ? 'rgb(80, 74, 74)' : 'rgba(22, 163, 74, 0.6)'}
-        />
-      </Pattern>
-    </Defs>
-    <Rect width="100%" height="100%" fill="url(#subtleGrid)" />
-  </Svg>
+// Glass Button Component
+const GlassButton = ({ onPress, icon, size = 36 }: { onPress: () => void; icon: string; size?: number }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+    <BlurView intensity={20} tint="dark" style={{ width: size, height: size, borderRadius: 12, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
+      <Ionicons name={icon as any} size={20} color="#FFFFFF" />
+    </BlurView>
+  </TouchableOpacity>
+);
+
+// Glass Card Component
+const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+  <BlurView intensity={18} tint="dark" style={[{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
+    {children}
+  </BlurView>
+);
+
+// Glass Chip Component
+const GlassChip = ({ text, accent = false }: { text: string; accent?: boolean }) => (
+  <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: accent ? 'rgba(158, 220, 90, 0.25)' : 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: accent ? 'rgba(158, 220, 90, 0.4)' : 'rgba(255,255,255,0.10)' }}>
+    <Text style={{ color: accent ? '#9EDC5A' : 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' }}>{text}</Text>
+  </View>
 );
 
 function BlocksHomeScreen() {
@@ -91,9 +80,13 @@ function BlocksHomeScreen() {
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const { isGuest, isAuthenticated } = useAuth();
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Hero carousel state
+  const [heroIndex, setHeroIndex] = useState(0);
   
   // Create ref for ScrollView only
-  // NOTE: We don't create refs for tour steps - walkthroughable handles refs internally
   const scrollViewRef = useRef<any>(null);
   
   // Register ScrollView ref with context
@@ -103,30 +96,23 @@ function BlocksHomeScreen() {
     }
   }, [setScrollViewRef]);
 
-
   // Refresh wallet balance, KYC status, and marketplace listings when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // CRITICAL: Don't reload wallet during active tour!
       if (isTourActive) {
         console.log('[HomeScreen] Skipping wallet reload - tour is active');
         return;
       }
       if (!isGuest && isAuthenticated) {
       loadWallet();
-      // Refresh KYC in background (cached data shows immediately)
       loadKycStatus(false);
       }
     }, [loadWallet, loadKycStatus, isTourActive])
   );
   
-  // Check for shouldStartTour when screen comes into focus (for replay button)
-  // REMOVED: This was causing duplicate tour starts. useLayoutEffect handles it.
-
-  // Auto-start tour logic - use useLayoutEffect to ensure layout is ready
+  // Auto-start tour logic
   useLayoutEffect(() => {
     const checkAndStartTour = async () => {
-      // CRITICAL: Don't start if tour is already active!
       if (isTourActive) {
         console.log('[HomeScreen] Tour already active, skipping start check');
         return;
@@ -135,24 +121,9 @@ function BlocksHomeScreen() {
       const firstLaunch = await isFirstLaunch();
       const tourDone = await isTourCompleted('home');
       
-      console.log('[HomeScreen] Tour check:', { 
-        firstLaunch, 
-        tourDone, 
-        shouldStartTour,
-        isTourActive,
-      });
-      
-      // FIX: Check shouldStartTour FIRST (highest priority)
-      // This allows manual replay from Profile button
       const shouldStart = shouldStartTour || (!tourDone && firstLaunch);
       
       if (shouldStart) {
-        console.log('[HomeScreen] Starting tour... Reason:', {
-          manualReplay: shouldStartTour,
-          firstLaunch: !tourDone && firstLaunch,
-        });
-        
-        // Use longer delay to ensure screen is fully rendered and CopilotProvider is ready
         setTimeout(() => {
           console.log('[HomeScreen] Calling start() now...');
           setIsTourActive(true);
@@ -162,15 +133,8 @@ function BlocksHomeScreen() {
           } catch (error) {
             console.error('[HomeScreen] Error calling start():', error);
           }
-          setShouldStartTour(false); // Reset flag after starting
-        }, 800); // Increased delay to ensure everything is ready
-      } else {
-        console.log('[HomeScreen] Not starting tour:', {
-          shouldStartTour,
-          tourDone,
-          firstLaunch,
-          isTourActive,
-        });
+          setShouldStartTour(false);
+        }, 800);
       }
     };
     
@@ -194,14 +158,12 @@ function BlocksHomeScreen() {
 
     const handleStop = async () => {
       console.log('[HomeScreen] 🛑 Tour STOPPED');
-      setIsTourActive(false); // CRITICAL: Set inactive when tour stops
+      setIsTourActive(false);
       await markTourCompleted('home');
     };
     
     const handleStepChange = (step: any) => {
       console.log('[HomeScreen] 📍 Step changed:', step?.name, 'Order:', step?.order);
-      // FIX: Don't use JSON.stringify on step object - it has circular references
-      // Log only the properties we need
       console.log('[HomeScreen] 📍 Step details:', {
         name: step?.name,
         order: step?.order,
@@ -213,8 +175,6 @@ function BlocksHomeScreen() {
       
       if (step?.name) {
         updateCurrentStep(step.name);
-        // AUTO-SCROLL TO STEP using wrapperRef from step object
-        // react-native-copilot provides wrapperRef in the step object
         if (step?.wrapperRef?.current && scrollViewRef.current) {
           setTimeout(() => {
             try {
@@ -238,12 +198,7 @@ function BlocksHomeScreen() {
             } catch (error) {
               console.error(`[HomeScreen] Error scrolling to ${step.name}:`, error);
             }
-          }, 200); // Delay to ensure tooltip is rendered
-        } else {
-          console.warn(`[HomeScreen] Cannot scroll - missing refs for step: ${step.name}`, {
-            hasWrapperRef: !!step?.wrapperRef?.current,
-            hasScrollViewRef: !!scrollViewRef.current,
-          });
+          }, 200);
         }
       }
     };
@@ -262,13 +217,24 @@ function BlocksHomeScreen() {
   // Get user's wallet balance
   const balance = state.balance.usdc;
   
+  // Get user info
+  const userName = state.userInfo?.fullName || state.userInfo?.email?.split('@')[0] || 'User';
+  const userImage = state.userInfo?.profileImage;
+  
+  // Get greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+  
   // Filter properties based on user's purchase power
   const { affordable, featured, midRange } = useMemo(() => {
     const allProperties = state.properties.filter(
-      (p) => p.totalTokens > 0 && p.soldTokens < p.totalTokens // Only available properties
+      (p) => p.totalTokens > 0 && p.soldTokens < p.totalTokens
     );
     
-    // If user has no balance, show default properties (all properties)
     if (balance <= 0) {
       return {
         affordable: allProperties
@@ -280,10 +246,11 @@ function BlocksHomeScreen() {
             entry: `$${(property.minInvestment / 10).toFixed(2)}`,
             roi: `${property.estimatedROI}%`,
             image: property.images?.[0] || '',
+            property: property,
           })),
         featured: allProperties
           .sort((a, b) => b.estimatedROI - a.estimatedROI)
-          .slice(0, 2)
+          .slice(0, 4)
           .map((property) => ({
             id: property.id,
             title: property.title,
@@ -291,12 +258,11 @@ function BlocksHomeScreen() {
             funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
             minInvestment: `$${(property.minInvestment / 10).toFixed(2) || (property.tokenPrice / 10).toFixed(2)}`,
             image: property.images?.[0] || '',
+            property: property,
           })),
         midRange: allProperties
           .filter((p) => {
-            // Mid-range: properties between 30% and 100% of average property price
-            const avgPrice =
-              allProperties.reduce((sum, prop) => sum + prop.tokenPrice, 0) / allProperties.length;
+            const avgPrice = allProperties.reduce((sum, prop) => sum + prop.tokenPrice, 0) / allProperties.length;
             return p.tokenPrice >= avgPrice * 0.3 && p.tokenPrice <= avgPrice;
           })
           .sort((a, b) => b.estimatedROI - a.estimatedROI)
@@ -307,24 +273,15 @@ function BlocksHomeScreen() {
             value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
             roi: `${property.estimatedROI}%`,
             image: property.images?.[0] || '',
-            path: 'M0,30 Q25,20 50,25 T100,30', // Simple path for chart
+            path: 'M0,30 Q25,20 50,25 T100,30',
+            property: property,
           })),
       };
     }
     
-    // User has balance - filter by affordability
-    // Affordable: Properties where user can buy at least 1 token (tokenPrice <= balance)
     const affordableProperties = allProperties.filter((p) => p.tokenPrice <= balance);
-    
-    // Featured: High ROI properties user can afford (can buy at least 0.1 tokens)
-    const featuredProperties = allProperties.filter(
-      (p) => balance >= p.tokenPrice * 0.1 // Can buy at least 0.1 tokens
-    );
-    
-    // Mid-range: Properties where user can buy 0.1 to 1 tokens (balance * 0.1 <= tokenPrice <= balance)
-    const midRangeProperties = allProperties.filter(
-      (p) => p.tokenPrice >= balance * 0.1 && p.tokenPrice <= balance
-    );
+    const featuredProperties = allProperties.filter((p) => balance >= p.tokenPrice * 0.1);
+    const midRangeProperties = allProperties.filter((p) => p.tokenPrice >= balance * 0.1 && p.tokenPrice <= balance);
     
     return {
       affordable: affordableProperties
@@ -336,10 +293,11 @@ function BlocksHomeScreen() {
           entry: `$${(property.tokenPrice / 10).toFixed(2)}`,
           roi: `${property.estimatedROI}%`,
           image: property.images?.[0] || '',
+          property: property,
         })),
       featured: featuredProperties
         .sort((a, b) => b.estimatedROI - a.estimatedROI)
-        .slice(0, 2)
+        .slice(0, 4)
         .map((property) => ({
           id: property.id,
           title: property.title,
@@ -347,6 +305,7 @@ function BlocksHomeScreen() {
           funded: `${Math.round((property.soldTokens / property.totalTokens) * 100)}%`,
           minInvestment: `$${(property.minInvestment / 10).toFixed(2) || (property.tokenPrice / 10).toFixed(2)}`,
           image: property.images?.[0] || '',
+          property: property,
         })),
       midRange: midRangeProperties
         .sort((a, b) => b.estimatedROI - a.estimatedROI)
@@ -357,10 +316,27 @@ function BlocksHomeScreen() {
           value: `$${typeof property.valuation === 'number' ? property.valuation.toLocaleString() : property.valuation}`,
           roi: `${property.estimatedROI}%`,
           image: property.images?.[0] || '',
-          path: 'M0,30 Q25,20 50,25 T100,30', // Simple path for chart
+          path: 'M0,30 Q25,20 50,25 T100,30',
+          property: property,
         })),
     };
   }, [balance, state.properties, isTourActive]);
+
+  // Get image URL helper
+  const getImageUrl = (image: string | undefined) => {
+    if (!image) return null;
+    if (image.startsWith('http')) return image;
+    return `${API_BASE_URL}${image.startsWith('/') ? image : `/${image}`}`;
+  };
+
+  // Hero carousel auto-advance
+  useEffect(() => {
+    if (featured.length <= 1) return;
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % featured.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [featured.length]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -368,470 +344,304 @@ function BlocksHomeScreen() {
     },
   });
 
-  // Parallax animations
-  const heroParallaxStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(scrollY.value, [0, 300], [0, -50], Extrapolate.CLAMP);
-    const scale = interpolate(scrollY.value, [0, 300], [1, 0.95], Extrapolate.CLAMP);
-    const opacity = interpolate(scrollY.value, [0, 200, 300], [1, 0.7, 0.3], Extrapolate.CLAMP);
-    return {
-      transform: [{ translateY }, { scale }],
-      opacity,
-    };
-  });
-
-  const headerParallaxStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(scrollY.value, [0, 100], [0, -30], Extrapolate.CLAMP);
-    const opacity = interpolate(scrollY.value, [0, 100], [1, 0], Extrapolate.CLAMP);
-    return {
-      transform: [{ translateY }],
-      opacity,
-    };
-  });
-
-  const contentParallaxStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(scrollY.value, [0, 300], [50, 0], Extrapolate.CLAMP);
-    return {
-      transform: [{ translateY }],
-    };
-  });
+  // Get current hero property
+  const heroProperty = featured[heroIndex] || featured[0];
+  const heroPropertyData = heroProperty?.property || state.properties.find(p => p.id === heroProperty?.id);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar 
-        barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-        translucent={false}
-      />
+    <View style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" translucent={false} />
       
-      {/* Linear Gradient Background - 40% green top, black bottom */}
+      {/* Dark Olive/Green Gradient Background */}
       <LinearGradient
-        colors={
-          isDarkColorScheme
-          ? 
-          [
-            '#00C896', // Teal green (top)
-            '#064E3B', // Deep emerald (40% mark)
-            '#032822',
-            '#021917',
-          ]
-          : 
-          [
-            '#F5F5F5', // Smoky light gray
-            '#EDEDED', // Soft ash
-            '#E0E0E0', // Gentle gray
-            '#FFFFFF', // Pure white
-          ]
-        }
-        locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
+        colors={['#0B1A12', '#09140F', '#050A08']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
       
-      {/* Grid pattern background - visible in both modes */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-        <SubtlePattern isDark={isDarkColorScheme} />
-      </View>
+      {/* Soft top-left glow overlay */}
+      {/* <View style={{ position: 'absolute', top: -100, left: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: '#9EDC5A', opacity: 0.1 }} /> */}
+      
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
 
-      {/* Scrollable content with parallax */}
-      <Animated.ScrollView 
-        ref={scrollViewRef}
-        className="flex-1"
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}>
-        {/* Header with parallax */}
-        <Animated.View 
-          style={[
-            headerParallaxStyle,
-            {
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: 16,
-              paddingTop: 48,
-              backgroundColor: 'transparent',
-            },
-          ]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="apps" size={28} color={colors.textPrimary} />
-            <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
-              Blocks
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            {/* Marketplace Button */}
-            {/* {!isGuest && isAuthenticated && (
-              <TouchableOpacity
-                onPress={() => router.push('/marketplace')}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 9999,
-                  // backgroundColor: `${colors.primary}${isDarkColorScheme ? '30' : '20'}`,
-                  borderWidth: 1,
-                  borderColor: `${colors.primary}${isDarkColorScheme ? '50' : '40'}`,
-                }}
-                activeOpacity={0.7}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="storefront" size={16} color={colors.primary} />
-                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
-                    Marketplace
-                  </Text>
-          </View>
-              </TouchableOpacity>
-            )} */}
-          <CopilotStep
-            text={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.text}
-            order={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.order}
-              name={TOUR_STEPS.HOME.PORTFOLIO_BALANCE.name}>
-            <CopilotView 
-              style={{
-                // backgroundColor: `${colors.warning}${isDarkColorScheme ? '30' : '20'}`,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 9999,
-                borderWidth: 1,
-                borderColor: `${colors.warning}${isDarkColorScheme ? '50' : '40'}`,
-                }}>
-                <CopilotTouchableOpacity onPress={() => router.push('./wallet')}>
-              <Text style={{ color: colors.warning, fontSize: 16, fontWeight: 'bold' }}>
-                ${balance.toFixed(2)}
-              </Text>
-              </CopilotTouchableOpacity>
-            </CopilotView>
-            </CopilotStep>
-          </View>
-        </Animated.View>
+        {/* Radial Gradient Background */}
+        <View style={{ position: 'absolute', inset: 0 }}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                {isDarkColorScheme ? (
+                  <>
+                    {/* Dark Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="0%" cy="0%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                ) : (
+                  <>
+                    {/* Light Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="10%" cy="10%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                )}
+              </Defs>
 
-        {/* KYC Verification Alert - only shows when not submitted, disappears after submission */}
-        {kycStatus && kycStatus.status === 'not_submitted' && (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginTop: 16,
-              marginBottom: 8,
-              backgroundColor: isDarkColorScheme 
-                ? 'rgba(245, 158, 11, 0.15)' 
-                : 'rgba(245, 158, 11, 0.1)',
-              borderWidth: 1,
-              borderColor: isDarkColorScheme 
-                ? 'rgba(245, 158, 11, 0.3)' 
-                : 'rgba(245, 158, 11, 0.4)',
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: isDarkColorScheme 
-                  ? 'rgba(245, 158, 11, 0.2)' 
-                  : 'rgba(245, 158, 11, 0.15)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <Ionicons name="shield-checkmark" size={24} color="#F59E0B" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: '700',
-                  marginBottom: 4,
-                }}>
-                Verify Your Identity
-              </Text>
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 13,
-                  lineHeight: 18,
-                }}>
-                Complete KYC verification to start investing and unlock all features
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push('../profilesettings/kyc')}
-              style={{
-                backgroundColor: '#F59E0B',
-                paddingHorizontal: 20,
-                paddingVertical: 10,
-                borderRadius: 12,
-              }}
-              activeOpacity={0.8}>
-              <Text
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  fontWeight: '600',
-                }}>
-                Verify Now
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Hero Section - Typography Focus with Parallax */}
-        {!isGuest ? null : (
-        <Animated.View 
-          style={[
-            heroParallaxStyle,
-            {
-                paddingTop: 48,
-                paddingBottom: 64,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 24,
-              },
-            ]}>
-          {/* Oversized Typography */}
-            <View style={{ alignItems: 'center', zIndex: 10 }}>
-            <Text 
-              style={{
-                color: colors.textPrimary,
-                fontSize: 14,
-                fontWeight: 'bold',
-                letterSpacing: 3,
-                textTransform: 'uppercase',
-                marginBottom: 16,
-                }}>
-              Real Estate. Reimagined.
-            </Text>
-          
-            <View style={{ marginBottom: 8 }}>
-              <Text 
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: 60,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  lineHeight: 64,
-                  letterSpacing: -2,
-                  }}>
-                Build Your
-              </Text>
-            </View>
-            
-            <View style={{ position: 'relative' }}>
-              <Text 
-                style={{
-                  color: colors.primary,
-                  fontSize: 60,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  lineHeight: 64,
-                  letterSpacing: -2,
-                  }}>
-                Future
-              </Text>
-            </View>
-        
-            <View style={{ marginTop: 24, alignItems: 'center' }}>
-              <Text 
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  lineHeight: 32,
-                  letterSpacing: -0.5,
-                  }}>
-                Block by Block
-              </Text>
-              <LinearGradient
-                colors={[colors.primary, colors.primarySoft, colors.accent]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  width: 120,
-                  height: 4,
-                  borderRadius: 2,
-                  marginTop: 8,
-                }}
+              {/* Base Layer */}
+              <Rect 
+                width="100%" 
+                height="100%" 
+                fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
               />
-            </View>
-     
-            <Text 
-              style={{
-                color: colors.textPrimary,
-                fontSize: 16,
-                textAlign: 'center',
-                lineHeight: 24,
-                marginTop: 32,
-                maxWidth: 400,
-                }}>
-              Invest in tokenized real estate with as little as{' '}
-                <Text style={{ fontWeight: 'bold', color: colors.primary }}>$10</Text>. Own
-                fractional shares of premium properties worldwide.
-            </Text>
 
-            {/* Minimal stats */}
-            <CopilotStep
-              text={TOUR_STEPS.HOME.STATS_SECTION.text}
-              order={TOUR_STEPS.HOME.STATS_SECTION.order}
-                name={TOUR_STEPS.HOME.STATS_SECTION.name}>
-                <CopilotView style={{ flexDirection: 'row', gap: 32, marginTop: 40 }}>
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
-                      50+
-                    </Text>
-                    <Text
-                      style={{
-                    fontSize: 12, 
-                    color: colors.textPrimary, 
-                    textTransform: 'uppercase', 
-                    letterSpacing: 1, 
-                        marginTop: 4,
-                  }}>
-                    Properties
-                  </Text>
-                </View>
-                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
-                      $2M+
-                    </Text>
-                    <Text
-                      style={{
-                    fontSize: 12, 
-                    color: colors.textPrimary, 
-                    textTransform: 'uppercase', 
-                    letterSpacing: 1, 
-                        marginTop: 4,
-                  }}>
-                    Invested
-                  </Text>
-                </View>
-                <View style={{ width: 1, height: 48, backgroundColor: colors.border }} />
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={{ fontSize: 30, fontWeight: '900', color: colors.primary }}>
-                      12%
-                    </Text>
-                    <Text
-                      style={{
-                    fontSize: 12, 
-                    color: colors.textPrimary, 
-                    textTransform: 'uppercase', 
-                    letterSpacing: 1, 
-                        marginTop: 4,
-                  }}>
-                    Avg ROI
-                  </Text>
-                </View>
-              </CopilotView>
-            </CopilotStep>
+              {/* Layer the gradients on top of the base */}
+              <Rect width="100%" height="50%" fill="url(#grad1)" />
+            </Svg>
           </View>
-        </Animated.View>
-        )}
 
-        {/* Content sections with smooth entrance */}
-        <Animated.View style={[contentParallaxStyle]}>
-          {/* Guidance Card - Step 4 - Must be rendered AFTER Property Cards for correct order */}
-          {!isGuest ? null : (
-            <CopilotStep
-              text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
-              order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
-              name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}>
-              <CopilotView>
-                <GuidanceCard />
-              </CopilotView>
-            </CopilotStep>
-          )}
+        <Animated.ScrollView 
+          ref={scrollViewRef}
+          className="flex-1"
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
 
-          {/* Property Cards - Step 3 - Must be rendered BEFORE Guidance Card for correct order */}
-          {/* Property Cards - Always render CopilotStep even if no featured properties */}
-          <View style={{ marginTop: !isGuest ? -60 : 0 }}>
-          <CopilotStep
-            text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
-            order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
-              name={TOUR_STEPS.HOME.PROPERTY_CARD.name}>
-            <CopilotView>
-              {featured.length > 0 ? (
-                <FeaturedSection featured={featured} />
+          {/* Top Header Row */}
+          <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
+            {/* Left: Avatar */}
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.7}>
+              {userImage ? (
+                <Image source={{ uri: getImageUrl(userImage) || undefined }} style={{ width: 40, height: 40, borderRadius: 20 }} />
               ) : (
-                <View style={{ minHeight: 200, padding: 20 }}>
-                  <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                    No featured properties available
-                  </Text>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(158, 220, 90, 0.2)', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="person" size={20} color="#9EDC5A" />
                 </View>
               )}
-            </CopilotView>
-          </CopilotStep>
+            </TouchableOpacity>
+            
+            {/* Center: Greeting */}
+            <View className="flex-1 ml-3">
+              <Text className="text-white text-base font-semibold">{userName}</Text>
+              <Text className="text-white/55 text-sm">{getGreeting()}</Text>
+            </View>
+            
+            {/* Right: Icon Buttons */}
+            <View className="flex-row gap-3">
+              <GlassButton icon="scan-outline" onPress={() => {}} />
+              <GlassButton icon="settings-outline" onPress={() => router.push('/(tabs)/profile')} />
+            </View>
           </View>
-          
-          {affordable.length > 0 && <AffordableSection affordable={affordable} />}
-          
-          {/* Marketplace Section */}
-          {!isGuest && isAuthenticated && (
-            <View style={{ marginTop: 24, marginBottom: 16 }}>
-              {/* Section Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 16 }}>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: colors.textPrimary,
-                      fontSize: 22,
-                      fontWeight: 'bold',
-                      marginBottom: 4,
-                    }}>
-                    Marketplace
+
+          {/* Search Row */}
+          <View className="flex-row items-center gap-3 px-5 mb-4">
+            <GlassCard style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
+              <Ionicons name="search" size={20} color="rgba(255,255,255,0.55)" style={{ marginRight: 12 }} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search properties..."
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                style={{ flex: 1, color: '#FFFFFF', fontSize: 15 }}
+              />
+            </GlassCard>
+            <GlassButton icon="options-outline" size={40} onPress={() => {}} />
+          </View>
+
+          {/* Featured Hero Carousel Card */}
+          {heroProperty && heroPropertyData && (
+            <View className="px-5 mb-4">
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => router.push(`/property/${heroProperty.id}`)}
+                style={{ height: 260, borderRadius: 22, overflow: 'hidden' }}
+              >
+                {heroProperty.image ? (
+                  <Image source={{ uri: getImageUrl(heroProperty.image) || undefined }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                ) : (
+                  <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(158, 220, 90, 0.1)' }} />
+                )}
+                
+                {/* Overlay Gradient */}
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.55)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                />
+                
+                {/* Top-right Heart */}
+                <View style={{ position: 'absolute', top: 16, right: 16 }}>
+                  <GlassButton icon="heart-outline" size={40} onPress={() => {}} />
+                </View>
+                
+                {/* Content */}
+                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 }}>
+                  {/* Chip */}
+                  <View className="mb-3">
+                    <GlassChip text="Hot Rent" accent />
+                  </View>
+                  
+                  {/* Title */}
+                  <Text className="text-white text-3xl font-bold mb-4" numberOfLines={2}>
+                    {heroProperty.title}
                   </Text>
-                  <Text
-                    style={{
-                      color: colors.textSecondary,
-                      fontSize: 14,
-                    }}>
-                    Buy & sell property tokens
-                  </Text>
+                  
+                  {/* Stat Chips */}
+                  <View className="flex-row gap-2">
+                    <GlassChip text={`${heroPropertyData.features?.area || 'N/A'} sqft`} />
+                    <GlassChip text={`${heroPropertyData.features?.bedrooms || 'N/A'} Rooms`} />
+                    <GlassChip text={`${heroPropertyData.features?.units || 'N/A'} Units`} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+              
+              {/* Pagination Dots */}
+              {featured.length > 1 && (
+                <View className="flex-row justify-center gap-2 mt-4">
+                  {featured.slice(0, 4).map((_, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        width: index === heroIndex ? 24 : 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: index === heroIndex ? '#9EDC5A' : 'rgba(255,255,255,0.3)',
+                      }}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Section Header */}
+          <View className="flex-row items-center justify-between px-5 mb-4">
+            <Text className="text-white text-xl font-bold">Description</Text>
+            <TouchableOpacity>
+              <Ionicons name="ellipsis-horizontal" size={24} color="rgba(255,255,255,0.55)" />
+            </TouchableOpacity>
+          </View>
+
+          {/* List Cards */}
+          <View className="px-5 gap-4 mb-6">
+            {[...affordable, ...midRange].slice(0, 3).map((item) => {
+              const property = item.property || state.properties.find(p => p.id === item.id);
+              if (!property) return null;
+              
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/property/${item.id}`)}
+                >
+                  <GlassCard style={{ padding: 16, flexDirection: 'row', gap: 12 }}>
+                    {/* Thumbnail */}
+                    <Image
+                      source={{ uri: getImageUrl(item.image) || undefined }}
+                      style={{ width: 72, height: 72, borderRadius: 14 }}
+                      resizeMode="cover"
+                    />
+                    
+                    {/* Middle Content */}
+                    <View className="flex-1">
+                      <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>
+                        {item.name || (item as any).title || property.title}
+                      </Text>
+                      <View className="flex-row items-center mb-2">
+                        <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.55)" />
+                        <Text className="text-white/55 text-sm ml-1">{property.city || 'Location'}</Text>
+                      </View>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-white/85 text-sm font-semibold">
+                          ${property.tokenPrice?.toFixed(2) || '0.00'} per token
+                        </Text>
+                        <View className="flex-row items-center bg-yellow-500/20 px-2 py-1 rounded-lg">
+                          <Ionicons name="star" size={12} color="#FFD700" />
+                          <Text className="text-white text-xs font-semibold ml-1">{property.estimatedROI || '0'}%</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </GlassCard>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* KYC Verification Alert */}
+          {kycStatus && kycStatus.status === 'not_submitted' && (
+            <View className="mx-5 mb-4">
+              <GlassCard style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(245, 158, 11, 0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="shield-checkmark" size={24} color="#F59E0B" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-base font-bold mb-1">Verify Your Identity</Text>
+                  <Text className="text-white/55 text-sm">Complete KYC to start investing</Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => router.push('/marketplace')}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                  }}>
-                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
-                    View All
-                  </Text>
+                  onPress={() => router.push('../profilesettings/kyc')}
+                  style={{ backgroundColor: '#F59E0B', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                >
+                  <Text className="text-white text-sm font-semibold">Verify</Text>
+                </TouchableOpacity>
+              </GlassCard>
+            </View>
+          )}
+
+          {/* Marketplace Section */}
+          {!isGuest && isAuthenticated && (
+            <View className="mt-6 mb-4">
+              <View className="flex-row items-center justify-between px-5 mb-4">
+                <View className="flex-1">
+                  <Text className="text-white text-xl font-bold mb-1">Marketplace</Text>
+                  <Text className="text-white/55 text-sm">Buy & sell property tokens</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push('/marketplace')}>
+                  <Text className="text-[#9EDC5A] text-sm font-semibold">View All</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Marketplace Preview Row */}
               <MarketplacePreviewRow limit={6} />
             </View>
           )}
 
-          {isGuest ? null : (
-            <View style={{ marginBottom: -20, marginTop: 26 }}>
-            <CopilotStep
-              text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
-              order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
-                name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}>
-              <CopilotView>
-                <GuidanceCard />
-              </CopilotView>
-            </CopilotStep>
+          {/* Additional Sections (preserved for tour) */}
+          {featured.length > 0 && (
+            <View className="mt-6 mb-4">
+              <CopilotStep
+                text={TOUR_STEPS.HOME.PROPERTY_CARD.text}
+                order={TOUR_STEPS.HOME.PROPERTY_CARD.order}
+                name={TOUR_STEPS.HOME.PROPERTY_CARD.name}
+              >
+                <CopilotView>
+                  <FeaturedSection featured={featured.slice(0, 2)} />
+                </CopilotView>
+              </CopilotStep>
             </View>
           )}
-          {midRange.length > 0 && (
-            <InvestmentSection title="Mid-Range Investments" data={midRange} />
+
+          {affordable.length > 0 && <AffordableSection affordable={affordable} />}
+          {/* {midRange.length > 0 && <InvestmentSection title="Mid-Range Investments" data={midRange} />} */}
+          
+          {!isGuest && (
+            <View className="mt-6 mb-4">
+              <CopilotStep
+                text={TOUR_STEPS.HOME.GUIDANCE_CARD.text}
+                order={TOUR_STEPS.HOME.GUIDANCE_CARD.order}
+                name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}
+              >
+                <CopilotView>
+                  <GuidanceCard />
+                </CopilotView>
+              </CopilotStep>
+            </View>
           )}
+
           <CTAButton />
-        </Animated.View>
-      </Animated.ScrollView>
+        </Animated.ScrollView>
+      </SafeAreaView>
     </View>
   );
 }

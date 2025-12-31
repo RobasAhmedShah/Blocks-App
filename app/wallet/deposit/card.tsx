@@ -67,7 +67,16 @@ const validateAmount = (value: string): { isValid: boolean; error?: string } => 
 
 export default function CardDepositScreen() {
   const router = useRouter();
-  const { amount: suggestedAmount, selectedMethodId } = useLocalSearchParams();
+  const { 
+    amount: suggestedAmount, 
+    selectedMethodId,
+    returnTo,
+    returnPropertyId,
+    returnTokenCount,
+    returnTotalAmount,
+    returnTransactionFee,
+    returnTotalInvestment,
+  } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { deposit, loadWallet } = useWallet();
 
@@ -205,6 +214,12 @@ export default function CardDepositScreen() {
           amount: depositAmount.toString(),
           method: selectedMethod.provider,
           cardLast4: selectedMethod.cardDetails?.cardNumber || '****',
+          returnTo: returnTo || '',
+          returnPropertyId: returnPropertyId || '',
+          returnTokenCount: returnTokenCount || '',
+          returnTotalAmount: returnTotalAmount || '',
+          returnTransactionFee: returnTransactionFee || '',
+          returnTotalInvestment: returnTotalInvestment || '',
         },
       } as any);
     } catch (error: any) {

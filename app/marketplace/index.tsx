@@ -206,7 +206,7 @@ export default function MarketplaceScreen() {
         <Ionicons
          onPress={() => router.back()}
          style={{
-          backgroundColor: colors.primary,
+          // backgroundColor: colors.primary,
           paddingHorizontal: 8,
           paddingVertical: 8,
           borderRadius: 16,
@@ -226,7 +226,7 @@ export default function MarketplaceScreen() {
           <TouchableOpacity
             onPress={() => router.push('/marketplace/sell')}
             style={{
-              backgroundColor: colors.primary,
+              // backgroundColor: colors.primary,
               paddingHorizontal: 8,
               paddingVertical: 8,
               borderRadius: 16,

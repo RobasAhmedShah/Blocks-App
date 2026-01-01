@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { quickAmounts } from '@/data/mockWallet';
 import { AppAlert } from '@/components/AppAlert';
@@ -22,6 +23,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
 import { bankTransfersAPI } from '@/services/api/bank-transfers.api';
+import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-bank-accounts.api';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -71,6 +73,9 @@ export default function BankTransferDepositScreen() {
   const { amount: suggestedAmount } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { addBankTransferDeposit } = useApp();
+  
+  // Get current route path for return navigation
+  const currentRoute = '/wallet/deposit/bank-transfer';
 
   const [step, setStep] = useState<Step>('amount');
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
@@ -94,6 +99,12 @@ export default function BankTransferDepositScreen() {
     branch: string;
   } | null>(null);
   const [loadingBankDetails, setLoadingBankDetails] = useState(false);
+  
+  // Linked bank accounts
+  const [linkedBankAccounts, setLinkedBankAccounts] = useState<LinkedBankAccount[]>([]);
+  const [selectedBankAccount, setSelectedBankAccount] = useState<LinkedBankAccount | null>(null);
+  const [showBankAccountSelector, setShowBankAccountSelector] = useState(false);
+  const [loadingLinkedAccounts, setLoadingLinkedAccounts] = useState(false);
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -109,7 +120,7 @@ export default function BankTransferDepositScreen() {
     type: 'info',
   });
 
-  // Fetch bank details from backend
+  // Fetch bank details from backend (Blocks' bank account)
   useEffect(() => {
     const fetchBankDetails = async () => {
       try {
@@ -133,6 +144,45 @@ export default function BankTransferDepositScreen() {
     };
     fetchBankDetails();
   }, []);
+
+  // Load linked bank accounts
+  const loadLinkedAccounts = async () => {
+    try {
+      setLoadingLinkedAccounts(true);
+      const accounts = await linkedBankAccountsApi.getLinkedBankAccounts();
+      // Filter out disabled accounts (soft-deleted)
+      const activeAccounts = accounts.filter(acc => acc.status !== 'disabled');
+      setLinkedBankAccounts(activeAccounts);
+      
+      // Auto-select default account if available
+      const defaultAccount = activeAccounts.find(acc => acc.isDefault && acc.status === 'verified');
+      if (defaultAccount) {
+        setSelectedBankAccount(defaultAccount);
+      } else if (activeAccounts.length > 0) {
+        const firstVerified = activeAccounts.find(acc => acc.status === 'verified');
+        if (firstVerified) {
+          setSelectedBankAccount(firstVerified);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading linked bank accounts:', error);
+    } finally {
+      setLoadingLinkedAccounts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLinkedAccounts();
+  }, []);
+
+  // Reload bank accounts when screen comes into focus (e.g., returning from linked bank page)
+  useFocusEffect(
+    useCallback(() => {
+      if (step === 'bank-details') {
+        loadLinkedAccounts();
+      }
+    }, [step])
+  );
 
   // Validate amount on change
   useEffect(() => {
@@ -367,6 +417,182 @@ export default function BankTransferDepositScreen() {
           setAlertState(prev => ({ ...prev, visible: false }));
         })}
       />
+
+      {/* Bank Account Selector Modal */}
+      <Modal
+        visible={showBankAccountSelector}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowBankAccountSelector(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setShowBankAccountSelector(false)}
+            style={{
+              flex: 1,
+              backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+            }}
+          />
+          <ScrollView
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '80%',
+            }}
+            contentContainerStyle={{
+              padding: 24,
+              paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
+                Select Bank Account
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowBankAccountSelector(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                }}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingLinkedAccounts ? (
+              <View style={{ alignItems: 'center', padding: 40 }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : linkedBankAccounts.length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 40 }}>
+                <Ionicons name="card-outline" size={48} color={colors.textMuted} />
+                <Text style={{ color: colors.textSecondary, fontSize: 16, marginTop: 16, textAlign: 'center' }}>
+                  No bank accounts found
+                </Text>
+                <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                  Add a bank account to use it for reference
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowBankAccountSelector(false);
+                    router.push({
+                      pathname: '../../profilesettings/linkedbank',
+                      params: {
+                        returnTo: currentRoute,
+                        returnAmount: amount,
+                      },
+                    } as any);
+                  }}
+                  style={{
+                    marginTop: 24,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    borderRadius: 12,
+                    backgroundColor: colors.primary,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+                    Add Bank Account
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {linkedBankAccounts.map((account) => (
+                  <TouchableOpacity
+                    key={account.id}
+                    onPress={() => {
+                      setSelectedBankAccount(account);
+                      setShowBankAccountSelector(false);
+                    }}
+                    style={{
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: selectedBankAccount?.id === account.id
+                        ? isDarkColorScheme
+                          ? 'rgba(34, 197, 94, 0.15)'
+                          : 'rgba(34, 197, 94, 0.1)'
+                        : isDarkColorScheme
+                          ? 'rgba(255, 255, 255, 0.05)'
+                          : 'rgba(0, 0, 0, 0.05)',
+                      borderWidth: 2,
+                      borderColor: selectedBankAccount?.id === account.id
+                        ? colors.primary
+                        : 'transparent',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                            {account.displayName || account.bankName}
+                          </Text>
+                          {account.isDefault && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Ionicons name="star" size={14} color={colors.warning} />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                          {account.accountHolderName}
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 2 }}>
+                          ****{account.accountNumber.slice(-4)}
+                        </Text>
+                      </View>
+                      {selectedBankAccount?.id === account.id && (
+                        <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowBankAccountSelector(false);
+                    router.push({
+                      pathname: '../../profilesettings/linkedbank',
+                      params: {
+                        returnTo: currentRoute,
+                        returnAmount: amount,
+                      },
+                    } as any);
+                  }}
+                  style={{
+                    marginTop: 8,
+                    padding: 16,
+                    borderRadius: 12,
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderStyle: 'dashed',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>
+                    Add New Bank Account
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Header */}
       <View
@@ -604,6 +830,100 @@ export default function BankTransferDepositScreen() {
                 </View>
               </View>
 
+              {/* Linked Bank Account Selector */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: colors.textPrimary,
+                  marginBottom: 12,
+                  paddingLeft: 4,
+                }}>
+                  Your Bank Account (for reference)
+                </Text>
+                
+                {linkedBankAccounts.length > 0 ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowBankAccountSelector(true)}
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
+                        borderWidth: 1.5,
+                        borderColor: selectedBankAccount 
+                          ? colors.primary 
+                          : isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+                      }}
+                    >
+                      {selectedBankAccount ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginBottom: 4 }}>
+                              {selectedBankAccount.displayName || selectedBankAccount.bankName}
+                            </Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                              {selectedBankAccount.accountHolderName} • ****{selectedBankAccount.accountNumber.slice(-4)}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                            Select a bank account
+                          </Text>
+                          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    
+                  <TouchableOpacity
+                    onPress={() => router.push({
+                      pathname: '../../profilesettings/linkedbank',
+                      params: {
+                        returnTo: currentRoute,
+                        returnAmount: amount,
+                      },
+                    } as any)}
+                    style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontSize: 13, marginLeft: 4, fontWeight: '600' }}>
+                      Add Bank Account
+                    </Text>
+                  </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => router.push({
+                      pathname: '../../profilesettings/linkedbank',
+                      params: {
+                        returnTo: currentRoute,
+                        returnAmount: amount,
+                      },
+                    } as any)}
+                    style={{
+                      padding: 16,
+                      borderRadius: 12,
+                      backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
+                      borderWidth: 1.5,
+                      borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+                      borderStyle: 'dashed',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontSize: 14, marginTop: 8, fontWeight: '600' }}>
+                      Add Bank Account
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
+                      Link your bank account for reference
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Bank Details Section */}
               <View style={{
                 padding: 16,
@@ -619,7 +939,7 @@ export default function BankTransferDepositScreen() {
                   color: colors.textPrimary,
                   marginBottom: 16,
                 }}>
-                  Bank Account Details
+                  Blocks Bank Account Details
                 </Text>
 
                 {/* Account Name */}

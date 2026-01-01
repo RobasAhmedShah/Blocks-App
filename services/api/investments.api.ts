@@ -5,6 +5,7 @@ export interface CreateInvestmentDto {
   propertyId: string;
   tokenCount: number;
   transactionFee?: number;
+  propertyTokenId?: string; // Token tier ID (optional)
 }
 
 export interface InvestmentResponse {

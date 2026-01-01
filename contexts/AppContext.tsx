@@ -812,12 +812,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.properties, isGuest]);
 
-  const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
+  const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number, propertyTokenId?: string) => {
     try {
       // Call backend API to create investment
       const investment = await investmentsApi.createInvestment({
         propertyId,
         tokenCount,
+        propertyTokenId,
       });
 
       // Reload wallet balance and transactions after investment

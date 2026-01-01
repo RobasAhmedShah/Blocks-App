@@ -31,6 +31,10 @@ export default function InvestmentReviewScreen() {
     totalInvestment,
     propertyTitle,
     propertyId,
+    tokenId,
+    tokenName,
+    tokenSymbol,
+    tokenPrice,
   } = useLocalSearchParams<any>();
 
   const router = useRouter();
@@ -47,6 +51,15 @@ export default function InvestmentReviewScreen() {
   const fee = parseFloat(transactionFee || '0');
   const investment = parseFloat(totalInvestment || '0');
   const title = propertyTitle || property?.title || 'Property';
+  
+  // Get token info - use params first, then try to find from property
+  const selectedToken = tokenId && property?.tokens 
+    ? property.tokens.find(t => t.id === tokenId)
+    : null;
+  
+  const displayTokenName = tokenName || selectedToken?.name || '';
+  const displayTokenSymbol = tokenSymbol || selectedToken?.tokenSymbol || property?.tokenSymbol || '';
+  const displayTokenPrice = tokenPrice ? parseFloat(tokenPrice) : (selectedToken?.pricePerTokenUSDT || property?.tokenPrice || 0);
 
   const API_BASE_URL =
     Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
@@ -255,7 +268,9 @@ export default function InvestmentReviewScreen() {
 
     setIsProcessing(true);
     try {
-      await invest(investment, propertyId || id, tokens);
+      // Pass tokenId if available
+      const tokenIdToPass = tokenId || selectedToken?.id || undefined;
+      await invest(investment, propertyId || id, tokens, tokenIdToPass);
       
       // FIX 11: Navigate without resetting (we're leaving the screen)
       router.replace({
@@ -318,15 +333,25 @@ export default function InvestmentReviewScreen() {
             <Text className="text-white text-4xl font-bold">
               ${investment.toFixed(2)}
             </Text>
-            <Text className="text-emerald-400 mt-2">
-              {tokens.toFixed(2)} property tokens
-            </Text>
+            <View className="mt-2 flex-row items-center gap-2">
+              <Text className="text-emerald-400">
+                {tokens.toFixed(2)} {displayTokenSymbol || 'property'} tokens
+              </Text>
+              {displayTokenName && (
+                <>
+                  <Text className="text-gray-500">•</Text>
+                  <Text className="text-gray-400 text-sm">
+                    {displayTokenName}
+                  </Text>
+                </>
+              )}
+            </View>
           </View>
 
           {/* BREAKDOWN */}
           <View className="mx-4 mb-8 rounded-xl bg-zinc-900 p-4">
             {[
-              ['Token price', `$${property?.tokenPrice?.toFixed(2)}`],
+              ['Token price', `$${displayTokenPrice.toFixed(2)}`],
               ['Subtotal', `$${amount.toFixed(2)}`],
               ['Transaction fee', `$${fee.toFixed(2)}`],
             ].map(([k, v]) => (

@@ -57,6 +57,27 @@ export interface Property {
     lastDistribution: string;
     nextDistribution: string;
   };
+  tokens?: PropertyToken[];
+}
+
+export interface PropertyToken {
+  id: string;
+  displayCode: string;
+  propertyId: string;
+  name: string;
+  color: string;
+  tokenSymbol: string;
+  pricePerTokenUSDT: number;
+  totalTokens: number;
+  availableTokens: number;
+  expectedROI: number;
+  apartmentType?: string | null;
+  apartmentFeatures?: any | null;
+  description?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface UserInvestment {

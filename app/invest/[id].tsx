@@ -36,7 +36,7 @@ const MINIMUM_TOKENS = 0.1;
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
 export default function BuyTokensScreen() {
-  const routeParams = useLocalSearchParams<{ id?: string; tokenCount?: string; initialInvestmentAmount?: string }>();
+  const routeParams = useLocalSearchParams<{ id?: string; tokenCount?: string; initialInvestmentAmount?: string; tokenId?: string }>();
   const router = useRouter();
   const { colors, isDarkColorScheme} = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -44,6 +44,7 @@ export default function BuyTokensScreen() {
   
   // Property selection - must be declared before useProperty
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(initialId);
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(routeParams.tokenId || null);
   
   const { property, loading: propertyLoading } = useProperty(selectedPropertyId || initialId);
   const { balance } = useWallet();
@@ -74,7 +75,12 @@ export default function BuyTokensScreen() {
   // Calculate initial token count
   const getInitialTokenCount = () => {
     if (initialInvestmentAmount && property) {
-      const effectivePrice = getEffectiveTokenPrice(property.tokenPrice);
+      // Use selected token price if available
+      const selectedToken = selectedTokenId && property.tokens 
+        ? property.tokens.find(t => t.id === selectedTokenId)
+        : null;
+      const price = selectedToken?.pricePerTokenUSDT || property.tokenPrice;
+      const effectivePrice = getEffectiveTokenPrice(price);
       return initialInvestmentAmount / effectivePrice;
     }
     if (routeParams.tokenCount) {
@@ -137,11 +143,23 @@ export default function BuyTokensScreen() {
       const investment = investments.find(inv => inv.property?.id === selectedPropertyId);
       return investment?.tokens || 0;
     }
+    // If a token is selected, use token-specific available tokens
+    if (selectedToken?.availableTokens !== undefined) {
+      return selectedToken.availableTokens;
+    }
     return property ? property.totalTokens - property.soldTokens : 0;
   };
 
   const availableTokens = getAvailableTokens();
-  const effectiveTokenPrice = property ? getEffectiveTokenPrice(property.tokenPrice) : 0;
+  
+  // Get selected token if tokenId is provided
+  const selectedToken = selectedTokenId && property?.tokens 
+    ? property.tokens.find(t => t.id === selectedTokenId)
+    : null;
+  
+  // Use token-specific price if token is selected, otherwise use property price
+  const tokenPrice = selectedToken?.pricePerTokenUSDT || property?.tokenPrice || 0;
+  const effectiveTokenPrice = getEffectiveTokenPrice(tokenPrice);
   const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
 
   if (propertyLoading || (activeTab === 'buy' && !property)) {
@@ -239,7 +257,9 @@ export default function BuyTokensScreen() {
       setTokenInput(cleaned);
       const num = parseFloat(cleaned);
       if (!isNaN(num) && num >= 0) {
-        const validNum = Math.min(num, availableTokens);
+        // Use token-specific available tokens if token is selected
+        const tokenAvailable = selectedToken?.availableTokens || availableTokens;
+        const validNum = Math.min(num, tokenAvailable);
         setTokenCount(validNum);
         const calculatedPrice = validNum * effectiveTokenPrice;
         setPriceInput(calculatedPrice > 0 ? calculatedPrice.toFixed(2) : '');
@@ -251,7 +271,10 @@ export default function BuyTokensScreen() {
       setPriceInput(cleaned);
       const priceNum = parseFloat(cleaned);
       if (!isNaN(priceNum) && priceNum >= 0 && effectiveTokenPrice > 0) {
-        const validPrice = Math.min(priceNum, maxInvestmentAmount);
+        // Use token-specific available tokens if token is selected
+        const tokenAvailable = selectedToken?.availableTokens || availableTokens;
+        const maxAmount = tokenAvailable * effectiveTokenPrice;
+        const validPrice = Math.min(priceNum, maxAmount);
         const calculatedTokens = validPrice / effectiveTokenPrice;
         setTokenCount(calculatedTokens);
         setTokenInput(calculatedTokens > 0 ? calculatedTokens.toFixed(2) : '');
@@ -410,16 +433,22 @@ export default function BuyTokensScreen() {
         totalInvestment: finalTotalInvestment.toFixed(2),
         propertyTitle: property.title,
         propertyId: selectedPropertyId,
+        tokenId: selectedTokenId || '',
+        tokenName: selectedToken?.name || '',
+        tokenSymbol: selectedToken?.tokenSymbol || '',
+        tokenPrice: tokenPrice.toFixed(2),
       },
     } as any);
   };
 
   const propertyImage = property ? getPropertyImageUrl(property.images) : null;
   const displayValue = inputMode === 'tokens' ? (tokenInput || '0') : (priceInput || '0');
-  const displayLabel = inputMode === 'tokens' ? (property?.tokenSymbol || 'TKN') : 'USDT';
+  // Use selected token symbol if available, otherwise fall back to property tokenSymbol
+  const displayTokenSymbol = selectedToken?.tokenSymbol || property?.tokenSymbol || 'TKN';
+  const displayLabel = inputMode === 'tokens' ? displayTokenSymbol : 'USDT';
   const conversionText = inputMode === 'tokens' 
     ? `≈ $${totalAmount.toFixed(2)}`
-    : `≈ ${tokenCount.toFixed(2)} ${property?.tokenSymbol || 'tokens'}`;
+    : `≈ ${tokenCount.toFixed(2)} ${displayTokenSymbol}`;
 
   const handleBack = () => {
     router.back();
@@ -582,7 +611,9 @@ export default function BuyTokensScreen() {
                   <Text style={styles.rowLabel}>{activeTab === 'buy' ? 'Buy' : 'Sell'}</Text>
                   <Text style={styles.rowValue} numberOfLines={1}>
                     {property 
-                      ? (activeTab === 'buy' ? property.title : property.title)
+                      ? (activeTab === 'buy' 
+                          ? `${property.title}${selectedToken ? ` • ${selectedToken.name} (${selectedToken.tokenSymbol})` : ''}`
+                          : property.title)
                       : (activeTab === 'buy' ? 'Select Property' : 'Select Property to Sell')
                     }
                   </Text>

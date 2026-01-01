@@ -21,15 +21,8 @@ export function useProperty(id: string) {
       setError(null);
 
       try {
-        // First try to get from context (already loaded properties)
-        const found = getProperty(id);
-        if (found) {
-          setProperty(found);
-          setLoading(false);
-          return;
-        }
-
-        // If not in context, fetch from API
+        // Always fetch from API to ensure we get the latest data including tokens
+        // Context properties might not have tokens, so we need fresh data
         const apiProperty = await propertiesApi.getProperty(id);
         
         // Helper function to ensure documents have URLs with fallback
@@ -75,6 +68,8 @@ export function useProperty(id: string) {
           documents: ensureDocumentsWithUrls(apiProperty.documents),
           updates: apiProperty.updates || [],
           rentalIncome: apiProperty.rentalIncome || (apiProperty.status === 'generating-income' ? undefined : undefined),
+          // Preserve tokens array from API response
+          tokens: apiProperty.tokens || [],
         };
         
         setProperty(transformedProperty);

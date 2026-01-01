@@ -24,7 +24,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 }) => {
   const tierInfo = getTierInfo(item.roi);
   const property = item.property;
-  const ownershipPercentage = ((item.tokens / property.totalTokens) * 100).toFixed(3);
+  const token = item.propertyToken;
+  const tokenColor = token?.color || tierInfo.tierColor;
+  const tokenName = token?.name || 'Standard Token';
+  const tokenROI = token?.expectedROI || item.roi;
+  // Calculate ownership based on token's total tokens if available, otherwise use property total
+  const tokenTotalTokens = token?.totalTokens || property.totalTokens;
+  const ownershipPercentage = ((item.tokens / tokenTotalTokens) * 100).toFixed(3);
   const statCardWidth = (CARD_WIDTH - 64) / 2;
   
   // Flip animation state
@@ -217,17 +223,34 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
             {/* Minimalistic Content */}
             <View className="flex-1 p-8">
-              {/* Tier Badge */}
+              {/* Token Badge */}
               <View className="items-center mb-6">
                 <View 
-                  className="px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: `${tierInfo.tierColor}15` }} >
+                  className="px-3 py-1.5 rounded-full flex-row items-center gap-2"
+                  style={{ backgroundColor: `${tokenColor}15` }} >
+                  {token && (
+                    <View 
+                      style={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: 4, 
+                        backgroundColor: tokenColor,
+                      }} 
+                    />
+                  )}
                   <Text 
                     className="text-[11px] font-bold uppercase tracking-widest"
-                    style={{ color: tierInfo.tierColor }}>
-                    {tierInfo.tier}
+                    style={{ color: tokenColor }}>
+                    {token ? token.tokenSymbol : tierInfo.tier}
                   </Text>
                 </View>
+                {token && (
+                  <Text 
+                    className="text-[10px] mt-1"
+                    style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {tokenName}
+                  </Text>
+                )}
               </View>
 
               {/* Premium Token Display */}
@@ -236,15 +259,15 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                   <View 
                     className="mb-4 rounded-full p-6 relative"
                     style={{ 
-                      backgroundColor: `${tierInfo.tierColor}20`,
-                      shadowColor: tierInfo.tierColor,
+                      backgroundColor: `${tokenColor}20`,
+                      shadowColor: tokenColor,
                       shadowOffset: { width: 0, height: 0 },
                       shadowOpacity: 0.6,
                       shadowRadius: 20,
                       elevation: 10,
                     }}
                   >
-                    <Ionicons name="cube" size={48} color={tierInfo.tierColor} />
+                    <Ionicons name="cube" size={48} color={tokenColor} />
                     
                     <Animated.View
                       className="absolute inset-0 rounded-full"
@@ -573,13 +596,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                     <Text 
                       className="text-xl font-bold"
                       style={{ 
-                        color: isDarkColorScheme ? colors.primary : '#000000',
+                        color: tokenColor,
                         textShadowColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.5)',
                         textShadowOffset: { width: 0, height: 1 },
                         textShadowRadius: 3,
                       }}
                     >
-                      +{item.roi.toFixed(1)}%
+                      +{tokenROI.toFixed(1)}%
                     </Text>
                     <View className="absolute top-3 right-3 opacity-30">
                       <Ionicons name="trending-up" size={20} color={'#000000'} />

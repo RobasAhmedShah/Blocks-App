@@ -224,7 +224,12 @@ export function AssetDetailModal({
   if (!visible || !investment) return null;
 
   const property = investment.property;
-  const modalStats = getModalStats(investment, colors);
+  const token = investment.propertyToken;
+  const tokenColor = token?.color || colors.primary;
+  const tokenName = token?.name || 'Standard Token';
+  const tokenROI = token?.expectedROI || investment.roi;
+  const tokenTotalTokens = token?.totalTokens || property.totalTokens;
+  const modalStats = getModalStats(investment, colors, token);
   const newsData = property?.updates?.slice(0, 3).map((update: { title: string; type: string; description: string; date: string }) => ({
     id: update.title,
     icon: update.type === 'financial' ? 'cash-outline' : update.type === 'project' ? 'construct-outline' : 'people-outline',
@@ -657,6 +662,14 @@ export function AssetDetailModal({
                             </Text>
                             <Text style={{ color: colors.textSecondary }} className="text-sm mt-0.5">
                               Total Tokens: {investment.tokens.toFixed(3)}
+                              {token && (
+                                <>
+                                  {'\n'}
+                                  Token Type: {tokenName} ({token.tokenSymbol})
+                                  {'\n'}
+                                  Token ROI: {tokenROI}%
+                                </>
+                              )}
                             </Text>
                           </View>
                         </View>

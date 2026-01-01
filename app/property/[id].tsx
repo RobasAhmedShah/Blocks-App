@@ -33,6 +33,7 @@ import { apiClient } from '@/services/api/apiClient';
 import { BlurView } from 'expo-blur';
 import Constants from 'expo-constants';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
+import { PropertyToken } from '@/types/property';
 
 // In the current backend, tokenPrice and minInvestment are already "real" prices.
 // No more /10 scaling.
@@ -93,6 +94,7 @@ export default function PropertyDetailScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
+  const [selectedToken, setSelectedToken] = useState<PropertyToken | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isVerified, handleInvestPress } = useKycCheck();
@@ -159,6 +161,37 @@ export default function PropertyDetailScreen() {
       },
     })
   ).current;
+
+  // Debug: Log tokens to see if they're being received (must be before any early returns)
+  useEffect(() => {
+    if (property) {
+      console.log('[Property Detail] Property loaded:', property.title);
+      console.log('[Property Detail] Property has tokens array?', Array.isArray(property.tokens));
+      console.log('[Property Detail] Tokens count:', property.tokens?.length || 0);
+      if (property.tokens && property.tokens.length > 0) {
+        console.log('[Property Detail] All tokens:', property.tokens.map(t => ({ 
+          id: t.id, 
+          name: t.name, 
+          symbol: t.tokenSymbol, 
+          isActive: t.isActive,
+          roi: t.expectedROI 
+        })));
+        const activeTokens = property.tokens.filter(t => t.isActive);
+        console.log('[Property Detail] Active tokens:', activeTokens.length);
+        console.log('[Property Detail] Active token details:', activeTokens.map(t => ({ 
+          name: t.name, 
+          symbol: t.tokenSymbol, 
+          roi: t.expectedROI,
+          price: t.pricePerTokenUSDT,
+          available: t.availableTokens
+        })));
+      } else {
+        console.log('[Property Detail] ⚠️ No tokens found in property object');
+        console.log('[Property Detail] Property keys:', Object.keys(property));
+        console.log('[Property Detail] Full property object:', JSON.stringify(property, null, 2).substring(0, 500));
+      }
+    }
+  }, [property]);
 
   // Geocode property location to coordinates - run on mount for hero map
   useEffect(() => {
@@ -253,14 +286,18 @@ export default function PropertyDetailScreen() {
     }
 
     handleInvestPress(() => {
+      const params: any = {};
       if (initialInvestmentAmount) {
-        router.push({
-          pathname: `/invest/${id}`,
-          params: { initialInvestmentAmount: initialInvestmentAmount.toString() },
-        } as any);
-      } else {
-        router.push(`/invest/${id}` as any);
+        params.initialInvestmentAmount = initialInvestmentAmount.toString();
       }
+      // Pass selected token ID if a token is selected
+      if (currentToken?.id) {
+        params.tokenId = currentToken.id;
+      }
+      router.push({
+        pathname: `/invest/${id}`,
+        params,
+      } as any);
     });
   };
 
@@ -347,8 +384,32 @@ export default function PropertyDetailScreen() {
 
   // Calculate investment example
   const exampleInvestment = 1000;
-  const yearlyIncome = (exampleInvestment * property.estimatedROI) / 100;
-  const appreciationLevel = property.estimatedROI >= 15 ? 'High' : property.estimatedROI >= 10 ? 'Medium' : 'Low';
+  // Get all tokens (don't filter by isActive for now to debug)
+  const allTokens = property?.tokens || [];
+  const activeTokens = allTokens.filter(t => t.isActive !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  const defaultToken = activeTokens.length > 0 ? activeTokens[0] : null;
+  
+  // Debug: Log activeTokens calculation
+  console.log('[Property Detail] activeTokens calculation:', {
+    hasProperty: !!property,
+    hasTokensProperty: 'tokens' in (property || {}),
+    tokensArray: Array.isArray(property?.tokens),
+    tokensLength: property?.tokens?.length || 0,
+    activeTokensLength: activeTokens.length,
+  });
+  const currentToken = selectedToken || defaultToken;
+  const tokenROI = currentToken?.expectedROI || property?.estimatedROI || 0;
+  const tokenPrice = currentToken?.pricePerTokenUSDT || property?.tokenPrice || 0;
+  const yearlyIncome = (exampleInvestment * tokenROI) / 100;
+  const appreciationLevel = tokenROI >= 15 ? 'High' : tokenROI >= 10 ? 'Medium' : 'Low';
+  
+  // Calculate total tokens left and average ROI across all tokens
+  const totalTokensLeft = activeTokens.length > 0 
+    ? activeTokens.reduce((sum, token) => sum + (token.availableTokens || 0), 0)
+    : 0;
+  const averageROI = activeTokens.length > 0 
+    ? activeTokens.reduce((sum, token) => sum + (token.expectedROI || 0), 0) / activeTokens.length 
+    : (property?.estimatedROI || 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.97)' }}>
@@ -613,14 +674,152 @@ export default function PropertyDetailScreen() {
           <View style={{ paddingHorizontal: 18 }}>
           {activeTab === "Financials" && (
             <View>
+              {/* Token Summary Cards - Show if tokens exist */}
+              {activeTokens.length > 0 && (
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+                  <GlassCard style={{ flex: 1, padding: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 152, 0, 0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name="cube-outline" size={20} color="#FF9800" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
+                          Tokens Left
+                        </Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' }}>
+                          {totalTokensLeft.toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+                  </GlassCard>
+                  <GlassCard style={{ flex: 1, padding: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(156, 39, 176, 0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Ionicons name="trending-up-outline" size={20} color="#9C27B0" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
+                          ROI
+                        </Text>
+                        <Text style={{ color: '#9EDC5A', fontSize: 20, fontWeight: 'bold' }}>
+                          {averageROI.toFixed(1)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </GlassCard>
+                </View>
+              )}
+
+              {/* Token Tiers Section - Show all tokens */}
+              {activeTokens.length > 0 && (
+                <GlassCard style={{ padding: 20, marginBottom: 24 }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
+                    Token Tiers
+                  </Text>
+                  <View style={{ gap: 12 }}>
+                    {activeTokens.map((token) => (
+                      <TouchableOpacity
+                        key={token.id}
+                        onPress={() => setSelectedToken(token)}
+                        style={{
+                          padding: 16,
+                          borderRadius: 16,
+                          borderWidth: 2,
+                          borderColor: selectedToken?.id === token.id ? token.color : 'rgba(255,255,255,0.1)',
+                          backgroundColor: selectedToken?.id === token.id 
+                            ? `${token.color}15` 
+                            : 'rgba(255,255,255,0.05)',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                          {/* Token Symbol Badge */}
+                          <View 
+                            style={{ 
+                              width: 48, 
+                              height: 48, 
+                              borderRadius: 12, 
+                              backgroundColor: token.color,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginRight: 12,
+                            }} 
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
+                              {token.tokenSymbol}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
+                              {token.name}
+                            </Text>
+                            {token.apartmentType && (
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                                {token.apartmentType}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+                          <View style={{ flex: 1, minWidth: '45%' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
+                              Price
+                            </Text>
+                            <Text style={{ color: token.color, fontSize: 16, fontWeight: 'bold' }}>
+                              ${token.pricePerTokenUSDT.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: '45%' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
+                              ROI
+                            </Text>
+                            <Text style={{ color: '#9EDC5A', fontSize: 16, fontWeight: 'bold' }}>
+                              {token.expectedROI}%
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: '45%' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
+                              Available
+                            </Text>
+                            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
+                              {token.availableTokens.toLocaleString()} / {token.totalTokens.toLocaleString()}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </GlassCard>
+              )}
+
               {/* Entry Anchor */}
               <GlassCard style={{ padding: 24, marginBottom: 24 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>
                   Invest from ${property.minInvestment.toFixed(2)}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 16 }}>
-                  Expected annual yield: {property.estimatedROI}%
+                  Expected annual yield: {tokenROI}%
+                  {currentToken && activeTokens.length > 0 && (
+                    <Text style={{ color: currentToken.color, fontSize: 14, marginLeft: 8 }}>
+                      ({currentToken.name})
+                    </Text>
+                  )}
                 </Text>
+                {currentToken && (
+                  <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View 
+                      style={{ 
+                        width: 16, 
+                        height: 16, 
+                        borderRadius: 8, 
+                        backgroundColor: currentToken.color,
+                      }} 
+                    />
+                    <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>
+                      Token Price: ${tokenPrice.toFixed(2)} | Available: {currentToken.availableTokens.toLocaleString()} tokens
+                    </Text>
+                  </View>
+                )}
               </GlassCard>
 
               {/* Performance Visualization */}

@@ -31,17 +31,19 @@ export const getTierInfo = (roi: number) => {
   }
 };
 
-export const getModalStats = (investment: any, colors: any) => {
+export const getModalStats = (investment: any, colors: any, token?: any) => {
   if (!investment || !investment.property) return [];
   const property = investment.property;
+  const tokenROI = token?.expectedROI || investment.roi;
+  const tokenColor = token?.color || colors.primary;
   
   return [
     {
       label: 'Current ROI',
-      value: `${investment.roi.toFixed(1)}%`,
-      change: `+${(investment.roi * 0.1).toFixed(1)}%`,
+      value: `${tokenROI.toFixed(1)}%`,
+      change: `+${(tokenROI * 0.1).toFixed(1)}%`,
       changeType: 'up' as const,
-      changeColor: colors.primary,
+      changeColor: tokenColor,
       icon: 'trending-up',
     },
     {
@@ -78,7 +80,7 @@ export const getModalStats = (investment: any, colors: any) => {
     },
     {
       label: 'Ownership',
-      value: `${((investment.tokens / property.totalTokens) * 100).toFixed(2)}%`,
+      value: `${((investment.tokens / (token?.totalTokens || property.totalTokens)) * 100).toFixed(2)}%`,
       change: `${investment.tokens.toFixed(2)} tokens`,
       changeType: 'neutral' as const,
       changeColor: colors.textSecondary,

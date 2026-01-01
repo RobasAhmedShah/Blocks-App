@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { View, Text, Dimensions, StatusBar, TouchableOpacity, ScrollView, Image, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, Dimensions, StatusBar, TouchableOpacity, ScrollView, Image, ActivityIndicator, TextInput, FlatList } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -46,17 +46,73 @@ const GlassButton = ({ onPress, icon, size = 36 }: { onPress: () => void; icon: 
 
 // Glass Card Component
 const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
-  <BlurView intensity={18} tint="dark" style={[{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
+  <BlurView intensity={10} tint="dark" style={[{ backgroundColor: 'rgba(22, 22, 22, 0.56)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
     {children}
   </BlurView>
 );
 
 // Glass Chip Component
-const GlassChip = ({ text, accent = false }: { text: string; accent?: boolean }) => (
-  <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: accent ? 'rgba(158, 220, 90, 0.25)' : 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: accent ? 'rgba(158, 220, 90, 0.4)' : 'rgba(255,255,255,0.10)' }}>
-    <Text style={{ color: accent ? '#9EDC5A' : 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' }}>{text}</Text>
-  </View>
-);
+const GlassChip = ({
+  text,
+  accent = false,
+}: {
+  text: string;
+  accent?: boolean;
+}) => {
+  return (
+    <View
+      style={{
+        borderRadius: 14,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: accent
+          ? 'rgba(158, 220, 90, 0.45)'
+          : 'rgba(255,255,255,0.18)',
+        shadowColor: accent ? '#9EDC5A' : '#000',
+        shadowOpacity: accent ? 0.35 : 0.15,
+        shadowRadius: accent ? 10 : 6,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
+      }}
+    >
+      <BlurView
+        intensity={accent ? 40 : 28}
+        tint="dark"
+        style={{
+          paddingHorizontal: 14,
+          paddingVertical: 7,
+          backgroundColor: accent
+            ? 'rgba(158, 220, 90, 0.18)'
+            : 'rgba(255,255,255,0.10)',
+        }}
+      >
+        {/* subtle top highlight */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            backgroundColor: 'rgba(255,255,255,0.35)',
+          }}
+        />
+
+        <Text
+          style={{
+            color: accent ? '#9EDC5A' : 'rgba(255,255,255,0.92)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 0.2,
+          }}
+        >
+          {text}
+        </Text>
+      </BlurView>
+    </View>
+  );
+};
+
 
 function BlocksHomeScreen() {
   const router = useRouter();
@@ -85,6 +141,9 @@ function BlocksHomeScreen() {
   
   // Hero carousel state
   const [heroIndex, setHeroIndex] = useState(0);
+  const heroCarouselRef = useRef<FlatList>(null);
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isUserScrollingRef = useRef(false);
   
   // Create ref for ScrollView only
   const scrollViewRef = useRef<any>(null);
@@ -332,10 +391,47 @@ function BlocksHomeScreen() {
   // Hero carousel auto-advance
   useEffect(() => {
     if (featured.length <= 1) return;
-    const interval = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % featured.length);
-    }, 5000);
-    return () => clearInterval(interval);
+    
+    // Clear any existing timer
+    if (autoAdvanceTimerRef.current) {
+      clearInterval(autoAdvanceTimerRef.current);
+    }
+    
+    // Only auto-advance if user is not manually scrolling
+    if (!isUserScrollingRef.current) {
+      autoAdvanceTimerRef.current = setInterval(() => {
+        if (!isUserScrollingRef.current) {
+          setHeroIndex((prev) => {
+            const nextIndex = (prev + 1) % featured.length;
+            // Scroll to next item
+            heroCarouselRef.current?.scrollToIndex({
+              index: nextIndex,
+              animated: true,
+            });
+            return nextIndex;
+          });
+        }
+      }, 5000);
+    }
+    
+    return () => {
+      if (autoAdvanceTimerRef.current) {
+        clearInterval(autoAdvanceTimerRef.current);
+      }
+    };
+  }, [featured.length]);
+
+  // Scroll to initial index when featured data changes
+  useEffect(() => {
+    if (featured.length > 0 && heroCarouselRef.current) {
+      // Small delay to ensure FlatList is rendered
+      setTimeout(() => {
+        heroCarouselRef.current?.scrollToIndex({
+          index: heroIndex,
+          animated: false,
+        });
+      }, 100);
+    }
   }, [featured.length]);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -349,12 +445,12 @@ function BlocksHomeScreen() {
   const heroPropertyData = heroProperty?.property || state.properties.find(p => p.id === heroProperty?.id);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1,backgroundColor: 'rgba(22, 22, 22, 1)' }}>
       <StatusBar barStyle="light-content" translucent={false} />
       
       {/* Dark Olive/Green Gradient Background */}
       <LinearGradient
-        colors={['#0B1A12', '#09140F', '#050A08']}
+        colors={['rgba(11, 26, 18, 1)', 'rgba(9, 20, 15, 1)', 'rgba(5, 10, 8, 1)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -429,10 +525,10 @@ function BlocksHomeScreen() {
             </View>
             
             {/* Right: Icon Buttons */}
-            <View className="flex-row gap-3">
+            {/* <View className="flex-row gap-3">
               <GlassButton icon="scan-outline" onPress={() => {}} />
               <GlassButton icon="settings-outline" onPress={() => router.push('/(tabs)/profile')} />
-            </View>
+            </View> */}
           </View>
 
           {/* Search Row */}
@@ -451,52 +547,103 @@ function BlocksHomeScreen() {
           </View>
 
           {/* Featured Hero Carousel Card */}
-          {heroProperty && heroPropertyData && (
+          {featured.length > 0 && (
             <View className="px-5 mb-4">
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => router.push(`/property/${heroProperty.id}`)}
-                style={{ height: 260, borderRadius: 22, overflow: 'hidden' }}
-              >
-                {heroProperty.image ? (
-                  <Image source={{ uri: getImageUrl(heroProperty.image) || undefined }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                ) : (
-                  <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(158, 220, 90, 0.1)' }} />
-                )}
-                
-                {/* Overlay Gradient */}
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.55)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                />
-                
-                {/* Top-right Heart */}
-                <View style={{ position: 'absolute', top: 16, right: 16 }}>
-                  <GlassButton icon="heart-outline" size={40} onPress={() => {}} />
-                </View>
-                
-                {/* Content */}
-                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 }}>
-                  {/* Chip */}
-                  <View className="mb-3">
-                    <GlassChip text="Hot Rent" accent />
-                  </View>
+              <FlatList
+                ref={heroCarouselRef}
+                data={featured}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                snapToInterval={width - 40}
+                decelerationRate="fast"
+                onScrollBeginDrag={() => {
+                  // User started scrolling manually - pause auto-advance
+                  isUserScrollingRef.current = true;
+                }}
+                onMomentumScrollEnd={(event) => {
+                  const cardWidth = width - 40; // Full width minus horizontal padding (20px each side)
+                  const index = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+                  if (index >= 0 && index < featured.length) {
+                    setHeroIndex(index);
+                  }
+                  // Resume auto-advance after a delay
+                  setTimeout(() => {
+                    isUserScrollingRef.current = false;
+                  }, 3000); // Wait 3 seconds before resuming auto-advance
+                }}
+                onScrollToIndexFailed={(info) => {
+                  // Handle scroll to index failure gracefully
+                  const wait = new Promise(resolve => setTimeout(resolve, 500));
+                  wait.then(() => {
+                    heroCarouselRef.current?.scrollToIndex({ index: info.index, animated: true });
+                  });
+                }}
+                getItemLayout={(data, index) => {
+                  const cardWidth = width - 40;
+                  return {
+                    length: cardWidth,
+                    offset: cardWidth * index,
+                    index,
+                  };
+                }}
+                renderItem={({ item }) => {
+                  const propertyData = item.property || state.properties.find(p => p.id === item.id);
+                  if (!propertyData) return null;
                   
-                  {/* Title */}
-                  <Text className="text-white text-3xl font-bold mb-4" numberOfLines={2}>
-                    {heroProperty.title}
-                  </Text>
-                  
-                  {/* Stat Chips */}
-                  <View className="flex-row gap-2">
-                    <GlassChip text={`${heroPropertyData.features?.area || 'N/A'} sqft`} />
-                    <GlassChip text={`${heroPropertyData.features?.bedrooms || 'N/A'} Rooms`} />
-                    <GlassChip text={`${heroPropertyData.features?.units || 'N/A'} Units`} />
-                  </View>
-                </View>
-              </TouchableOpacity>
+                  return (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => router.push(`/property/${item.id}`)}
+                      style={{ width: width - 40, height: 260, borderRadius: 22, overflow: 'hidden', marginRight: 0 }}
+                    >
+                      {item.image ? (
+                        <Image source={{ uri: getImageUrl(item.image) || undefined }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : (
+                        <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(158, 220, 90, 0.1)' }} />
+                      )}
+                      
+                      {/* Overlay Gradient */}
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0, 0, 0, 0.57)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                      />
+                      
+                      {/* Top-right Heart */}
+                      <View style={{ position: 'absolute', top: 16, right: 16 }}>
+                        <GlassButton icon="heart-outline" size={40} onPress={() => {}} />
+                      </View>
+                      
+                      {/* Content */}
+                      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 }}>
+                        {/* Chip */}
+                        <View className="mb-3">
+                          <GlassChip text="Hot Rent" />
+                        </View>
+                        
+                        {/* Title */}
+                        <Text className="text-white text-3xl font-bold mb-4" numberOfLines={2}>
+                          {item.title}
+                        </Text>
+                        
+                        {/* Stat Chips */}
+                        <View className="flex-row gap-2">
+                          {propertyData.amenities?.slice(0, 3).map((amenity: string) => (
+                            <View key={amenity} className="flex-row gap-2">
+                              {/* <Ionicons name={amenity as any} size={20} color="#FFFFFF" /> */}
+                              <GlassChip text={amenity} />
+                            </View>
+                          ))}
+                         
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
               
               {/* Pagination Dots */}
               {featured.length > 1 && (
@@ -555,11 +702,11 @@ function BlocksHomeScreen() {
                         <Text className="text-white/55 text-sm ml-1">{property.city || 'Location'}</Text>
                       </View>
                       <View className="flex-row items-center justify-between">
-                        <Text className="text-white/85 text-sm font-semibold">
+                        <Text className="text-white/85 text-sm font-sans-serif-thin">
                           ${property.tokenPrice?.toFixed(2) || '0.00'} per token
                         </Text>
                         <View className="flex-row items-center bg-yellow-500/20 px-2 py-1 rounded-lg">
-                          <Ionicons name="star" size={12} color="#FFD700" />
+                          <Text className="text-white text-xs font-semibold ml-1">ROI: </Text>
                           <Text className="text-white text-xs font-semibold ml-1">{property.estimatedROI || '0'}%</Text>
                         </View>
                       </View>

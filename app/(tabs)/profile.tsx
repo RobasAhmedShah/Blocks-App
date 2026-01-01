@@ -25,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from 'expo-blur';
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -39,6 +40,13 @@ interface CustomAlertProps {
   }>;
   onClose: () => void;
 }
+
+// Glass Card Component
+const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+  <BlurView intensity={10} tint="dark" style={[{ backgroundColor: 'rgba(22, 22, 22, 0.56)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
+    {children}
+  </BlurView>
+);
 
 const CustomAlert: React.FC<CustomAlertProps> = ({
   visible,
@@ -436,7 +444,7 @@ export default function BlocksProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor:'rgba(22, 22, 22, 1)' }}>
       {/* Custom Alert */}
       <CustomAlert
         visible={alertConfig.visible}
@@ -447,7 +455,7 @@ export default function BlocksProfileScreen() {
         onClose={hideAlert}
       />
 
-      <LinearGradient
+      {/* <LinearGradient
         colors={
           isDarkColorScheme
             ? [
@@ -474,7 +482,7 @@ export default function BlocksProfileScreen() {
           right: 0,
           bottom: 0,
         }}
-      />
+      /> */}
 
       {/* Header */}
       <View
@@ -739,24 +747,27 @@ export default function BlocksProfileScreen() {
             <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
               {section.title}
             </Text>
+            
             <View 
-              style={{ 
-                backgroundColor: colors.card,
+              style={{
                 borderWidth: isDarkColorScheme ? 0 : 1,
                 borderColor: colors.border,
+                borderRadius:16
               }}
               className="rounded-xl shadow-sm overflow-hidden"
             >
+              <GlassCard style={{  gap: 5, padding:10}}>
               {section.items.map((item, i) => (
                 <View key={i}>
                   <TouchableOpacity 
                     onPress={() => handleItemPress((item as any).action)}
                     style={{ 
-                      backgroundColor: colors.card 
+                      // backgroundColor: colors.card 
                     }}
                     className="flex-row items-center justify-between px-4 py-4"
                     activeOpacity={0.7}
                   >
+                    
                     <View className="flex-row items-center gap-4">
                       <View 
                         style={{ 
@@ -786,6 +797,7 @@ export default function BlocksProfileScreen() {
                   )}
                 </View>
               ))}
+              </GlassCard>
             </View>
           </View>
         ))}

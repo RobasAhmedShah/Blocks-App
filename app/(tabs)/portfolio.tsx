@@ -20,7 +20,7 @@ export default function PortfolioScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isAuthenticated, isGuest } = useAuth();
-  const { investments, totalValue, totalROI, monthlyRentalIncome, loading, loadInvestments } =
+  const { investments, totalValue, totalInvested: totalInvestedFromHook, totalROI, monthlyRentalIncome, loading, loadInvestments } =
     usePortfolio();
   const { portfolioUnreadCount } = useNotificationContext();
   const { state, loadTransactions } = useApp();
@@ -56,8 +56,8 @@ export default function PortfolioScreen() {
     );
   }
 
-  // Calculate stats
-  const totalInvested = investments.reduce((sum, inv) => sum + inv.investedAmount, 0);
+  // Calculate stats - use totalInvested from hook for consistency with totalValue calculation
+  const totalInvested = totalInvestedFromHook;
   
   // Calculate total earnings from rental income and rewards only (not from property appreciation)
   // This ensures earnings persist even if tokens are sold
@@ -112,7 +112,60 @@ export default function PortfolioScreen() {
     : 0;
   
   const averageMonthly = monthlyRentalIncome;
-  const nextPayoutDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+  
+  // Debug logs for portfolio calculations
+  console.log('=== Portfolio Calculation Debug ===');
+  console.log('Number of investments:', investments.length);
+  console.log('Raw totalValue (from getTotalValue):', totalValue);
+  console.log('Raw totalInvested (from getTotalInvested):', totalInvested);
+  
+  // Log individual investment details for verification
+  console.log('Individual Investment Details:');
+  investments.forEach((inv, index) => {
+    console.log(`Investment ${index + 1}:`, {
+      property: inv.property?.title,
+      tokens: inv.tokens,
+      tokenPrice: inv.property?.tokenPrice,
+      currentValue: inv.currentValue,
+      investedAmount: inv.investedAmount,
+      manualCurrentValue: inv.tokens * (inv.property?.tokenPrice || 0),
+      difference: inv.currentValue - (inv.tokens * (inv.property?.tokenPrice || 0))
+    });
+  });
+  
+  // Manual calculation verification
+  const manualTotalValue = investments.reduce((sum, inv) => {
+    const manualValue = inv.tokens * (inv.property?.tokenPrice || 0);
+    return sum + manualValue;
+  }, 0);
+  const manualTotalInvested = investments.reduce((sum, inv) => sum + inv.investedAmount, 0);
+  
+  console.log('Manual Calculation:');
+  console.log('Manual totalValue (sum of tokens × tokenPrice):', manualTotalValue);
+  console.log('Manual totalInvested (sum of investedAmount):', manualTotalInvested);
+  console.log('Difference (manualTotalValue - totalValue):', manualTotalValue - totalValue);
+  console.log('Difference (manualTotalInvested - totalInvested):', manualTotalInvested - totalInvested);
+  
+  // Calculate total loss/gain from invested amount
+  // Calculate loss from raw values first, then round only the final result
+  // This prevents rounding errors from accumulating
+  // Loss = totalInvested - totalValue (positive means loss, negative means gain)
+  const totalLoss = totalInvested - totalValue;
+  const hasLoss = totalLoss > 0;
+  
+  console.log('Loss Calculation:');
+  console.log('Raw totalValue:', totalValue);
+  console.log('Raw totalInvested:', totalInvested);
+  console.log('Calculated totalLoss (raw):', totalLoss);
+  console.log('Rounded totalLoss (for display):', Math.round(totalLoss * 100) / 100);
+  console.log('Verification: totalInvested - totalLoss =', totalInvested - totalLoss);
+  console.log('Expected totalValue:', totalValue);
+  console.log('Difference (should be 0):', (totalInvested - totalLoss) - totalValue);
+  console.log('Rounded totalValue:', Math.round(totalValue * 100) / 100);
+  console.log('Rounded totalInvested:', Math.round(totalInvested * 100) / 100);
+  console.log('Rounded totalLoss:', Math.round(totalLoss * 100) / 100);
+  console.log('Verification with rounded values: (rounded totalInvested - rounded totalLoss) =', (Math.round(totalInvested * 100) / 100) - (Math.round(totalLoss * 100) / 100));
+  console.log('Expected rounded totalValue:', Math.round(totalValue * 100) / 100);
   
   // Find best performing property
   const bestProperty = investments.reduce(
@@ -246,12 +299,21 @@ export default function PortfolioScreen() {
              Total Holdings
           </Text>
           <View className="mb-1 flex-row items-baseline">
-            <Text style={{ color: 'black', fontFamily: 'sans-serif' }} className="text-5xl">
-              ${totalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </Text>
-            <Text style={{ color: 'black', fontFamily: 'sans-serif-thin' }} className=" text-4xl">
-              .{totalValue.toFixed(2).split('.')[1]}
-            </Text>
+            {/* Round to 2 decimal places first, then split for consistent display */}
+            {(() => {
+              const roundedValue = Math.round(totalValue * 100) / 100;
+              const parts = roundedValue.toFixed(2).split('.');
+              return (
+                <>
+                  <Text style={{ color: 'black', fontFamily: 'sans-serif' }} className="text-5xl">
+                    ${parseInt(parts[0], 10).toLocaleString('en-US')}
+                  </Text>
+                  <Text style={{ color: 'black', fontFamily: 'sans-serif-thin' }} className=" text-4xl">
+                    .{parts[1]}
+                  </Text>
+                </>
+              );
+            })()}
           </View>
           <View className="mt-2 flex-row items-center justify-between">
             <Text style={{ color: 'black' }} className="text-xs">
@@ -459,7 +521,7 @@ export default function PortfolioScreen() {
             </Text>
           </View>
 
-          {/* Next Payout Card */}
+          {/* Total Loss Card */}
           <View
             style={{
               flex: 1,
@@ -476,21 +538,37 @@ export default function PortfolioScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  backgroundColor: hasLoss 
+                    ? (isDarkColorScheme ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)')
+                    : (isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)'),
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Ionicons name="time" size={18} color={colors.primary} />
+                <Ionicons 
+                  name={hasLoss ? "trending-down" : "trending-up"} 
+                  size={18} 
+                  color={hasLoss ? "#EF4444" : colors.primary} 
+                />
               </View>
             </View>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-              Next Payout
+              {hasLoss ? 'Total Loss' : 'Total Gain'}
             </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold' }}>
-              {nextPayoutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            <Text style={{ 
+              color: hasLoss ? '#EF4444' : colors.primary, 
+              fontSize: 20, 
+              fontWeight: 'bold' 
+            }}>
+              {hasLoss ? '-' : '+'}${Math.abs(totalLoss).toLocaleString('en-US', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+              })}
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
-              ~${averageMonthly.toFixed(2)}
+              From ${totalInvested.toLocaleString('en-US', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+              })} invested
             </Text>
           </View>
         </View>

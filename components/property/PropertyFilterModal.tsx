@@ -20,8 +20,9 @@ export interface PropertyFilterState {
   sortBy: SortOption;
   tokenPriceRange: [number, number]; // Keep for backward compatibility, but use tokenPriceValue
   tokenPriceValue: number | null; // Single investment amount
-  roiRange: [number, number]; // Keep for backward compatibility, but use roiValue
-  roiValue: number | null; // Single ROI target
+  roiRange: [number, number]; // Keep for backward compatibility
+  roiValue: number | null; // Keep for backward compatibility
+  returnPeriod: 'monthly' | 'yearly'; // Expected return period
   selectedPropertyTypes: string[];
   selectedLocations: string[];
   activeOnly: boolean;
@@ -35,8 +36,6 @@ interface PropertyFilterModalProps {
   onClearFilters: () => void;
   minTokenPrice: number;
   maxTokenPrice: number;
-  minROI: number;
-  maxROI: number;
   availableCities: string[];
   availablePropertyTypes: string[];
 }
@@ -49,8 +48,6 @@ export default function PropertyFilterModal({
   onClearFilters,
   minTokenPrice,
   maxTokenPrice,
-  minROI,
-  maxROI,
   availableCities,
   availablePropertyTypes,
 }: PropertyFilterModalProps) {
@@ -58,8 +55,7 @@ export default function PropertyFilterModal({
     sortBy,
     tokenPriceRange,
     tokenPriceValue,
-    roiRange,
-    roiValue,
+    returnPeriod,
     selectedPropertyTypes,
     selectedLocations,
     activeOnly,
@@ -68,17 +64,14 @@ export default function PropertyFilterModal({
   // Use slider values, defaulting to middle of range if not set
   // These are just for display - filter only applies when user explicitly sets a value
   const currentTokenPriceValue = tokenPriceValue ?? (minTokenPrice + maxTokenPrice) / 2;
-  const currentROIValue = roiValue ?? (minROI + maxROI) / 2;
   
-  // Track if user has interacted with sliders
+  // Track if user has interacted with slider
   const [hasSetTokenValue, setHasSetTokenValue] = useState(tokenPriceValue !== null);
-  const [hasSetROIValue, setHasSetROIValue] = useState(roiValue !== null);
   
   // Sync interaction state when filter state changes
   useEffect(() => {
     setHasSetTokenValue(tokenPriceValue !== null);
-    setHasSetROIValue(roiValue !== null);
-  }, [tokenPriceValue, roiValue]);
+  }, [tokenPriceValue]);
 
   const updateFilter = (updates: Partial<PropertyFilterState>) => {
     onFilterChange({ ...filterState, ...updates });
@@ -86,7 +79,6 @@ export default function PropertyFilterModal({
 
   const handleClearFilters = () => {
     setHasSetTokenValue(false);
-    setHasSetROIValue(false);
     onClearFilters();
   };
 
@@ -255,46 +247,39 @@ export default function PropertyFilterModal({
             </View>
           </View>
 
-          {/* Target ROI Section */}
+          {/* Expected Return Period Section */}
           <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 12 }}>
-              Target ROI
+              Expected Return Period
             </Text>
-            <View
-              style={{
-                alignItems: 'center',
-                marginBottom: 16,
-                paddingVertical: 12,
-              }}
-            >
-              <Text style={{ fontSize: 24, fontWeight: '700', color: hasSetROIValue ? '#9EDC5A' : 'rgba(255, 255, 255, 0.5)', marginBottom: 4 }}>
-                {currentROIValue.toFixed(1)}%
-              </Text>
-              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.7)' }}>
-                {hasSetROIValue ? 'Target ROI set' : 'Drag to set your target ROI'}
-              </Text>
-            </View>
-            <Slider
-              style={{ width: '100%', height: 40 }}
-              minimumValue={minROI}
-              maximumValue={maxROI}
-              value={currentROIValue}
-              onValueChange={(value) => {
-                setHasSetROIValue(true);
-                updateFilter({ roiValue: value });
-              }}
-              step={0.1}
-              minimumTrackTintColor="#9EDC5A"
-              maximumTrackTintColor="#E0E0E0"
-              thumbTintColor="#9EDC5A"
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>
-                {minROI.toFixed(1)}%
-              </Text>
-              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>
-                {maxROI.toFixed(1)}%
-              </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { value: 'monthly', label: 'Monthly' },
+                { value: 'yearly', label: 'Yearly' },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => updateFilter({ returnPeriod: option.value as 'monthly' | 'yearly' })}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    backgroundColor: returnPeriod === option.value ? '#9EDC5A' : 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: returnPeriod === option.value ? 0 : 1,
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: returnPeriod === option.value ? '600' : '400',
+                      color: returnPeriod === option.value ? '#0B1A12' : 'rgba(255, 255, 255, 0.9)',
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 

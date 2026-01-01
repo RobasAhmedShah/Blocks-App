@@ -44,7 +44,8 @@ export default function HomeScreen() {
     tokenPriceRange: [0, 1000], // Keep for backward compatibility
     tokenPriceValue: null, // Single investment amount
     roiRange: [0, 30], // Keep for backward compatibility
-    roiValue: null, // Single ROI target
+    roiValue: null, // Keep for backward compatibility
+    returnPeriod: 'monthly', // Default to monthly
     selectedPropertyTypes: [],
     selectedLocations: [],
     activeOnly: false,
@@ -164,15 +165,7 @@ export default function HomeScreen() {
     }
     // If tokenPriceValue is null, don't filter by token price (show all)
 
-    // ROI value filter - check if property ROI matches target
-    if (filterState.roiValue !== null && filterState.roiValue > 0) {
-      // Allow some tolerance (e.g., ±0.5%)
-      const tolerance = 0.5;
-      if (Math.abs(property.estimatedROI - filterState.roiValue) > tolerance) {
-        return false;
-      }
-    }
-    // If roiValue is null, don't filter by ROI (show all)
+    // ROI value filter removed - no longer filtering by ROI target
 
     // Property type filter
     if (filterState.selectedPropertyTypes.length > 0 && property.type) {
@@ -217,35 +210,17 @@ export default function HomeScreen() {
   // Calculate property investment details based on filter values (similar to guidance-two)
   const calculatePropertyDetails = (property: any) => {
     const tokenPrice = property.tokenPrice;
-    const estimatedROI = property.estimatedROI;
     const estimatedYield = property.estimatedYield;
 
     // Check if specific values are set
     const isTokenValueSet = filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0;
-    const isROIValueSet = filterState.roiValue !== null && filterState.roiValue > 0;
 
     let tokensCount: number | null = null;
     let investmentAmount: number | null = null;
     let monthlyEarnings: number | null = null;
-    let investmentNeeded: number | null = null;
+    let yearlyEarnings: number | null = null;
 
-    // Priority: ROI value takes precedence if both are set
-    if (isROIValueSet) {
-      // ROI-based calculation (similar to goal-based mode in guidance-two)
-      // Calculate investment needed to achieve monthly earning based on ROI target
-      // Formula from guidance-two: investment = (monthlyGoal * 12 * 100) / estimatedYield
-      const referenceMonthlyEarning = 100; // Reference monthly earning to calculate from
-      
-      // Calculate investment needed using the ROI target
-      investmentNeeded = (referenceMonthlyEarning * 12 * 100) / filterState.roiValue!;
-      
-      // Calculate tokens for this investment
-      tokensCount = investmentNeeded / tokenPrice;
-      
-      // Calculate actual monthly earnings using the property's actual yield
-      // Formula from guidance-two: monthlyIncome = (investment * estimatedYield) / 100 / 12
-      monthlyEarnings = (investmentNeeded * estimatedYield) / 100 / 12;
-    } else if (isTokenValueSet) {
+    if (isTokenValueSet) {
       // Token price value-based calculation (similar to amount-based mode in guidance-two)
       investmentAmount = filterState.tokenPriceValue!;
       
@@ -253,17 +228,19 @@ export default function HomeScreen() {
       tokensCount = investmentAmount / tokenPrice;
       
       // Calculate monthly earnings from this investment
-      // Formula from guidance-two: monthlyIncome = (investment * estimatedYield) / 100 / 12
+      // Formula: monthlyIncome = (investment * estimatedYield) / 100 / 12
       monthlyEarnings = (investmentAmount * estimatedYield) / 100 / 12;
+      
+      // Calculate yearly earnings
+      yearlyEarnings = (investmentAmount * estimatedYield) / 100;
     }
 
     return {
       tokensCount,
       investmentAmount,
       monthlyEarnings,
-      investmentNeeded,
+      yearlyEarnings,
       isTokenValueSet,
-      isROIValueSet,
     };
   };
 
@@ -306,31 +283,23 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Price Block - Directly below image, largest text */}
+        {/* Price/Token Block - Directly below image, largest text */}
         <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 }}>
-          {(investmentDetails.isTokenValueSet || investmentDetails.isROIValueSet) ? (
+          {investmentDetails.isTokenValueSet && investmentDetails.tokensCount !== null ? (
             <>
-              {/* Investment Amount - Largest text */}
+              {/* Tokens - Largest text when filters are active */}
               <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
-                ${investmentDetails.isROIValueSet && investmentDetails.investmentNeeded !== null
-                  ? investmentDetails.investmentNeeded.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                  : investmentDetails.investmentAmount !== null
-                  ? investmentDetails.investmentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                  : property.tokenPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </Text>
-              {/* Starting price label */}
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, marginBottom: 8 }}>
-                Starting price
+                {investmentDetails.tokensCount.toFixed(3)} tokens
               </Text>
             </>
           ) : (
             <>
-              {/* Price - Largest text */}
+              {/* Price - Largest text when no filters */}
               <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
                 ${property.tokenPrice.toFixed(2)}
               </Text>
               {/* Starting price label */}
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12,fontWeight:'bold', marginBottom: 0 }}>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, fontWeight: 'bold', marginBottom: 0 }}>
                 Starting price
               </Text>
             </>
@@ -339,25 +308,58 @@ export default function HomeScreen() {
 
         {/* Card Content */}
         <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-          {/* Property Name - Below price, smaller font */}
+          {/* Property Name - Below price/tokens, smaller font */}
           <Text 
-            style={{ color: 'rgba(255, 255, 255)', fontSize: 14, fontWeight: 'bold',includeFontPadding:true, marginBottom: 0 }}
+            style={{ color: 'rgba(255, 255, 255)', fontSize: 14, fontWeight: 'bold', includeFontPadding: true, marginBottom: 0 }}
             numberOfLines={2}
           >
             {property.title}
           </Text>
 
-          {/* Tokens display when filters are active */}
-          {(investmentDetails.isTokenValueSet || investmentDetails.isROIValueSet) && investmentDetails.tokensCount !== null && (
-            <Text 
-              style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontFamily: 'sans-serif-thin', marginBottom: 0 }}
-            >
-              {investmentDetails.tokensCount.toFixed(3)} tokens
-            </Text>
+          {/* Investment Amount and Expected Return display when filters are active */}
+          {investmentDetails.isTokenValueSet && (
+            <View style={{ marginTop: 6 }}>
+              {/* Investment Amount */}
+              {investmentDetails.investmentAmount !== null && (
+                <Text 
+                  style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontFamily: 'sans-serif-thin', marginBottom: 6 }}
+                >
+                  ${investmentDetails.investmentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </Text>
+              )}
+              
+              {/* Expected Return (Monthly or Yearly based on filter) */}
+              {((filterState.returnPeriod === 'monthly' && investmentDetails.monthlyEarnings !== null && investmentDetails.monthlyEarnings > 0) ||
+                (filterState.returnPeriod === 'yearly' && investmentDetails.yearlyEarnings !== null && investmentDetails.yearlyEarnings > 0)) && (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  backgroundColor: 'rgba(158, 220, 90, 0.15)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 10,
+                  alignSelf: 'flex-start',
+                  borderWidth: 1,
+                  borderColor: 'rgba(158, 220, 90, 0.3)',
+                }}>
+                  <Ionicons name="trending-up-outline" size={14} color="#9EDC5A" />
+                  <Text style={{ 
+                    color: '#9EDC5A', 
+                    fontSize: 12, 
+                    fontWeight: '600', 
+                    marginLeft: 6 
+                  }}>
+                    ${filterState.returnPeriod === 'monthly' 
+                      ? investmentDetails.monthlyEarnings!.toFixed(2) + '/mo'
+                      : investmentDetails.yearlyEarnings!.toFixed(2) + '/yr'}
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
           
           {/* Size - Small gray with arrow icon */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
             {areaText ? (
               <Text style={{ color: 'rgba(255, 255, 255, 0.55)', fontSize: 12 }}>
                 {areaText}
@@ -542,7 +544,8 @@ export default function HomeScreen() {
             tokenPriceRange: [minTokenPrice, maxTokenPrice],
             tokenPriceValue: null, // Reset to null so slider uses default middle value
             roiRange: [minROI, maxROI],
-            roiValue: null, // Reset to null so slider uses default middle value
+            roiValue: null, // Keep for backward compatibility
+            returnPeriod: 'monthly', // Reset to default
             selectedPropertyTypes: [],
             selectedLocations: [],
             activeOnly: false,
@@ -550,8 +553,6 @@ export default function HomeScreen() {
         }}
         minTokenPrice={minTokenPrice}
         maxTokenPrice={maxTokenPrice}
-        minROI={minROI}
-        maxROI={maxROI}
         availableCities={availableCities}
         availablePropertyTypes={availablePropertyTypes}
       />

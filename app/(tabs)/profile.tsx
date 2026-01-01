@@ -26,6 +26,8 @@ import { useKycCheck } from "@/hooks/useKycCheck";
 import { useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from 'expo-blur';
+import { Svg, Defs, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
+import { GlassChip } from "@/components/GlassChip";
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -444,7 +446,7 @@ export default function BlocksProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor:'rgba(22, 22, 22, 1)' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor:'#020D0B' }}>
       {/* Custom Alert */}
       <CustomAlert
         visible={alertConfig.visible}
@@ -455,24 +457,9 @@ export default function BlocksProfileScreen() {
         onClose={hideAlert}
       />
 
+      {/* Base Linear Gradient */}
       {/* <LinearGradient
-        colors={
-          isDarkColorScheme
-            ? [
-              '#00C896', // Teal green (top)
-              '#064E3B', // Deep emerald (40% mark)
-              '#032822',
-              '#021917',
-              ]
-            : [
-              'rgba(245, 245, 245, 1)', // #F5F5F5
-              'rgba(237, 237, 237, 1)', // #EDEDED
-              'rgba(224, 224, 224, 1)', // #E0E0E0
-              'rgba(255, 255, 255, 1)', // #FFFFFF
-              ]
-        }
-        locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
-        // locations={[0, 0.5, 1]} // 40% green, then transition to black
+        colors={['#0B1A18', '#020D0B']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={{
@@ -483,10 +470,24 @@ export default function BlocksProfileScreen() {
           bottom: 0,
         }}
       /> */}
+      
+      {/* Radial Gradient Overlay */}
+      <View style={{ position: 'absolute', top: '0%', left: 0, right: 0,
+         bottom: 0}}>
+        <Svg width="100%" height="50%" >
+          <Defs>
+            <RadialGradient id="backgroundRadial" cx="65%" cy="20%" r="80%">
+              <Stop offset="50%" stopColor="rgb(226, 223, 34)" stopOpacity="0.22" />
+              <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#backgroundRadial)" />
+        </Svg>
+      </View>
 
       {/* Header */}
       <View
-        style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+        style={{ backgroundColor: 'transparent' }}
         className="flex-row items-center px-4 py-4 mt-8"
       >
         <View className="flex-row items-center justify-between">
@@ -494,11 +495,11 @@ export default function BlocksProfileScreen() {
             className="w-10 h-10 items-center justify-center"
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            <Ionicons name="arrow-back-outline" size={24} color="rgba(180,210,205,0.55)" />
           </TouchableOpacity>
 
           <View className="flex-1 items-center">
-            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+            <Text style={{ color: 'rgba(255,255,255,0.92)' }} className="text-lg font-bold">
               Profile
             </Text>
           </View>
@@ -509,7 +510,7 @@ export default function BlocksProfileScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 70 }}
         className="px-4"
         refreshControl={
           <RefreshControl
@@ -523,299 +524,432 @@ export default function BlocksProfileScreen() {
           />
         }
       >
-        {/* Profile Header */}
-        <View className="items-center py-6">
-          <View className="relative">
+        {/* Profile Header - Glass Header with Radial Glow */}
+        <View className="items-center py-6" style={{ backgroundColor: 'transparent' }}>
+          <View className="relative" style={{ marginBottom: 12 }}>
+            {/* Radial Glow Behind Avatar */}
+            {/* <View style={{ position: 'absolute', top: -20, left: -20, right: -20, bottom: -20, alignItems: 'center', justifyContent: 'center'
+             }}>
+              <Svg width={120} height={120}>
+                <Defs>
+                  <RadialGradient id="avatarGlow" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor="rgba(31,182,178,0.25)" stopOpacity="1" />
+                    <Stop offset="100%" stopColor="rgba(31,182,178,0)" stopOpacity="0" />
+                  </RadialGradient>
+                </Defs>
+                <Circle cx="60" cy="60" r="60" fill="url(#avatarGlow)" />
+              </Svg>
+            </View> */}
+            
             {state.userInfo.profileImage ? (
               <Image
                 source={{ uri: state.userInfo.profileImage }}
-                className="h-28 w-28 rounded-full"
+                style={{ 
+                  width: 112, 
+                  height: 112, 
+                  borderRadius: 56,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.15)',
+                }}
                 defaultSource={require('@/assets/blank.png')}
               />
             ) : (
               <View 
                 style={{ 
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
+                  width: 112,
+                  height: 112,
+                  borderRadius: 56,
+                  backgroundColor: 'rgba(20,45,43,0.5)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-                className="h-28 w-28 rounded-full items-center justify-center"
               >
-                <Ionicons name="person" size={56} color={colors.primary} />
+                <Ionicons name="person-outline" size={56} color="rgba(180,210,205,0.55)" />
               </View>
             )}
             <TouchableOpacity
               onPress={() => router.push('../profilesettings/personalinfo')}
               style={{ 
-                backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
-                borderColor: colors.card 
+                backgroundColor: 'rgba(20,45,43,0.85)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.15)',
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
               }}
-              className="absolute bottom-0 right-0 h-8 w-8 rounded-full border-2 items-center justify-center"
               activeOpacity={0.7}
             >
-              <Ionicons name="create-outline" size={18} color={colors.primary} />
+              <Ionicons name="create-outline" size={18} color="rgba(180,210,205,0.55)" />
             </TouchableOpacity>
           </View>
-          <Text style={{ color: colors.textPrimary }} className="text-[22px] font-bold mt-3">
+          <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 20, fontWeight: '600', marginTop: 8 }}>
             {state.userInfo.fullName}
           </Text>
-          <Text style={{ color: colors.textMuted }} className="text-base">
+          <Text style={{ color: 'rgba(180,210,205,0.55)', fontSize: 13, marginTop: 4 }}>
             {state.userInfo.email}
           </Text>
         </View>
 
-        {/* KYC Status Card - shows immediately if cached, updates in background */}
+        {/* KYC Status Card - Glass Effect */}
         {kycStatus && (
-          <View className="mb-6">
-            <TouchableOpacity
-              onPress={() => router.push('../profilesettings/kyc')}
+          <View
+            style={{
+              borderRadius: 18,
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.18)',
+              shadowColor: '#000',
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 6,
+              marginBottom: 16,
+            }}
+          >
+            <BlurView
+            className="px-4 py-2"
+              intensity={28}
+              tint="dark"
               style={{
-                backgroundColor: colors.card,
-                borderWidth: isDarkColorScheme ? 0 : 1,
-                borderColor: colors.border,
-                borderRadius: 16,
-                padding: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
+                backgroundColor: 'rgba(255,255,255,0.10)',
+                borderRadius: 18,
+               
               }}
-              activeOpacity={0.7}
             >
+              {/* Subtle top highlight */}
               <View
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor:
-                    kycStatus.status === 'verified'
-                      ? isDarkColorScheme
-                        ? 'rgba(16, 185, 129, 0.2)'
-                        : 'rgba(16, 185, 129, 0.15)'
-                      : kycStatus.status === 'pending'
-                      ? isDarkColorScheme
-                        ? 'rgba(245, 158, 11, 0.2)'
-                        : 'rgba(245, 158, 11, 0.15)'
-                      : kycStatus.status === 'rejected'
-                      ? isDarkColorScheme
-                        ? 'rgba(239, 68, 68, 0.2)'
-                        : 'rgba(239, 68, 68, 0.15)'
-                      : isDarkColorScheme
-                      ? 'rgba(107, 114, 128, 0.2)'
-                      : 'rgba(107, 114, 128, 0.15)',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  backgroundColor: 'rgba(255,255,255,0.35)',
+                }}
+              />
+              
+              <TouchableOpacity
+                onPress={() => router.push('../profilesettings/kyc')}
+                activeOpacity={0.75}
+                style={{
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  gap: 14,
                 }}
               >
+                {/* Icon container */}
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    backgroundColor: 'rgba(20,45,43,0.6)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.18)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons
+                    name={
+                      kycStatus.status === 'verified'
+                        ? 'checkmark-circle-outline'
+                        : kycStatus.status === 'pending'
+                        ? 'time-outline'
+                        : kycStatus.status === 'rejected'
+                        ? 'close-circle-outline'
+                        : 'document-text-outline'
+                    }
+                    size={24}
+                    color="rgba(180,210,205,0.55)"
+                  />
+                </View>
+
+                {/* Text */}
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.92)',
+                      fontSize: 16,
+                      fontWeight: '600',
+                      marginBottom: 4,
+                    }}
+                  >
+                    KYC Verification
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: 'rgba(180,210,205,0.65)',
+                      fontSize: 13,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {kycStatus.status === 'verified'
+                      ? 'Your identity has been verified'
+                      : kycStatus.status === 'pending'
+                      ? 'Your documents are under review'
+                      : kycStatus.status === 'rejected'
+                      ? kycStatus.rejectionReason
+                        ? `Rejected: ${kycStatus.rejectionReason}`
+                        : 'Your verification was rejected'
+                      : kycStatus.hasDocuments &&
+                        (kycStatus.hasDocuments.front || kycStatus.hasDocuments.selfie)
+                      ? 'Documents uploaded. Submit to complete verification.'
+                      : 'Complete identity verification to start investing'}
+                  </Text>
+
+                  {/* Meta date */}
+                  {(kycStatus.reviewedAt || kycStatus.submittedAt) && (
+                    <Text
+                      style={{
+                        color: 'rgba(180,210,205,0.45)',
+                        fontSize: 11,
+                        marginTop: 6,
+                      }}
+                    >
+                      {kycStatus.status === 'verified' && kycStatus.reviewedAt
+                        ? `Verified on ${new Date(kycStatus.reviewedAt).toLocaleDateString()}`
+                        : kycStatus.status === 'pending' && kycStatus.submittedAt
+                        ? `Submitted on ${new Date(kycStatus.submittedAt).toLocaleDateString()}`
+                        : null}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Chevron */}
                 <Ionicons
-                  name={
-                    kycStatus.status === 'verified'
-                      ? 'checkmark-circle'
-                      : kycStatus.status === 'pending'
-                      ? 'time-outline'
-                      : kycStatus.status === 'rejected'
-                      ? 'close-circle'
-                      : 'document-text-outline'
-                  }
-                  size={24}
-                  color={
-                    kycStatus.status === 'verified'
-                      ? colors.primary
-                      : kycStatus.status === 'pending'
-                      ? colors.warning
-                      : kycStatus.status === 'rejected'
-                      ? colors.destructive
-                      : colors.textMuted
-                  }
+                  name="chevron-forward-outline"
+                  size={20}
+                  color="rgba(180,210,205,0.55)"
                 />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    marginBottom: 4,
-                  }}
-                >
-                  KYC Verification
-                </Text>
-                <Text
-                  style={{
-                    color: colors.textSecondary,
-                    fontSize: 13,
-                  }}
-                >
-                  {kycStatus.status === 'verified'
-                    ? 'Your identity has been verified'
-                    : kycStatus.status === 'pending'
-                    ? 'Your documents are under review'
-                    : kycStatus.status === 'rejected'
-                    ? kycStatus.rejectionReason
-                      ? `Rejected: ${kycStatus.rejectionReason}`
-                      : 'Your verification was rejected'
-                    : kycStatus.hasDocuments && (kycStatus.hasDocuments.front || kycStatus.hasDocuments.selfie)
-                    ? 'Documents uploaded. Submit for verification to complete KYC.'
-                    : 'Complete your identity verification to start investing'}
-                </Text>
-                {kycStatus.status === 'verified' && kycStatus.reviewedAt && (
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      marginTop: 4,
-                    }}
-                  >
-                    Verified on {new Date(kycStatus.reviewedAt).toLocaleDateString()}
-                  </Text>
-                )}
-                {kycStatus.status === 'pending' && kycStatus.submittedAt && (
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      marginTop: 4,
-                    }}
-                  >
-                    Submitted on {new Date(kycStatus.submittedAt).toLocaleDateString()}
-                  </Text>
-                )}
-                {kycStatus.status === 'not_submitted' && kycStatus.hasDocuments && (kycStatus.hasDocuments.front || kycStatus.hasDocuments.selfie) && (
-                  <Text
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      marginTop: 4,
-                    }}
-                  >
-                    Tap to submit your documents
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </BlurView>
           </View>
         )}
 
+
         {/* My Bookmarks Section */}
         {bookmarkedProperties.length > 0 && (
-          <View className="mb-8">
-            <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ color: 'rgba(180,210,205,0.55)' }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
               My Bookmarks
             </Text>
             <View 
               style={{ 
-                backgroundColor: colors.card,
-                borderWidth: isDarkColorScheme ? 0 : 1,
-                borderColor: colors.border,
+                borderRadius: 18,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.18)',
+                shadowColor: '#000',
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
               }}
-              className="rounded-xl shadow-sm overflow-hidden"
             >
-              {bookmarkedProperties.map((property, idx) => (
-                <TouchableOpacity
-                  key={property.id}
-                  onPress={() => router.push(`/property/${property.id}`)}
-                  style={{ backgroundColor: colors.card }}
-                  className="flex-row items-center justify-between px-4 py-4"
-                  activeOpacity={0.7}
-                >
-                  <View className="flex-row items-center gap-4 flex-1">
-                    <View 
-                      style={{ 
-                        backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)' 
-                      }}
-                      className="w-10 h-10 rounded-lg items-center justify-center"
-                    >
-                      <Ionicons name="bookmark" size={22} color={colors.primary} />
+              <BlurView
+                intensity={28}
+                tint="dark"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.10)',
+                  borderRadius: 18,
+                }}
+              >
+                {/* Subtle top highlight */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 1,
+                    backgroundColor: 'rgba(255,255,255,0.35)',
+                  }}
+                />
+                
+                {bookmarkedProperties.map((property, idx) => (
+                  <TouchableOpacity
+                    key={property.id}
+                    onPress={() => router.push(`/property/${property.id}`)}
+                    style={{ 
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View className="flex-row items-center justify-between p-1">
+                      <View className="flex-row items-center gap-4 flex-1">
+                        <View 
+                          style={{ 
+                            backgroundColor: 'rgba(20,45,43,0.6)',
+                            width: 40,
+                            height: 40,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.18)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Ionicons name="bookmark-outline" size={22} color="rgba(180,210,205,0.55)" />
+                        </View>
+                        <View className="flex-1">
+                          <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '500' }}>
+                            {property.title}
+                          </Text>
+                          <Text style={{ color: 'rgba(180,210,205,0.55)', fontSize: 13, marginTop: 2 }}>
+                            {property.location}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward-outline" size={18} color="rgba(180,210,205,0.55)" />
                     </View>
-                    <View className="flex-1">
-                      <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
-                        {property.title}
-                      </Text>
-                      <Text style={{ color: colors.textMuted }} className="text-xs mt-0.5">
-                        {property.location}
-                      </Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              ))}
+                    {idx < bookmarkedProperties.length - 1 && (
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', height: 1, marginTop: 14 }} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </BlurView>
             </View>
           </View>
         )}
 
         {/* Sections */}
         {sections.map((section, idx) => (
-          <View key={idx} className="mb-8">
-            <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
+          <View key={idx} style={{ marginBottom: 16 }}>
+            <Text style={{ color: 'rgba(180,210,205,0.55)' }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
               {section.title}
             </Text>
             
             <View 
               style={{
-                borderWidth: isDarkColorScheme ? 0 : 1,
-                borderColor: colors.border,
-                borderRadius:16
+                borderRadius: 18,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.18)',
+                shadowColor: '#000',
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
               }}
-              className="rounded-xl shadow-sm overflow-hidden"
             >
-              <GlassCard style={{  gap: 5, padding:10}}>
-              {section.items.map((item, i) => (
-                <View key={i}>
-                  <TouchableOpacity 
-                    onPress={() => handleItemPress((item as any).action)}
-                    style={{ 
-                      // backgroundColor: colors.card 
-                    }}
-                    className="flex-row items-center justify-between px-4 py-4"
-                    activeOpacity={0.7}
-                  >
-                    
-                    <View className="flex-row items-center gap-4">
-                      <View 
-                        style={{ 
-                          backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)' 
-                        }}
-                        className="w-10 h-10 rounded-lg items-center justify-center"
-                      >
-                        <Ionicons name={item.icon as any} size={22} color={colors.primary} />
+              <BlurView
+                intensity={28}
+                tint="dark"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.10)',
+                  borderRadius: 18,
+                }}
+              >
+                {/* Subtle top highlight */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 1,
+                    backgroundColor: 'rgba(255,255,255,0.35)',
+                  }}
+                />
+                
+                {section.items.map((item, i) => (
+                  <View key={i}>
+                    <TouchableOpacity 
+                      onPress={() => handleItemPress((item as any).action)}
+                      style={{ 
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-4 flex-1">
+                          <View 
+                            style={{ 
+                              backgroundColor: 'rgba(20,45,43,0.6)',
+                              width: 40,
+                              height: 40,
+                              borderRadius: 10,
+                              borderWidth: 1,
+                              borderColor: 'rgba(255,255,255,0.18)',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Ionicons name={item.icon as any} size={22} color="rgba(180,210,205,0.55)" />
+                          </View>
+                          <View className="flex-1">
+                            <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '500' }}>
+                              {item.label}
+                            </Text>
+                            {(item as any).action === 'theme' && (
+                              <Text style={{ color: 'rgba(180,210,205,0.55)', fontSize: 13, marginTop: 2 }}>
+                                {themeOptions.find(opt => opt.value === themePreference)?.label}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        <Ionicons name="chevron-forward-outline" size={18} color="rgba(180,210,205,0.55)" />
                       </View>
-                      <View className="flex-1">
-                        <Text style={{ color: colors.textPrimary }} className="text-base font-medium">
-                          {item.label}
-                        </Text>
-                        {(item as any).action === 'theme' && (
-                          <Text style={{ color: colors.textMuted }} className="text-xs mt-0.5">
-                            {themeOptions.find(opt => opt.value === themePreference)?.label}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <Ionicons 
-                    style={{ marginLeft: -20}}
-                    name="chevron-forward" size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                  {i < section.items.length - 1 && (
-                    <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />
-                  )}
-                </View>
-              ))}
-              </GlassCard>
+                    </TouchableOpacity>
+                    {i < section.items.length - 1 && (
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', height: 1, marginHorizontal: 16 }} />
+                    )}
+                  </View>
+                ))}
+              </BlurView>
             </View>
           </View>
         ))}
 
 
         {/* App Settings Section */}
-        <View className="mb-8">
-          <Text style={{ color: colors.textMuted }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: 'rgba(180,210,205,0.55)' }} className="px-2 text-sm font-bold uppercase tracking-wider mb-2">
             App Settings
           </Text>
           <View 
             style={{ 
-              backgroundColor: colors.card,
-              borderWidth: isDarkColorScheme ? 0 : 1,
-              borderColor: colors.border,
+              borderRadius: 18,
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.18)',
+              shadowColor: '#000',
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 6,
             }}
-            className="rounded-xl shadow-sm overflow-hidden"
           >
+            <BlurView
+              intensity={28}
+              tint="dark"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.10)',
+                borderRadius: 18,
+              }}
+            >
+              {/* Subtle top highlight */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  backgroundColor: 'rgba(255,255,255,0.35)',
+                }}
+              />
             {/* Demo Mode Toggle */}
           {/*  <View
               style={{
@@ -866,89 +1000,126 @@ export default function BlocksProfileScreen() {
             </View>
             */}
             
-            <View style={{ backgroundColor: colors.border }} className="h-px mx-4" />
-            
-            {/* Replay App Tutorial Button */}
-            <TouchableOpacity
-              onPress={async () => {
-                if (!demoMode) {
-                  showAlert(
-                    'Demo Mode Required',
-                    'Please enable Demo Mode first to use the app tutorial.',
-                    'warning',
-                    [{ text: 'OK' }]
-                  );
-                  return;
-                }
-                
-                console.log('[Profile] Replay tutorial button pressed');
-                
-                // Step 1: Reset tour state
-                await resetTour('home'); // Clear home tour completion
-                setIsTourActive(false); // Ensure tour is not marked as active
-                console.log('[Profile] Tour state reset');
-                
-                // Step 2: Set flag to start tour
-                setShouldStartTour(true);
-                console.log('[Profile] Set shouldStartTour to true');
-                
-                // Step 3: Navigate to home screen
-                router.push('/(tabs)/home' as any); // Navigate to home tab
-                console.log('[Profile] Navigated to home, tour should start');
-              }}
-              disabled={!demoMode}
-              style={{ 
-                backgroundColor: colors.card,
-                opacity: demoMode ? 1 : 0.5,
-              }}
-              className="flex-row items-center justify-between px-4 py-4"
-              activeOpacity={demoMode ? 0.7 : 1}
-            >
-              <View className="flex-row items-center gap-4 flex-1">
-                <View
-                  style={{
-                    backgroundColor: isDarkColorScheme
-                      ? 'rgba(22, 163, 74, 0.15)'
-                      : 'rgba(22, 163, 74, 0.1)',
-                  }}
-                  className="w-10 h-10 rounded-lg items-center justify-center"
-                >
-                  <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', height: 1, marginHorizontal: 16 }} />
+              
+              {/* Replay App Tutorial Button */}
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!demoMode) {
+                    showAlert(
+                      'Demo Mode Required',
+                      'Please enable Demo Mode first to use the app tutorial.',
+                      'warning',
+                      [{ text: 'OK' }]
+                    );
+                    return;
+                  }
+                  
+                  console.log('[Profile] Replay tutorial button pressed');
+                  
+                  // Step 1: Reset tour state
+                  await resetTour('home'); // Clear home tour completion
+                  setIsTourActive(false); // Ensure tour is not marked as active
+                  console.log('[Profile] Tour state reset');
+                  
+                  // Step 2: Set flag to start tour
+                  setShouldStartTour(true);
+                  console.log('[Profile] Set shouldStartTour to true');
+                  
+                  // Step 3: Navigate to home screen
+                  router.push('/(tabs)/home' as any); // Navigate to home tab
+                  console.log('[Profile] Navigated to home, tour should start');
+                }}
+                disabled={!demoMode}
+                style={{ 
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  opacity: demoMode ? 1 : 0.5,
+                }}
+                activeOpacity={demoMode ? 0.7 : 1}
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-4 flex-1">
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(20,45,43,0.6)',
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.18)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Ionicons name="play-circle-outline" size={22} color="rgba(180,210,205,0.55)" />
+                    </View>
+                    <View className="flex-1">
+                      <Text
+                        style={{ color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '500' }}
+                      >
+                        Replay App Tutorial
+                      </Text>
+                      <Text
+                        style={{ color: 'rgba(180,210,205,0.55)', fontSize: 13, marginTop: 2 }}
+                      >
+                        Restart the interactive app tour
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward-outline" size={18} color="rgba(180,210,205,0.55)" />
                 </View>
-                <View className="flex-1">
-                  <Text
-                    style={{ color: colors.textPrimary }}
-                    className="text-base font-medium"
-                  >
-                    Replay App Tutorial
-                  </Text>
-                  <Text
-                    style={{ color: colors.textMuted }}
-                    className="text-xs mt-0.5"
-                  >
-                    Restart the interactive app tour
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </BlurView>
           </View>
         </View>
 
         {/* Logout */}
-        <TouchableOpacity 
-          onPress={handleLogout}
-          style={{ 
-            backgroundColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.1)' : 'rgb(254, 242, 242)',
+        <View
+          style={{
+            borderRadius: 18,
+            overflow: 'hidden',
             borderWidth: 1,
-            borderColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.3)' : 'rgb(254, 226, 226)',
+            borderColor: 'rgba(255,255,255,0.18)',
+            shadowColor: '#000',
+            shadowOpacity: 0.15,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 6,
+            marginBottom: 40,
           }}
-          className="flex-row items-center justify-center gap-2 h-12 mb-16 rounded-xl"
-          activeOpacity={0.7}
         >
-          <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-          <Text className="text-red-500 font-bold text-base">Log Out</Text>
-        </TouchableOpacity>
+          <BlurView
+            intensity={28}
+            tint="dark"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.10)',
+              borderRadius: 18,
+              paddingVertical: 14,
+            }}
+          >
+            {/* Subtle top highlight */}
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                backgroundColor: 'rgba(255,255,255,0.35)',
+              }}
+            />
+            
+            <TouchableOpacity 
+              onPress={handleLogout}
+              className="flex-row items-center justify-center gap-2"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={20} color="rgba(180,210,205,0.55)" />
+              <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '500' }}>Log Out</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
       </ScrollView>
 
       {/* Theme Selection Modal */}

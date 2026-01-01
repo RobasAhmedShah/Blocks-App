@@ -15,6 +15,7 @@ import {
   Platform,
   Modal,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +33,7 @@ import { marketplaceAPI } from '@/services/api/marketplace.api';
 
 // Constants
 const BALANCE_EPSILON = 0.01;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const MINIMUM_TOKENS = 0.1;
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
@@ -488,31 +490,37 @@ export default function BuyTokensScreen() {
       style={[styles.container, { paddingTop: insets.top }]}
     >
       <StatusBar barStyle="light-content" />
-      <View style={{ flex: 1, justifyContent: 'space-between' }}>
-        {/* Content Area - Compressed */}
-        <View style={{ flexShrink: 1 }}>
-          {/* Header */}
-          <View
-            style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
-            className="flex-row items-center px-4 py-3"
-          >
-            <View className="flex-row items-center justify-between w-full">
-              <TouchableOpacity 
-                className="w-10 h-10 items-center justify-center"
-                onPress={() => router.back()}
-              >
-                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        {/* Header - Fixed at top */}
+        <View
+          style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+          className="flex-row items-center px-4 py-3"
+        >
+          <View className="flex-row items-center justify-between w-full">
+            <TouchableOpacity 
+              className="w-10 h-10 items-center justify-center"
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
 
-              <View className="flex-1 items-center">
-                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-                  Investment
-                </Text>
-              </View>
-
-              <View className="w-10" />
+            <View className="flex-1 items-center">
+              <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+                Investment
+              </Text>
             </View>
+
+            <View className="w-10" />
           </View>
+        </View>
+
+        {/* Scrollable Content Area */}
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
 
         {/* Tabs */}
         <View style={styles.tabs}>
@@ -664,7 +672,7 @@ export default function BuyTokensScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </ScrollView>
 
         {/* CTA - Fixed above keyboard */}
         <View style={styles.ctaContainerWrapper}>
@@ -1025,7 +1033,7 @@ const styles = StyleSheet.create({
 
   cta: {
     backgroundColor: '#10B981',
-    paddingVertical: 14,
+    paddingVertical: SCREEN_HEIGHT * 0.018, // 1.8% of screen height
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1034,43 +1042,47 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 6,
-    minHeight: 50,
+    minHeight: SCREEN_HEIGHT * 0.06, // 6% of screen height
   },
 
-  ctaText: { color: '#fff', fontWeight: '700', fontSize: 17, letterSpacing: 0.5 },
+  ctaText: { 
+    color: '#fff', 
+    fontWeight: '700', 
+    fontSize: SCREEN_WIDTH * 0.042, // 4.2% of screen width
+    letterSpacing: 0.5 
+  },
 
   keypadContainer: {
-    paddingTop: 8,
-    paddingBottom: 12,
     backgroundColor: 'transparent',
+    paddingVertical: SCREEN_HEIGHT * 0.01, // 1% of screen height
   },
   keypadBorder: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     marginHorizontal: 0,
-    marginBottom: 12,
+    marginBottom: SCREEN_HEIGHT * 0.015, // 1.5% of screen height
   },
   keypad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: SCREEN_WIDTH * 0.05, // 5% of screen width
+    paddingTop: SCREEN_HEIGHT * 0.005, // 0.5% of screen height
   },
 
   key: {
     width: '30%',
-    height: 56,
+    height: SCREEN_HEIGHT * 0.06, // 7% of screen height (responsive button height)
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    // marginBottom: SCREEN_HEIGHT * 0.015, // 1.5% of screen height
     borderRadius: 0,
     backgroundColor: 'transparent',
   },
 
   keyText: {
     color: 'rgba(255, 255, 255, 0.95)',
-    fontSize: 26,
+    fontSize: SCREEN_WIDTH * 0.065, // 6.5% of screen width (responsive font)
     fontWeight: '400',
     letterSpacing: 0,
   },
@@ -1079,19 +1091,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderRadius: 10,
-    padding: 8,
-    marginHorizontal: 16,
-    marginTop: 6,
+    padding: SCREEN_HEIGHT * 0.01, // 1% of screen height
+    marginHorizontal: SCREEN_WIDTH * 0.04, // 4% of screen width
+    marginTop: SCREEN_HEIGHT * 0.008, // 0.8% of screen height
     gap: 8,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   warningText: {
     color: '#fca5a5',
-    fontSize: 12,
+    fontSize: SCREEN_WIDTH * 0.03, // 3% of screen width
     flex: 1,
     fontWeight: '500',
-    lineHeight: 16,
+    lineHeight: SCREEN_HEIGHT * 0.02, // 2% of screen height
   },
   ctaContainerWrapper: {
     borderTopWidth: 1,
@@ -1099,9 +1111,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   ctaContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 25,
-    paddingBottom: 10,
+    paddingHorizontal: SCREEN_WIDTH * 0.04, // 4% of screen width
+    paddingTop: SCREEN_HEIGHT * 0.02, // 2% of screen height
+    paddingBottom: SCREEN_HEIGHT * 0.02, // 2% of screen height
     backgroundColor: 'transparent',
   },
   ctaDisabled: {

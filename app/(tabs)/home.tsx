@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MarketplacePreviewRow } from '@/components/marketplace/MarketplacePreviewRow';
 import Constants from 'expo-constants';
 import { Defs, RadialGradient, Rect, Stop, Svg } from 'react-native-svg';
+import { GlassChip } from '@/components/GlassChip';
 
 const { width, height } = Dimensions.get('window');
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
@@ -51,67 +52,7 @@ const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any
   </BlurView>
 );
 
-// Glass Chip Component
-const GlassChip = ({
-  text,
-  accent = false,
-}: {
-  text: string;
-  accent?: boolean;
-}) => {
-  return (
-    <View
-      style={{
-        borderRadius: 14,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: accent
-          ? 'rgba(158, 220, 90, 0.45)'
-          : 'rgba(255,255,255,0.18)',
-        shadowColor: accent ? '#9EDC5A' : '#000',
-        shadowOpacity: accent ? 0.35 : 0.15,
-        shadowRadius: accent ? 10 : 6,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 6,
-      }}
-    >
-      <BlurView
-        intensity={accent ? 40 : 28}
-        tint="dark"
-        style={{
-          paddingHorizontal: 14,
-          paddingVertical: 7,
-          backgroundColor: accent
-            ? 'rgba(158, 220, 90, 0.18)'
-            : 'rgba(255,255,255,0.10)',
-        }}
-      >
-        {/* subtle top highlight */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            backgroundColor: 'rgba(255,255,255,0.35)',
-          }}
-        />
 
-        <Text
-          style={{
-            color: accent ? '#9EDC5A' : 'rgba(255,255,255,0.92)',
-            fontSize: 12,
-            fontWeight: '600',
-            letterSpacing: 0.2,
-          }}
-        >
-          {text}
-        </Text>
-      </BlurView>
-    </View>
-  );
-};
 
 
 function BlocksHomeScreen() {
@@ -169,9 +110,14 @@ function BlocksHomeScreen() {
     }, [loadWallet, loadKycStatus, isTourActive])
   );
   
-  // Auto-start tour logic
+  // Auto-start tour logic - DISABLED PERMANENTLY
   useLayoutEffect(() => {
     const checkAndStartTour = async () => {
+      // Tour is permanently disabled - return immediately
+      return;
+      
+      // Original tour logic commented out below
+      /*
       if (isTourActive) {
         console.log('[HomeScreen] Tour already active, skipping start check');
         return;
@@ -195,6 +141,7 @@ function BlocksHomeScreen() {
           setShouldStartTour(false);
         }, 800);
       }
+      */
     };
     
     checkAndStartTour();

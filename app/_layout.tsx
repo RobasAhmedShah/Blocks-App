@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { useNotifications } from '@/services/useNotifications';
+import * as NavigationBar from 'expo-navigation-bar';
 
 const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
@@ -29,6 +30,13 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   // Use an empty object to maintain structure without loading specific fonts
   const [fontsLoaded, fontError] = useFonts({});
+
+  // Hide system navigation bar on Android for full-screen experience
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

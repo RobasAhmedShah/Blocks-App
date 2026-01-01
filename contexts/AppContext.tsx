@@ -716,11 +716,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         const firstInvestment = sortedInvestments[0];
         
-        // Sum up all values
+        // Sum up all values with full precision (no rounding until final result)
         const totalTokens = sortedInvestments.reduce((sum, inv) => sum + inv.tokens, 0);
         const totalInvestedAmount = sortedInvestments.reduce((sum, inv) => sum + inv.investedAmount, 0);
-        const totalCurrentValue = sortedInvestments.reduce((sum, inv) => sum + inv.currentValue, 0);
         const totalMonthlyRentalIncome = sortedInvestments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
+        
+        // Find property from state - it should exist since properties are loaded first
+        const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
+        
+        // Calculate currentValue for each investment with full precision, then sum
+        // This ensures we sum before rounding to avoid decimal precision issues
+        const totalCurrentValue = sortedInvestments.reduce((sum, inv) => {
+          // Calculate each investment's currentValue: tokens × property.tokenPrice
+          // Use the property token price from the investment or property data
+          const tokenPrice = inv.property?.tokenPrice || propertyData?.tokenPrice || 0;
+          const investmentCurrentValue = inv.tokens * tokenPrice;
+          // Sum with full precision (no rounding)
+          return sum + investmentCurrentValue;
+        }, 0);
+        
+        // Debug logs for property merge calculation
+        console.log('=== Property Merge Debug ===');
+        console.log('Property ID:', propertyId);
+        console.log('Property Title:', firstInvestment.property?.title || propertyData?.title);
+        console.log('Token Price (from propertyData):', propertyData?.tokenPrice);
+        console.log('Token Prices (from inv.property):', sortedInvestments.map(inv => ({
+          invId: inv.id,
+          tokenPrice: inv.property?.tokenPrice,
+          tokens: inv.tokens,
+          calculatedValue: inv.tokens * (inv.property?.tokenPrice || 0)
+        })));
+        console.log('Total Tokens:', totalTokens);
+        console.log('Calculated totalCurrentValue:', totalCurrentValue);
+        console.log('Total Invested Amount:', totalInvestedAmount);
+        console.log('Manual verification (totalTokens × tokenPrice):', totalTokens * (propertyData?.tokenPrice || firstInvestment.property?.tokenPrice || 0));
+        console.log('Difference:', totalCurrentValue - (totalTokens * (propertyData?.tokenPrice || firstInvestment.property?.tokenPrice || 0)));
         
         // Recalculate ROI based on merged totals
         const mergedROI = totalInvestedAmount > 0 
@@ -748,9 +778,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } else {
           console.log(`[AppContext] Property ${propertyId}: No certificate path found for ${sortedInvestments.length} investment(s)`);
         }
-        
-        // Find property from state - it should exist since properties are loaded first
-        const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
         
         if (!propertyData) {
           console.warn(`Property ${firstInvestment.property.id} not found in state. Using minimal property data.`);
@@ -794,7 +821,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           property: property,
           tokens: totalTokens,
           investedAmount: totalInvestedAmount,
-          currentValue: totalCurrentValue,
+          currentValue: totalCurrentValue, // Sum of individual currentValues calculated with full precision
           roi: mergedROI,
           rentalYield: mergedRentalYield,
           monthlyRentalIncome: totalMonthlyRentalIncome,

@@ -28,8 +28,6 @@ import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useAuth } from "@/contexts/AuthContext";
-import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
-import { apiClient } from '@/services/api/apiClient';
 import { BlurView } from 'expo-blur';
 import Constants from 'expo-constants';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
@@ -71,7 +69,7 @@ const FeatureChip = ({ icon, value, label }: { icon: string; value: string; labe
 );
 
 const AmenityChip = ({ icon, name }: { icon: string; name: string }) => (
-  <GlassCard style={{ flex: 1,  padding: 16, alignItems: 'center', minWidth: '30%' }}>
+  <GlassCard style={{ flex: 1,  padding: 16, alignItems: 'center', minWidth: 50, maxWidth: '20px' }}>
     <Ionicons name={icon as any} size={24} color="#FFFFFF" style={{ marginBottom: 8 }} />
     <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', textAlign: 'center' }} numberOfLines={2}>{name}</Text>
   </GlassCard>
@@ -92,8 +90,6 @@ export default function PropertyDetailScreen() {
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
-  const [loadingCandles, setLoadingCandles] = useState(false);
   const [selectedToken, setSelectedToken] = useState<PropertyToken | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const { colors, isDarkColorScheme } = useColorScheme();
@@ -101,44 +97,6 @@ export default function PropertyDetailScreen() {
   const { isGuest, exitGuestMode, isAuthenticated } = useAuth();
 
   const bookmarked = id ? isBookmarked(id) : false;
-
-  // Fetch daily candles data for the property
-  useEffect(() => {
-    const fetchDailyCandles = async () => {
-      if (!id) return;
-
-      try {
-        setLoadingCandles(true);
-        const candles: DailyCandle[] = await apiClient.get<DailyCandle[]>(
-          `/api/mobile/price-history/candles/${id}?priceSource=marketplace`
-        );
-
-        // Transform candles data: calculate average of high and low for each day
-        const transformedData: LineGraphDataPoint[] = candles.map((candle) => {
-          // Calculate average of high and low: (highPrice + lowPrice) / 2
-          const averagePrice = (candle.highPrice + candle.lowPrice) / 2;
-          
-          return {
-            date: new Date(candle.date), // Convert YYYY-MM-DD string to Date
-            value: averagePrice,
-          };
-        });
-
-        // Sort by date to ensure chronological order
-        transformedData.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-        setCandlesData(transformedData);
-      } catch (error) {
-        console.error('Error fetching daily candles:', error);
-        // On error, set empty array (graph will show "No data available")
-        setCandlesData([]);
-      } finally {
-        setLoadingCandles(false);
-      }
-    };
-
-    fetchDailyCandles();
-  }, [id]);
 
   // Tab swipe handler
   const tabs = ["Financials", "Calculator", "Documents", "Location"];
@@ -555,7 +513,7 @@ export default function PropertyDetailScreen() {
           )}
 
           {/* Feature Chips Row */}
-          <View style={{ paddingHorizontal: 18, marginBottom: 20 }}>
+          {/* <View style={{ paddingHorizontal: 18, marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               {property.features?.area && (
                 <FeatureChip
@@ -587,13 +545,13 @@ export default function PropertyDetailScreen() {
                 label="Parking"
               />
             </View>
-          </View>
+          </View> */}
 
           {/* Amenities Section */}
           {property.amenities && property.amenities.length > 0 && (
             <View style={{ paddingHorizontal: 18, marginBottom: 20 }}>
               <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginBottom: 12 }}>Amenities</Text>
-              <GlassCard style={{ padding: 16 }}>
+              {/* <GlassCard style={{ padding: 16 }}> */}
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -624,7 +582,7 @@ export default function PropertyDetailScreen() {
                     );
                   })}
                 </ScrollView>
-              </GlassCard>
+              {/* </GlassCard> */}
             </View>
           )}
 
@@ -822,23 +780,6 @@ export default function PropertyDetailScreen() {
                 )}
               </GlassCard>
 
-              {/* Performance Visualization */}
-              <GlassCard style={{ padding: 20, marginBottom: 24 }}>
-                {loadingCandles ? (
-                  <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color="#9EDC5A" />
-                    <Text style={{ color: 'rgba(255,255,255,0.55)', marginTop: 8, fontSize: 12 }}>
-                      Loading price data...
-                    </Text>
-                  </View>
-                ) : (
-                  <SimpleLineGraph 
-                    data={candlesData.length > 0 ? candlesData : []}
-                    lineColor="#9EDC5A"
-                    gradientColor="#9EDC5A"
-                  />
-                )}
-              </GlassCard>
 
               {/* Simple Return Explanation */}
               <GlassCard style={{ padding: 24, marginBottom: 24 }}>

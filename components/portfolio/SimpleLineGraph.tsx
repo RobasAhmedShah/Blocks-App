@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 export interface LineGraphDataPoint {
   date: Date;
   value: number;
+  volume?: number; // Optional volume data
 }
 
 interface SimpleLineGraphProps {
@@ -56,7 +57,8 @@ export function SimpleLineGraph({
         x: isNaN(x) ? padding.left : x, 
         y: isNaN(y) ? (padding.top + graphHeight) : y, 
         value: item.value,
-        date: item.date
+        date: item.date,
+        volume: item.volume // Include volume in points
       };
     });
   }, [data, maxValue, minValue, graphWidth, graphHeight, padding.left, padding.top, valueRange]);
@@ -86,6 +88,7 @@ export function SimpleLineGraph({
           y: validPoints[0].y,
           value: validPoints[0].value,
           date: validPoints[0].date,
+          volume: validPoints[0].volume,
         };
       } else if (adjustedX >= validPoints[validPoints.length - 1].x) {
         return {
@@ -93,6 +96,7 @@ export function SimpleLineGraph({
           y: validPoints[validPoints.length - 1].y,
           value: validPoints[validPoints.length - 1].value,
           date: validPoints[validPoints.length - 1].date,
+          volume: validPoints[validPoints.length - 1].volume,
         };
       }
       
@@ -105,20 +109,89 @@ export function SimpleLineGraph({
       const rightDateMs = rightPoint.date.getTime();
       const interpolatedDateMs = leftDateMs + (rightDateMs - leftDateMs) * t;
       
+      // Interpolate volume if both points have volume data
+      const interpolatedVolume = leftPoint.volume !== undefined && rightPoint.volume !== undefined
+        ? leftPoint.volume + (rightPoint.volume - leftPoint.volume) * t
+        : leftPoint.volume ?? rightPoint.volume;
+      
       return {
         x: adjustedX,
         y: leftPoint.y + (rightPoint.y - leftPoint.y) * t,
         value: leftPoint.value + (rightPoint.value - leftPoint.value) * t,
         date: new Date(interpolatedDateMs),
+        volume: interpolatedVolume,
       };
     }
     return null;
   }, [interpolatedX, validPoints]);
   
-  const selectedPoint = interpolatedPoint || 
-    (selectedIndex !== null && validPoints[selectedIndex] && selectedIndex < validPoints.length
-      ? validPoints[selectedIndex] 
-      : null);
+  // Find which actual point's values to use - only update when reaching actual point's X position
+  const activePoint = useMemo(() => {
+    if (interpolatedX === null || validPoints.length === 0) {
+      // Fallback to selectedIndex if no interpolation
+      if (selectedIndex !== null && validPoints[selectedIndex] && selectedIndex < validPoints.length) {
+        return validPoints[selectedIndex];
+      }
+      return null;
+    }
+
+    // Find which point we've reached based on X position
+    // Use the point whose X position we've reached or passed, but haven't reached the next point yet
+    for (let i = 0; i < validPoints.length; i++) {
+      const point = validPoints[i];
+      
+      // If we're at or past this point's X position
+      if (interpolatedX >= point.x) {
+        // Check if there's a next point
+        if (i < validPoints.length - 1) {
+          const nextPoint = validPoints[i + 1];
+          // If we haven't reached the next point's X position yet, use current point
+          if (interpolatedX < nextPoint.x) {
+            return point;
+          }
+          // Otherwise continue to check next point
+        } else {
+          // This is the last point, use it
+          return point;
+        }
+      } else {
+        // We're before this point's X position
+        // If this is the first point, use it
+        if (i === 0) {
+          return point;
+        }
+        // Otherwise use the previous point (the one we've already passed)
+        return validPoints[i - 1];
+      }
+    }
+    
+    // Fallback to last point
+    return validPoints[validPoints.length - 1];
+  }, [interpolatedX, validPoints, selectedIndex]);
+
+  // Combine interpolated position (for smooth dragging) with exact point values
+  const selectedPoint = useMemo(() => {
+    if (!interpolatedPoint && !activePoint) return null;
+    
+    // Use interpolated position for smooth tooltip movement
+    const position = interpolatedPoint || {
+      x: activePoint!.x,
+      y: activePoint!.y,
+      date: activePoint!.date,
+      value: 0,
+      volume: undefined,
+    };
+    
+    // But use exact values from active point (not interpolated)
+    // Active point changes only when crossing segment midpoints
+    return {
+      x: position.x, // Interpolated X for smooth movement
+      y: position.y, // Interpolated Y for smooth movement along line
+      date: activePoint!.date, // Exact date from active point
+      value: activePoint!.value, // Exact value from active point (NOT interpolated)
+      volume: activePoint!.volume, // Exact volume from active point (NOT interpolated)
+    };
+  }, [interpolatedPoint, activePoint]);
 
   if (validPoints.length === 0) {
     return (
@@ -376,7 +449,7 @@ export function SimpleLineGraph({
         {/* Enhanced tooltip */}
         {selectedPoint && (() => {
           const tooltipWidth = 150;
-          const tooltipHeight = 68;
+          const tooltipHeight = selectedPoint.volume !== undefined ? 88 : 68; // Increase height if volume is shown
           const margin = 20;
           
           const top = selectedPoint.y - tooltipHeight - margin;
@@ -417,6 +490,18 @@ export function SimpleLineGraph({
               }}>
                 ${selectedPoint.value.toFixed(2)}
               </Text>
+              {selectedPoint.volume !== undefined && (
+                <Text style={{ 
+                  color: 'rgba(255, 255, 255, 0.6)', 
+                  fontSize: 12, 
+                  marginTop: 2,
+                  fontWeight: '400',
+                }}>
+                  Sold: {selectedPoint.volume.toLocaleString('en-US', { 
+                    maximumFractionDigits: 2 
+                  })}
+                </Text>
+              )}
               <Text style={{ 
                 color: 'rgba(255, 255, 255, 0.7)', 
                 fontSize: 12, 
@@ -429,6 +514,7 @@ export function SimpleLineGraph({
                   year: 'numeric' 
                 })}
               </Text>
+              
               <View
                 style={{
                   position: 'absolute',

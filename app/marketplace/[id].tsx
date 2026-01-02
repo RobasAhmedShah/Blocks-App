@@ -18,6 +18,8 @@ import Constants from 'expo-constants';
 import { authApi } from '@/services/api/auth.api';
 import * as SecureStore from 'expo-secure-store';
 import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
+import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
+import { apiClient } from '@/services/api/apiClient';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -28,7 +30,23 @@ export default function ListingDetailScreen() {
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
+  const [loadingCandles, setLoadingCandles] = useState(false);
+
+
+  // Interface for daily candle data from API
+  interface DailyCandle {
+    date: string; // YYYY-MM-DD format
+    propertyId: string;
+    priceSource: 'base' | 'marketplace';
+    openPrice: number;
+    highPrice: number;
+    lowPrice: number;
+    closePrice: number;
+    volume: number;
+    tradeCount: number;
+  }
+
   // Check if this is the user's own listing
   const isOwnListing = listing && currentUserId && listing.sellerId === currentUserId;
   
@@ -111,6 +129,47 @@ export default function ListingDetailScreen() {
     }
   };
 
+    // Fetch daily candles data for the property
+    useEffect(() => {
+      const fetchDailyCandles = async () => {
+        // Wait for listing to be loaded to get property ID
+        if (!listing || !listing.property?.id) return;
+  
+        try {
+          setLoadingCandles(true);
+          // Use property ID from listing, not the listing ID
+          const propertyId = listing.property.id;
+          const candles: DailyCandle[] = await apiClient.get<DailyCandle[]>(
+            `/api/mobile/price-history/candles/${propertyId}?priceSource=marketplace`
+          );
+  
+          // Transform candles data: calculate average of high and low for each day
+          const transformedData: LineGraphDataPoint[] = candles.map((candle) => {
+            // Calculate average of high and low: (highPrice + lowPrice) / 2
+            const averagePrice = (candle.highPrice + candle.lowPrice) / 2;
+            
+            return {
+              date: new Date(candle.date), // Convert YYYY-MM-DD string to Date
+              value: averagePrice,
+              volume: candle.volume,
+            };
+          });
+  
+          // Sort by date to ensure chronological order
+          transformedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+  
+          setCandlesData(transformedData);
+        } catch (error) {
+          console.error('Error fetching daily candles:', error);
+          // On error, set empty array (graph will show "No data available")
+          setCandlesData([]);
+        } finally {
+          setLoadingCandles(false);
+        }
+      };
+  
+      fetchDailyCandles();
+    }, [listing]); // Depend on listing instead of id
 
   const handleUnpublish = async () => {
     if (!listing) return;
@@ -489,6 +548,39 @@ export default function ListingDetailScreen() {
               </View>
             );
           })()}
+
+          {/* Performance Visualization */}
+          <View 
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            {loadingCandles ? (
+              <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#9EDC5A" />
+                <Text style={{ color: 'rgba(255,255,255,0.55)', marginTop: 8, fontSize: 12 }}>
+                  Loading price data...
+                </Text>
+              </View>
+            ) : (
+              <>
+              <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+                Avg Token prices
+                </Text>
+              <SimpleLineGraph 
+                data={candlesData.length > 0 ? candlesData : []}
+                lineColor={colors.primary}
+                gradientColor={colors.primary}
+              />
+              </>
+            )}
+          </View>
+
 
           {/* ROI Projection Mini Chart */}
           {(() => {

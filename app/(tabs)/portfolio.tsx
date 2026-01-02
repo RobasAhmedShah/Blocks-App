@@ -305,12 +305,12 @@ export default function PortfolioScreen() {
               const parts = roundedValue.toFixed(2).split('.');
               return (
                 <>
-                  <Text style={{ color: 'black', fontFamily: 'sans-serif' }} className="text-5xl">
+            <Text style={{ color: 'black', fontFamily: 'sans-serif' }} className="text-5xl">
                     ${parseInt(parts[0], 10).toLocaleString('en-US')}
-                  </Text>
-                  <Text style={{ color: 'black', fontFamily: 'sans-serif-thin' }} className=" text-4xl">
+            </Text>
+            <Text style={{ color: 'black', fontFamily: 'sans-serif-thin' }} className=" text-4xl">
                     .{parts[1]}
-                  </Text>
+            </Text>
                 </>
               );
             })()}

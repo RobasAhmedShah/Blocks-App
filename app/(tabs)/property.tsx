@@ -43,6 +43,8 @@ export default function HomeScreen() {
     sortBy: 'newest',
     tokenPriceRange: [0, 1000], // Keep for backward compatibility
     tokenPriceValue: null, // Single investment amount
+    filterMode: 'amount', // Filter by amount or tokens
+    tokenCount: null, // Token count when filtering by tokens
     roiRange: [0, 30], // Keep for backward compatibility
     roiValue: null, // Keep for backward compatibility
     returnPeriod: 'monthly', // Default to monthly
@@ -55,11 +57,14 @@ export default function HomeScreen() {
   const filters = ['All', ...propertyFilters, 'Bookmarks'] as const;
 
   // Calculate min/max values from properties for sliders
-  const { minTokenPrice, maxTokenPrice, minROI, maxROI, availableCities, availablePropertyTypes } = useMemo(() => {
+  const { minTokenPrice, maxTokenPrice, averageTokenPrice, minTokenCount, maxTokenCount, minROI, maxROI, availableCities, availablePropertyTypes } = useMemo(() => {
     if (state.properties.length === 0) {
       return {
         minTokenPrice: 0,
         maxTokenPrice: 1000,
+        averageTokenPrice: 500,
+        minTokenCount: 0,
+        maxTokenCount: 2,
         minROI: 0,
         maxROI: 30,
         availableCities: [],
@@ -72,9 +77,30 @@ export default function HomeScreen() {
     const cities = Array.from(new Set(state.properties.map(p => p.city).filter(Boolean))) as string[];
     const types = Array.from(new Set(state.properties.map(p => p.type).filter(Boolean))) as string[];
 
+    const minPrice = tokenPrices.length > 0 ? Math.floor(Math.min(...tokenPrices)) : 0;
+    const maxPrice = tokenPrices.length > 0 ? Math.ceil(Math.max(...tokenPrices)) : 1000;
+    const avgPrice = tokenPrices.length > 0 
+      ? tokenPrices.reduce((sum, price) => sum + price, 0) / tokenPrices.length 
+      : (minPrice + maxPrice) / 2;
+
+    // Calculate min/max token counts based on available tokens in properties
+    // Find the property with the most available tokens
+    const availableTokensPerProperty = state.properties.map(p => {
+      const available = p.totalTokens - p.soldTokens;
+      return available > 0 ? available : 0;
+    });
+    
+    const minTokenCount = 0.1; // Minimum tokens you can buy (0.1 token)
+    const maxTokenCount = availableTokensPerProperty.length > 0 
+      ? Math.ceil(Math.max(...availableTokensPerProperty)) // Max available tokens from any property
+      : 2; // fallback
+
     return {
-      minTokenPrice: tokenPrices.length > 0 ? Math.floor(Math.min(...tokenPrices)) : 0,
-      maxTokenPrice: tokenPrices.length > 0 ? Math.ceil(Math.max(...tokenPrices)) : 1000,
+      minTokenPrice: minPrice,
+      maxTokenPrice: maxPrice,
+      averageTokenPrice: avgPrice,
+      minTokenCount: minTokenCount,
+      maxTokenCount: maxTokenCount,
       minROI: rois.length > 0 ? Math.floor(Math.min(...rois)) : 0,
       maxROI: rois.length > 0 ? Math.ceil(Math.max(...rois)) : 30,
       availableCities: cities.sort(),
@@ -150,8 +176,9 @@ export default function HomeScreen() {
 
     if (!matchesSearch) return false;
 
-    // Token price value filter - check if tokens are buyable at this investment amount
+    // Filter by investment amount OR token count (they work independently)
     if (filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0) {
+      // Filter by investment amount - check if tokens are buyable at this investment amount
       const MINIMUM_TOKENS = 0.1; // Minimum tokens required to invest
       const tokensBuyable = filterState.tokenPriceValue / property.tokenPrice;
       const availableTokens = property.totalTokens - property.soldTokens;
@@ -162,8 +189,16 @@ export default function HomeScreen() {
       if (tokensBuyable < MINIMUM_TOKENS || availableTokens <= 0) {
         return false;
       }
+    } else if (filterState.tokenCount !== null && filterState.tokenCount > 0) {
+      // Filter by token count - show properties where there are enough available tokens
+      const availableTokens = property.totalTokens - property.soldTokens;
+      
+      // Property must have enough available tokens to buy the specified count
+      if (availableTokens < filterState.tokenCount || availableTokens <= 0) {
+        return false;
+      }
     }
-    // If tokenPriceValue is null, don't filter by token price (show all)
+    // If both are null, don't filter by token price/count (show all)
 
     // ROI value filter removed - no longer filtering by ROI target
 
@@ -212,35 +247,41 @@ export default function HomeScreen() {
     const tokenPrice = property.tokenPrice;
     const estimatedYield = property.estimatedYield;
 
-    // Check if specific values are set
-    const isTokenValueSet = filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0;
+    // Check if either investment amount OR token count is set
+    const isInvestmentSet = filterState.tokenPriceValue !== null && filterState.tokenPriceValue > 0;
+    const isTokenCountSet = filterState.tokenCount !== null && filterState.tokenCount > 0;
 
     let tokensCount: number | null = null;
     let investmentAmount: number | null = null;
     let monthlyEarnings: number | null = null;
     let yearlyEarnings: number | null = null;
 
-    if (isTokenValueSet) {
-      // Token price value-based calculation (similar to amount-based mode in guidance-two)
+    if (isInvestmentSet) {
+      // Calculate based on investment amount
+      tokensCount = filterState.tokenPriceValue! / tokenPrice;
       investmentAmount = filterState.tokenPriceValue!;
       
-      // Calculate tokens you can buy with this specific investment
-      tokensCount = investmentAmount / tokenPrice;
+      // Calculate earnings based on estimatedYield (annual yield)
+      yearlyEarnings = investmentAmount * (estimatedYield / 100);
+      monthlyEarnings = yearlyEarnings / 12;
+    } else if (isTokenCountSet) {
+      // Calculate based on token count
+      tokensCount = filterState.tokenCount!;
+      investmentAmount = filterState.tokenCount! * tokenPrice;
       
-      // Calculate monthly earnings from this investment
-      // Formula: monthlyIncome = (investment * estimatedYield) / 100 / 12
-      monthlyEarnings = (investmentAmount * estimatedYield) / 100 / 12;
-      
-      // Calculate yearly earnings
-      yearlyEarnings = (investmentAmount * estimatedYield) / 100;
+      // Calculate earnings based on estimatedYield (annual yield)
+      yearlyEarnings = investmentAmount * (estimatedYield / 100);
+      monthlyEarnings = yearlyEarnings / 12;
     }
 
     return {
+      isTokenValueSet: isInvestmentSet || isTokenCountSet, // Either filter is active
+      isTokenCountSet: isTokenCountSet,
+      isInvestmentSet: isInvestmentSet,
       tokensCount,
       investmentAmount,
       monthlyEarnings,
       yearlyEarnings,
-      isTokenValueSet,
     };
   };
 
@@ -289,7 +330,7 @@ export default function HomeScreen() {
             <>
               {/* Tokens - Largest text when filters are active */}
               <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
-                {investmentDetails.tokensCount.toFixed(3)} tokens
+                {investmentDetails.isInvestmentSet ? `${investmentDetails.tokensCount.toFixed(3)} tokens` :  `$ ${investmentDetails.investmentAmount?.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
               </Text>
             </>
           ) : (
@@ -304,6 +345,26 @@ export default function HomeScreen() {
               </Text>
             </>
           )}
+
+{/* {investmentDetails.isTokenValueSet && investmentDetails.tokensCount !== null ? (
+            <>
+       
+              <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
+                {investmentDetails.tokensCount.toFixed(3)} tokens L
+              </Text>
+            </>
+          ) : (
+            <>
+         
+              <Text style={{ color: '#FFFFFF', fontFamily: 'sans-serif-thin', fontWeight: 'bold', fontStyle: 'italic', fontSize: 24, marginBottom: 2 }}>
+                ${property.tokenPrice.toFixed(2)}
+              </Text>
+           
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, fontWeight: 'bold', marginBottom: 0 }}>
+                Starting price
+              </Text>
+            </>
+          )} */}
         </View>
 
         {/* Card Content */}
@@ -324,7 +385,7 @@ export default function HomeScreen() {
                 <Text 
                   style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontFamily: 'sans-serif-thin', marginBottom: 6 }}
                 >
-                  ${investmentDetails.investmentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  {investmentDetails.isTokenCountSet ? `${investmentDetails.tokensCount?.toFixed(3)} tokens` :  `$ ${investmentDetails.investmentAmount?.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                 </Text>
               )}
               
@@ -543,6 +604,8 @@ export default function HomeScreen() {
             sortBy: 'newest',
             tokenPriceRange: [minTokenPrice, maxTokenPrice],
             tokenPriceValue: null, // Reset to null so slider uses default middle value
+            filterMode: 'amount', // Reset to amount mode
+            tokenCount: null, // Reset token count
             roiRange: [minROI, maxROI],
             roiValue: null, // Keep for backward compatibility
             returnPeriod: 'monthly', // Reset to default
@@ -553,6 +616,9 @@ export default function HomeScreen() {
         }}
         minTokenPrice={minTokenPrice}
         maxTokenPrice={maxTokenPrice}
+        averageTokenPrice={averageTokenPrice}
+        minTokenCount={minTokenCount ?? 0}
+        maxTokenCount={maxTokenCount ?? 2}
         availableCities={availableCities}
         availablePropertyTypes={availablePropertyTypes}
       />

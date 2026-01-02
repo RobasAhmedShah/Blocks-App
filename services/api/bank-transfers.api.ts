@@ -34,7 +34,7 @@ export interface BankAccountDetails {
 
 export interface CreateBankTransferRequestDto {
   amountUSDT: number;
-  proofImageUrl: string; // Base64 data URL
+  proofImageUrl?: string; // Base64 data URL (optional)
 }
 
 export const bankTransfersAPI = {

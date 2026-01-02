@@ -17,9 +17,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { quickAmounts } from '@/data/mockWallet';
 import { AppAlert } from '@/components/AppAlert';
-import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
-import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
 import { bankTransfersAPI } from '@/services/api/bank-transfers.api';
@@ -63,12 +61,6 @@ const validateAmount = (value: string): { isValid: boolean; error?: string } => 
   return { isValid: true };
 };
 
-interface ProofState {
-  uri: string | null;
-  base64: string | null;
-  uploaded: boolean;
-}
-
 type Step = 'amount' | 'bank-details';
 
 export default function BankTransferDepositScreen() {
@@ -86,12 +78,6 @@ export default function BankTransferDepositScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [touched, setTouched] = useState(!!suggestedAmount);
   
-  const [proof, setProof] = useState<ProofState>({
-    uri: null,
-    base64: null,
-    uploaded: false,
-  });
-
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<{
     accountName: string;
@@ -149,14 +135,19 @@ export default function BankTransferDepositScreen() {
       try {
         setLoadingBankDetails(true);
         const details = await bankTransfersAPI.getBankDetails();
-        setBankDetails(details);
+        // Always use the specified account number and IBAN
+        setBankDetails({
+          ...details,
+          accountNumber: 'PK73ABPA0010091733470012',
+          iban: 'PK73ABPA0010091733470012',
+        });
       } catch (error) {
         console.error('Error fetching bank details:', error);
         // Fallback to hardcoded details if API fails
         setBankDetails({
           accountName: 'Blocks Investment Platform',
-          accountNumber: 'PK12BLOCKS0001234567890',
-          iban: 'PK12BLOCKS0001234567890',
+          accountNumber: 'PK73ABPA0010091733470012',
+          iban: 'PK73ABPA0010091733470012',
           bankName: 'Standard Chartered Bank',
           swiftCode: 'SCBLPKKA',
           branch: 'Main Branch, Karachi',
@@ -167,6 +158,33 @@ export default function BankTransferDepositScreen() {
     };
     fetchBankDetails();
   }, []);
+
+  // Renew Gmail watch when bank transfer screen is opened
+  useEffect(() => {
+    const renewGmailWatch = async () => {
+      try {
+        const gmailWatchResponse = await fetch('https://Blocks-backend.vercel.app/api/gmail/watch/renew', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+        
+        if (gmailWatchResponse.ok) {
+          const gmailWatchData = await gmailWatchResponse.json();
+          console.log('Gmail watch renewed on screen open:', gmailWatchData);
+        } else {
+          console.warn('Gmail watch renewal failed on screen open:', gmailWatchResponse.status);
+        }
+      } catch (gmailError) {
+        // Don't block the screen if Gmail watch renewal fails
+        console.error('Error renewing Gmail watch on screen open:', gmailError);
+      }
+    };
+    
+    renewGmailWatch();
+  }, []); // Run once when component mounts
 
   // Load linked bank accounts
   const loadLinkedAccounts = async () => {
@@ -307,101 +325,7 @@ export default function BankTransferDepositScreen() {
     }
   };
 
-  const requestPermissions = async () => {
-    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (cameraStatus !== 'granted' || mediaStatus !== 'granted') {
-      setAlertState({
-        visible: true,
-        title: 'Permissions Required',
-        message: 'Camera and photo library access is required to upload proof of transfer.',
-        type: 'warning',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-        },
-      });
-      return false;
-    }
-    return true;
-  };
-
-  const pickImage = async (source: 'camera' | 'gallery') => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    try {
-      let result;
-      if (source === 'camera') {
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.8,
-        });
-      } else {
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.8,
-        });
-      }
-
-      if (!result.canceled && result.assets[0]) {
-        // Read image as base64 for frontend storage
-        try {
-          const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
-            encoding: 'base64',
-          });
-          setProof({
-            uri: result.assets[0].uri,
-            base64: base64,
-            uploaded: true, // Mark as uploaded since we have it locally
-          });
-        } catch (error) {
-          console.error('Error reading image as base64:', error);
-          setAlertState({
-            visible: true,
-            title: 'Error',
-            message: 'Failed to process image. Please try again.',
-            type: 'error',
-            onConfirm: () => {
-              setAlertState(prev => ({ ...prev, visible: false }));
-            },
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      setAlertState({
-        visible: true,
-        title: 'Error',
-        message: 'Failed to pick image. Please try again.',
-        type: 'error',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-        },
-      });
-    }
-  };
-
-
   const handleSubmit = async () => {
-    // Validate proof
-    if (!proof.uploaded || !proof.base64) {
-      setAlertState({
-        visible: true,
-        title: 'Proof Required',
-        message: 'Please upload proof of transfer before submitting.',
-        type: 'warning',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-        },
-      });
-      return;
-    }
-
     try {
       setIsProcessing(true);
       const depositAmount = parseFloat(amount);
@@ -411,42 +335,19 @@ export default function BankTransferDepositScreen() {
       const roundedPkrAmount = Math.round(pkrAmount);
       const expectedUsdAmount = roundedPkrAmount / USD_TO_PKR_RATE;
       
-      // Create base64 data URI for proof
-      const proofDataUri = `data:image/jpeg;base64,${proof.base64}`;
-      
-      // Submit to backend API (use original amount for API)
+      // Submit to backend API
+      // Backend requires proofImageUrl to be a non-empty string, so we send a placeholder
       const request = await bankTransfersAPI.createRequest({
         amountUSDT: depositAmount,
-        proofImageUrl: proofDataUri, // Backend will handle base64 upload
+        proofImageUrl: 'no-proof-required', // Placeholder value to satisfy backend validation
       });
       
       console.log('Bank transfer request created:', request);
       console.log(`Expected deposit: ${roundedPkrAmount} PKR = $${expectedUsdAmount.toFixed(2)} USD`);
       
-      // Renew Gmail watch after successful bank transfer request
-      try {
-        const gmailWatchResponse = await fetch('https://Blocks-backend.vercel.app/api/gmail/watch/renew', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        });
-        
-        if (gmailWatchResponse.ok) {
-          const gmailWatchData = await gmailWatchResponse.json();
-          console.log('Gmail watch renewed:', gmailWatchData);
-        } else {
-          console.warn('Gmail watch renewal failed:', gmailWatchResponse.status);
-        }
-      } catch (gmailError) {
-        // Don't fail the deposit if Gmail watch renewal fails
-        console.error('Error renewing Gmail watch:', gmailError);
-      }
-      
       // Also add to local storage for pending deposits display (optional)
       if (addBankTransferDeposit) {
-        await addBankTransferDeposit(depositAmount, proofDataUri);
+        await addBankTransferDeposit(depositAmount, '');
       }
       
       // Get initial balance before polling and store in ref
@@ -522,7 +423,7 @@ export default function BankTransferDepositScreen() {
   };
 
   const isAmountValid = validateAmount(amount).isValid;
-  const canSubmit = proof.uploaded && proof.base64 && !isProcessing;
+  const canSubmit = isAmountValid && !isProcessing;
 
   return (
     <View style={{ flex: 1 }}>
@@ -908,7 +809,7 @@ export default function BankTransferDepositScreen() {
                     lineHeight: 20,
                     color: colors.textSecondary,
                   }}>
-                    Enter the deposit amount and continue to view bank account details. After transferring funds, upload proof to complete your deposit request.
+                    Enter the deposit amount and continue to view bank account details. After transferring funds, submit your deposit request.
                   </Text>
                 </View>
               </View>
@@ -1062,7 +963,7 @@ export default function BankTransferDepositScreen() {
                       color: colors.textSecondary,
                       marginBottom: 8,
                     }}>
-                      Transfer ${amount} to the bank account below using your bank's app or website. After completing the transfer, upload proof of payment to complete your deposit request.
+                      Transfer ${amount} to the bank account below using your bank's app or website. After completing the transfer, submit your deposit request.
                     </Text>
                     {amount && parseFloat(amount) > 0 && (
                       <View style={{
@@ -1414,117 +1315,6 @@ export default function BankTransferDepositScreen() {
                     {bankDetails?.branch || 'Loading...'}
                   </Text>
                 </View>
-              </View>
-
-              {/* Proof Upload Section */}
-              <View style={{ marginBottom: 24 }}>
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: colors.textPrimary,
-                  marginBottom: 12,
-                }}>
-                  Upload Proof of Transfer *
-                </Text>
-
-                {proof.uri ? (
-                  <View>
-                    <Image
-                      source={{ uri: proof.uri }}
-                      style={{
-                        width: '100%',
-                        height: 200,
-                        borderRadius: 12,
-                        marginBottom: 12,
-                        backgroundColor: colors.background,
-                      }}
-                      resizeMode="contain"
-                    />
-                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <TouchableOpacity
-                        onPress={() => pickImage('camera')}
-                        style={{
-                          flex: 1,
-                          padding: 12,
-                          backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
-                          borderWidth: 1.5,
-                          borderColor: colors.border,
-                          borderRadius: 8,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Ionicons name="camera" size={20} color={colors.textPrimary} />
-                        <Text style={{ fontSize: 12, color: colors.textPrimary, marginTop: 4 }}>Retake</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => pickImage('gallery')}
-                        style={{
-                          flex: 1,
-                          padding: 12,
-                          backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
-                          borderWidth: 1.5,
-                          borderColor: colors.border,
-                          borderRadius: 8,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Ionicons name="images" size={20} color={colors.textPrimary} />
-                        <Text style={{ fontSize: 12, color: colors.textPrimary, marginTop: 4 }}>Change</Text>
-                      </TouchableOpacity>
-                      {proof.uploaded && (
-                        <View style={{
-                          flex: 1,
-                          padding: 12,
-                          backgroundColor: isDarkColorScheme 
-                            ? 'rgba(16, 185, 129, 0.15)' 
-                            : 'rgba(16, 185, 129, 0.1)',
-                          borderWidth: 1,
-                          borderColor: isDarkColorScheme 
-                            ? 'rgba(16, 185, 129, 0.3)' 
-                            : 'rgba(16, 185, 129, 0.2)',
-                          borderRadius: 8,
-                          alignItems: 'center',
-                        }}>
-                          <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                          <Text style={{ fontSize: 12, color: '#10B981', marginTop: 4, fontWeight: '600' }}>Ready</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <TouchableOpacity
-                      onPress={() => pickImage('camera')}
-                      style={{
-                        flex: 1,
-                        padding: 16,
-                        backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
-                        borderWidth: 1.5,
-                        borderColor: colors.border,
-                        borderRadius: 12,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Ionicons name="camera" size={24} color={colors.textPrimary} />
-                      <Text style={{ fontSize: 14, color: colors.textPrimary, marginTop: 8 }}>Camera</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => pickImage('gallery')}
-                      style={{
-                        flex: 1,
-                        padding: 16,
-                        backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
-                        borderWidth: 1.5,
-                        borderColor: colors.border,
-                        borderRadius: 12,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Ionicons name="images" size={24} color={colors.textPrimary} />
-                      <Text style={{ fontSize: 14, color: colors.textPrimary, marginTop: 8 }}>Gallery</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
 
               {/* Submit Button */}

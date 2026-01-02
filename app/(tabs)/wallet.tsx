@@ -90,10 +90,24 @@ export default function WalletScreen() {
 
   // Merge transactions with pending withdrawal requests
   const allTransactions = React.useMemo(() => {
+    // Filter out pending bank transfer deposits (old request-based feature)
+    // These are transactions with "Bank Transfer Deposit (Pending Verification)" description
+    const filteredTransactions = transactions.filter(tx => {
+      // Exclude pending bank transfer deposits that are waiting for admin approval
+      if (
+        tx.type === 'deposit' &&
+        tx.status === 'pending' &&
+        tx.description?.includes('Bank Transfer Deposit (Pending Verification)')
+      ) {
+        return false; // Don't show these in transaction history
+      }
+      return true;
+    });
+
     // Combine regular transactions with pending withdrawal requests
     // Remove any duplicate pending withdrawals that might already be in transactions
     const existingWithdrawalIds = new Set(
-      transactions
+      filteredTransactions
         .filter(tx => tx.type === 'withdraw' && tx.status === 'pending')
         .map(tx => tx.metadata?.withdrawalRequestId)
         .filter(Boolean)
@@ -104,7 +118,7 @@ export default function WalletScreen() {
     );
 
     // Sort by date (newest first)
-    return [...transactions, ...newPendingWithdrawals].sort((a, b) => {
+    return [...filteredTransactions, ...newPendingWithdrawals].sort((a, b) => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [transactions, pendingWithdrawalTransactions]);

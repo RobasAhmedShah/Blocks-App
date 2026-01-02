@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,11 +27,14 @@ import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-
 
 // Validation constants
 const VALIDATION_RULES = {
-  MIN_AMOUNT: 10,
+  MIN_AMOUNT: 0.01,
   MAX_AMOUNT: 100000,
   MAX_DECIMALS: 2,
   AMOUNT_REGEX: /^\d+\.?\d{0,2}$/,
 };
+
+// USD to PKR exchange rate
+const USD_TO_PKR_RATE = 278.50;
 
 // Validation helper functions
 const validateAmount = (value: string): { isValid: boolean; error?: string } => {
@@ -50,7 +53,7 @@ const validateAmount = (value: string): { isValid: boolean; error?: string } => 
   }
 
   if (numValue < VALIDATION_RULES.MIN_AMOUNT) {
-    return { isValid: false, error: `Minimum deposit is $${VALIDATION_RULES.MIN_AMOUNT}` };
+    return { isValid: false, error: `Minimum deposit is $${VALIDATION_RULES.MIN_AMOUNT.toFixed(2)}` };
   }
 
   if (numValue > VALIDATION_RULES.MAX_AMOUNT) {
@@ -72,7 +75,7 @@ export default function BankTransferDepositScreen() {
   const router = useRouter();
   const { amount: suggestedAmount } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { addBankTransferDeposit } = useApp();
+  const { addBankTransferDeposit, loadWallet, state } = useApp();
   
   // Get current route path for return navigation
   const currentRoute = '/wallet/deposit/bank-transfer';
@@ -119,6 +122,26 @@ export default function BankTransferDepositScreen() {
     message: '',
     type: 'info',
   });
+
+  // Loading dialog state for deposit processing
+  const [depositLoadingState, setDepositLoadingState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    isSuccess: boolean;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    isSuccess: false,
+  });
+
+  // Ref to track polling interval and initial balance
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialBalanceRef = useRef<number>(0);
+  const currentBalanceRef = useRef<number>(0);
+  const depositAmountRef = useRef<number>(0);
 
   // Fetch bank details from backend (Blocks' bank account)
   useEffect(() => {
@@ -193,6 +216,66 @@ export default function BankTransferDepositScreen() {
       setAmountError('Amount is required');
     }
   }, [amount, touched]);
+
+  // Watch for balance changes to detect deposit success
+  useEffect(() => {
+    if (!depositLoadingState.visible || depositLoadingState.isSuccess) {
+      return;
+    }
+
+    const currentBalance = state.balance?.usdc || 0;
+    currentBalanceRef.current = currentBalance;
+    
+    const balanceIncrease = currentBalance - initialBalanceRef.current;
+    
+    // Check if balance increased by the expected amount (from rounded PKR) with small tolerance
+    // Expected amount is the USD equivalent of the rounded PKR amount
+    const expectedAmount = depositAmountRef.current;
+    const tolerance = 0.01; // Allow $0.01 tolerance for rounding differences
+    
+    // If balance increased by approximately the expected amount (from rounded PKR conversion)
+    if (balanceIncrease >= expectedAmount - tolerance && balanceIncrease > 0.01) {
+      // Clear polling interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      
+      // Clear timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      
+      // Update dialog to show success with actual deposited amount
+      setDepositLoadingState({
+        visible: true,
+        title: 'Deposit Successful',
+        message: `Your deposit of $${balanceIncrease.toFixed(2)} has been processed successfully!`,
+        isSuccess: true,
+      });
+      
+      // Close dialog and navigate after 2 seconds
+      setTimeout(() => {
+        setDepositLoadingState(prev => ({ ...prev, visible: false }));
+        router.replace('/(tabs)/wallet' as any);
+      }, 2000);
+    }
+  }, [state.balance?.usdc, depositLoadingState.visible, depositLoadingState.isSuccess, router]);
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleContinue = () => {
     setTouched(true);
@@ -323,34 +406,100 @@ export default function BankTransferDepositScreen() {
       setIsProcessing(true);
       const depositAmount = parseFloat(amount);
       
+      // Calculate rounded PKR amount and convert back to USD for expected deposit
+      const pkrAmount = depositAmount * USD_TO_PKR_RATE;
+      const roundedPkrAmount = Math.round(pkrAmount);
+      const expectedUsdAmount = roundedPkrAmount / USD_TO_PKR_RATE;
+      
       // Create base64 data URI for proof
       const proofDataUri = `data:image/jpeg;base64,${proof.base64}`;
       
-      // Submit to backend API
+      // Submit to backend API (use original amount for API)
       const request = await bankTransfersAPI.createRequest({
         amountUSDT: depositAmount,
         proofImageUrl: proofDataUri, // Backend will handle base64 upload
       });
       
       console.log('Bank transfer request created:', request);
+      console.log(`Expected deposit: ${roundedPkrAmount} PKR = $${expectedUsdAmount.toFixed(2)} USD`);
+      
+      // Renew Gmail watch after successful bank transfer request
+      try {
+        const gmailWatchResponse = await fetch('https://Blocks-backend.vercel.app/api/gmail/watch/renew', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+        
+        if (gmailWatchResponse.ok) {
+          const gmailWatchData = await gmailWatchResponse.json();
+          console.log('Gmail watch renewed:', gmailWatchData);
+        } else {
+          console.warn('Gmail watch renewal failed:', gmailWatchResponse.status);
+        }
+      } catch (gmailError) {
+        // Don't fail the deposit if Gmail watch renewal fails
+        console.error('Error renewing Gmail watch:', gmailError);
+      }
       
       // Also add to local storage for pending deposits display (optional)
       if (addBankTransferDeposit) {
         await addBankTransferDeposit(depositAmount, proofDataUri);
       }
       
-      // Show success message
-      setAlertState({
+      // Get initial balance before polling and store in ref
+      initialBalanceRef.current = state.balance?.usdc || 0;
+      // Use expected USD amount (from rounded PKR) for checking success
+      depositAmountRef.current = expectedUsdAmount;
+      currentBalanceRef.current = state.balance?.usdc || 0;
+      
+      // Show loading dialog
+      setDepositLoadingState({
         visible: true,
-        title: 'Request Submitted',
-        message: `Your bank transfer deposit request (${request.displayCode}) has been submitted. Verification may take up to 24 hours. You will be notified once it's processed.`,
-        type: 'success',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-          // Navigate back to wallet
-          router.replace('/(tabs)/wallet' as any);
-        },
+        title: 'Awaiting Deposit',
+        message: 'Please wait while we process your deposit...',
+        isSuccess: false,
       });
+      
+      // Start polling for deposit approval
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          // Reload wallet balance
+          if (loadWallet) {
+            await loadWallet();
+          }
+        } catch (error) {
+          console.error('Error polling wallet balance:', error);
+        }
+      }, 3000); // Poll every 3 seconds
+      
+      // Stop polling after 5 minutes (300000ms) to prevent infinite polling
+      timeoutRef.current = setTimeout(() => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        
+        setDepositLoadingState(prev => {
+          if (prev.visible && !prev.isSuccess) {
+            // If still waiting, show message that it may take longer
+            setDepositLoadingState({
+              visible: true,
+              title: 'Deposit Pending',
+              message: 'Your deposit is being processed. You will be notified once it\'s completed.',
+              isSuccess: false,
+            });
+            
+            setTimeout(() => {
+              setDepositLoadingState(prevState => ({ ...prevState, visible: false }));
+              router.replace('/(tabs)/wallet' as any);
+            }, 3000);
+          }
+          return prev;
+        });
+      }, 300000); // 5 minutes timeout
     } catch (error: any) {
       console.error('Bank transfer deposit error:', error);
       setAlertState({
@@ -417,6 +566,94 @@ export default function BankTransferDepositScreen() {
           setAlertState(prev => ({ ...prev, visible: false }));
         })}
       />
+
+      {/* Deposit Loading Dialog */}
+      <Modal
+        visible={depositLoadingState.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          // Prevent closing during loading, only allow after success
+          if (depositLoadingState.isSuccess) {
+            setDepositLoadingState(prev => ({ ...prev, visible: false }));
+          }
+        }}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}>
+          <View style={{
+            backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.9)' : '#FFFFFF',
+            borderRadius: 20,
+            padding: 24,
+            width: '100%',
+            maxWidth: 320,
+            alignItems: 'center',
+            borderWidth: 1.5,
+            borderColor: depositLoadingState.isSuccess 
+              ? colors.primary 
+              : isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
+          }}>
+            {depositLoadingState.isSuccess ? (
+              <View style={{ alignItems: 'center' }}>
+                <View style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: isDarkColorScheme ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 16,
+                }}>
+                  <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+                </View>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  color: colors.textPrimary,
+                  marginBottom: 8,
+                  textAlign: 'center',
+                }}>
+                  {depositLoadingState.title}
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  lineHeight: 20,
+                }}>
+                  {depositLoadingState.message}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 16 }} />
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  color: colors.textPrimary,
+                  marginBottom: 8,
+                  textAlign: 'center',
+                }}>
+                  {depositLoadingState.title}
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  lineHeight: 20,
+                }}>
+                  {depositLoadingState.message}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Bank Account Selector Modal */}
       <Modal
@@ -818,15 +1055,34 @@ export default function BankTransferDepositScreen() {
                   }}>
                     <MaterialIcons name="info-outline" size={22} color={colors.warning} />
                   </View>
-                  <Text style={{
-                    flex: 1,
-                    marginLeft: 12,
-                    fontSize: 13,
-                    lineHeight: 20,
-                    color: colors.textSecondary,
-                  }}>
-                    Transfer ${amount} to the bank account below using your bank's app or website. After completing the transfer, upload proof of payment to complete your deposit request.
-                  </Text>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{
+                      fontSize: 13,
+                      lineHeight: 20,
+                      color: colors.textSecondary,
+                      marginBottom: 8,
+                    }}>
+                      Transfer ${amount} to the bank account below using your bank's app or website. After completing the transfer, upload proof of payment to complete your deposit request.
+                    </Text>
+                    {amount && parseFloat(amount) > 0 && (
+                      <View style={{
+                        marginTop: 8,
+                        padding: 10,
+                        borderRadius: 8,
+                        backgroundColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 1,
+                        borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
+                      }}>
+                        <Text style={{
+                          fontSize: 13,
+                          fontWeight: '600',
+                          color: colors.primary,
+                        }}>
+                          You have to transfer {Math.round(parseFloat(amount) * USD_TO_PKR_RATE)} PKR to deposit this amount
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
 
@@ -922,6 +1178,31 @@ export default function BankTransferDepositScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+              </View>
+
+              {/* QR Code Section */}
+              <View style={{
+                alignItems: 'center',
+                marginBottom: 24,
+              }}>
+                <View style={{
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.9)',
+                  borderWidth: 1.5,
+                  borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.2)',
+                  alignItems: 'center',
+                }}>
+                  <Image
+                    source={require('@/assets/RobasQRC.jpg')}
+                    style={{
+                      width: 200,
+                      height: 200,
+                      borderRadius: 12,
+                    }}
+                    resizeMode="contain"
+                  />
+                </View>
               </View>
 
               {/* Bank Details Section */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useState,useEffect} from 'react';
 import { FlatList, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -11,9 +11,15 @@ import { SavedPlansSection } from '@/components/portfolio/SavedPlansSection';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { PortfolioWeeklyChart } from '@/components/portfolio/PortfolioWeeklyChart';
-import { LinearGradient } from 'expo-linear-gradient';
+// import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
-
+import { LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
+import { apiClient } from '@/services/api/apiClient';
+import { profileApi } from '@/services/api/profile.api';
+import { CircularDragRotator } from '@/components/portfolio/CircularDragRotator';
+// Temporarily disable WebSocket to prevent socket.io-client crash
+// TODO: Re-enable once socket.io-client polyfill is properly configured
+// import { useWebSocket } from '@/services/websocket/useWebSocket';
 
 
 export default function PortfolioScreen() {
@@ -25,6 +31,187 @@ export default function PortfolioScreen() {
   const { portfolioUnreadCount } = useNotificationContext();
   const { state, loadTransactions } = useApp();
   const transactions = state.transactions || [];
+  const [portfolioCandlesData, setPortfolioCandlesData] = useState<LineGraphDataPoint[]>([]);
+  const [loadingCandles, setLoadingCandles] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  
+
+
+  // WebSocket connection for real-time portfolio updates
+  // Temporarily disabled to prevent socket.io-client crash
+  // TODO: Re-enable once socket.io-client polyfill is properly configured
+  const isConnected = false;
+  const subscribe = (_event: string, _callback: (...args: any[]) => void) => () => {};
+  const emit = (_event: string, _data?: any) => {};
+  // const { isConnected, subscribe, emit } = useWebSocket({
+  //   enabled: !isGuest && isAuthenticated,
+  //   onConnect: () => {
+  //     console.log('[Portfolio] WebSocket connected');
+  //   },
+  //   onDisconnect: () => {
+  //     console.log('[Portfolio] WebSocket disconnected');
+  //   },
+  //   onError: (error) => {
+  //     console.error('[Portfolio] WebSocket error:', error);
+  //   },
+  // });
+
+  // Interface for portfolio daily candle data from API
+  interface PortfolioDailyCandle {
+    date: string; // YYYY-MM-DD format
+    userId: string;
+    openValue: number;
+    highValue: number;
+    lowValue: number;
+    closeValue: number;
+    totalInvested: number;
+    snapshotCount: number;
+  }
+
+  // Fetch portfolio candles data
+  useEffect(() => {
+    const fetchPortfolioCandles = async () => {
+      if (isGuest || !isAuthenticated) return;
+
+      try {
+        // Get user ID from profile
+        const profile = await profileApi.getProfile();
+        const userId = profile.userInfo.id;
+        
+        if (!userId) return;
+
+        setCurrentUserId(userId);
+        setLoadingCandles(true);
+        const candles: PortfolioDailyCandle[] = await apiClient.get<PortfolioDailyCandle[]>(
+          `/api/mobile/portfolio/candles?userId=${userId}&days=30`
+        );
+
+        // Transform candles data: use closeValue for the portfolio value
+        const transformedData: LineGraphDataPoint[] = candles.map((candle) => {
+          return {
+            date: new Date(candle.date), // Convert YYYY-MM-DD string to Date
+            value: candle.closeValue, // Use close value as the portfolio value
+          };
+        });
+
+        // Sort by date to ensure chronological order
+        transformedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        setPortfolioCandlesData(transformedData);
+      } catch (error) {
+        console.error('Error fetching portfolio candles:', error);
+        // On error, set empty array (graph will show "No data available")
+        setPortfolioCandlesData([]);
+      } finally {
+        setLoadingCandles(false);
+      }
+    };
+
+    fetchPortfolioCandles();
+  }, [isGuest, isAuthenticated]);
+
+
+  // WebSocket subscription state
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+
+  // Subscribe to portfolio WebSocket updates when connected and screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isGuest || !isAuthenticated || !currentUserId) {
+        return;
+      }
+
+      // Wait for WebSocket connection
+      if (!isConnected) {
+        console.log('[Portfolio] Waiting for WebSocket connection...');
+        return;
+      }
+
+      // Already subscribed, skip
+      if (isSubscribed) {
+        return;
+      }
+
+      console.log('[Portfolio] Subscribing to portfolio updates');
+
+      // Subscribe to portfolio room
+      emit('subscribe:portfolio');
+
+      // Listen for portfolio candle updates
+      const unsubscribe = subscribe('portfolio:candle:updated', (data: {
+        userId: string;
+        candle: {
+          date: string | Date;
+          openValue: number;
+          highValue: number;
+          lowValue: number;
+          closeValue: number;
+          totalInvested: number;
+          snapshotCount: number;
+        };
+        timestamp: Date;
+      }) => {
+        // Only process updates for current user
+        if (data.userId !== currentUserId) {
+          return;
+        }
+
+        console.log('[Portfolio] Received portfolio candle update:', data);
+
+        // Update the candles data with the new candle
+        setPortfolioCandlesData((prevData) => {
+          const candleDate = new Date(data.candle.date);
+          const candleDateStr = candleDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+          // Check if candle for this date already exists
+          const existingIndex = prevData.findIndex(
+            (item) => item.date.toISOString().split('T')[0] === candleDateStr
+          );
+
+          const newCandle: LineGraphDataPoint = {
+            date: candleDate,
+            value: data.candle.closeValue,
+          };
+
+          if (existingIndex >= 0) {
+            // Update existing candle
+            const updated = [...prevData];
+            updated[existingIndex] = newCandle;
+            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+          } else {
+            // Add new candle
+            const updated = [...prevData, newCandle];
+            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+          }
+        });
+      });
+
+      unsubscribeRef.current = unsubscribe;
+      setIsSubscribed(true);
+
+      // Cleanup: unsubscribe when screen loses focus
+      return () => {
+        console.log('[Portfolio] Unsubscribing from portfolio updates');
+        emit('unsubscribe:portfolio');
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+        setIsSubscribed(false);
+      };
+    }, [isConnected, currentUserId, isGuest, isAuthenticated, subscribe, emit, isSubscribed])
+  );
+
+  // Handle connection state changes (re-subscribe if connection is restored)
+  useEffect(() => {
+    if (isConnected && currentUserId && !isGuest && isAuthenticated && !isSubscribed) {
+      // Connection restored, trigger re-subscription via focus effect
+      // This will be handled by the useFocusEffect above
+    }
+  }, [isConnected, currentUserId, isGuest, isAuthenticated, isSubscribed]);
+
 
   // Refresh investments and transactions when screen comes into focus
   useFocusEffect(
@@ -63,7 +250,7 @@ export default function PortfolioScreen() {
   // This ensures earnings persist even if tokens are sold
   const totalEarnings = transactions
     .filter(tx => 
-      (tx.type === 'rental_income' || tx.type === 'rental') && 
+      (tx.type === 'rental_income' || tx.type === 'rental' || tx.type === 'reward') && 
       tx.status === 'completed'
     )
     .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
@@ -74,6 +261,10 @@ export default function PortfolioScreen() {
   const currentYear = now.getFullYear();
   const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const lineGraphData = transactions.map(tx => ({
+    date: new Date(tx.date),
+    value: tx.amount,
+  }));
   
   const thisMonthEarnings = transactions
     .filter(tx => {
@@ -179,37 +370,7 @@ export default function PortfolioScreen() {
       <View >
       <View className="px-4 pb-6 pt-12">
         
-        {/* <LinearGradient
-          colors={
-            isDarkColorScheme
-              ? 
-                [
-                'rgb(4, 149, 55)',
-                'rgb(4, 149, 14)',
-                'rgb(28, 121, 2)',
-                'rgb(1, 65, 23)',
-                ]
-              : [
-                'rgba(245, 245, 245, 1)', // #F5F5F5
-                'rgba(237, 237, 237, 1)', // #EDEDED
-                'rgba(224, 224, 224, 1)', // #E0E0E0
-                'rgba(255, 255, 255, 1)', // #FFFFFF
-                ]
-          }
-          locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
-          // locations={[0, 0.5, 1]} // 40% green, then transition to black
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20,
-          }}
-        /> */}
+    
       
         <View className="mb-6 flex-row items-center justify-between">
           <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
@@ -249,12 +410,12 @@ export default function PortfolioScreen() {
           </TouchableOpacity>
         </View>
               
-        {/* Current Balance Card */}
-        <View
+
+        {/* <View
           style={
             
             {
-            // backgroundColor: colors.card,
+        
             borderRadius: 20,
             padding: 20,
             borderWidth: 1,
@@ -263,23 +424,23 @@ export default function PortfolioScreen() {
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: isDarkColorScheme ? 0.3 : 0.1,
             shadowRadius: 12,
-            // elevation: 8,
+     
           }}>
         <LinearGradient
         colors={
         isDarkColorScheme
             ? 
               [
-                'rgba(255, 216, 100, 0.84)', // Subtle golden yellow shine (top)
-                'rgba(171, 199, 44, 0.85)',  // Warm yellow-green transition
-                'rgba(123, 136, 3, 0.35)',   // Matches portfolio card theme
-                'rgba(6, 95, 70, 0.4)',      // Deep teal-green (bottom)
+                'rgba(255, 216, 100, 0.84)', 
+                'rgba(171, 199, 44, 0.85)',  
+                'rgba(123, 136, 3, 0.35)',   
+                'rgba(6, 95, 70, 0.4)',      
               ]
             : [
-                'rgba(255, 250, 240, 0.95)', // Warm ivory shine
-                'rgba(255, 248, 220, 0.85)', // Soft golden-white
-                'rgba(250, 250, 245, 0.9)',  // Subtle cream
-                'rgba(255, 255, 255, 0.95)', // Pure white
+                'rgba(255, 250, 240, 0.95)', 
+                'rgba(255, 248, 220, 0.85)', 
+                'rgba(250, 250, 245, 0.9)',  
+                'rgba(255, 255, 255, 0.95)', 
               ]
               }
             locations={[0, 0.3, 0.65, 1]}
@@ -299,7 +460,6 @@ export default function PortfolioScreen() {
              Total Holdings
           </Text>
           <View className="mb-1 flex-row items-baseline">
-            {/* Round to 2 decimal places first, then split for consistent display */}
             {(() => {
               const roundedValue = Math.round(totalValue * 100) / 100;
               const parts = roundedValue.toFixed(2).split('.');
@@ -332,8 +492,19 @@ export default function PortfolioScreen() {
             </Text>
           </View>
         </View>
-        </View>
+        </View> */}
       </View>
+
+<View className="flex-1 items-center justify-center pt-0 pb-10">
+
+      <CircularDragRotator
+        size={360}
+        totalInvested={totalInvested}
+        totalValue={totalValue}
+        investments={investments}
+      />
+</View>
+
 
       {/* Quick Actions Row */}
       <View className="mx-4">
@@ -575,6 +746,27 @@ export default function PortfolioScreen() {
       </View>
 
 
+        {/* Properties Header */}
+        <View className="mb-3 mt-6 px-4">
+        <View className="flex-row items-center justify-between">
+        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+            YOUR PROPERTIES
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
+            <Text style={{ color: colors.primary }} className="text-sm font-semibold">
+              View All
+        </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Overlapping Property Cards */}
+      <View className="mb-6 px-4">
+        <PropertyCardStack data={investments} />
+      </View>
+
+      
+
       {/* Weekly Performance Chart */}
       <View className="mt-6 px-4">
         <PortfolioWeeklyChart 
@@ -582,6 +774,7 @@ export default function PortfolioScreen() {
           investments={investments}
           totalValue={totalValue}
           transactions={transactions}
+          portfolioCandlesData={portfolioCandlesData}
         />
       </View>
 
@@ -658,24 +851,7 @@ export default function PortfolioScreen() {
         </View>
       </View>
 
-      {/* Properties Header */}
-      <View className="mb-3 mt-6 px-4">
-        <View className="flex-row items-center justify-between">
-        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
-            YOUR PROPERTIES
-          </Text>
-          <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
-            <Text style={{ color: colors.primary }} className="text-sm font-semibold">
-              View All
-        </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Overlapping Property Cards */}
-      <View className="mb-6 px-4">
-        <PropertyCardStack data={investments} />
-      </View>
+    
 
       {/* Saved Plans Section */}
       <SavedPlansSection />
@@ -683,60 +859,10 @@ export default function PortfolioScreen() {
     </>
   );
 
-  // const renderFooter = () => (
-  //   <>
-  //     {/* Income Timeline */}
-  //     <View className="px-4 mt-8 mb-20">
-  //       <Text style={{ color: colors.textPrimary }} className="text-xl font-bold mb-1">
-  //         Income Timeline
-  //       </Text>
-  //       <Text style={{ color: colors.textSecondary }} className="text-sm mb-3">
-  //         Total visible income:{" "}
-  //         <Text style={{ color: colors.textPrimary }} className="font-semibold">
-  //           ${monthlyRentalIncome.toFixed(2)}
-  //         </Text>
-  //       </Text>
-  //       <View className="flex-row items-end " style={{ marginLeft: -2 }}>
-  //         {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul","Aug",].map(
-  //           (month, index) => (
-  //             <View
-  //               key={month}
-  //               className="items-center p-1 justify-end"
-  //               style={{
-  //                 flex: 1,
-  //                 marginHorizontal: -1,
-  //                 zIndex: 10 - index,
-  //               }}
-  //             >
-  //               <View
-  //                 style={{
-  //                   backgroundColor: colors.primary,
-  //                   width: "100%",
-  //                   height: 60,
-  //                   borderRadius: 8,
-  //                   marginBottom: 8,
-  //                   shadowColor: isDarkColorScheme ? "#000" : "rgba(22, 163, 74, 0.3)",
-  //                   shadowOffset: { width: 0, height: 2 },
-  //                   shadowOpacity: isDarkColorScheme ? 0.3 : 0.2,
-  //                   shadowRadius: 4,
-  //                   elevation: 3,
-  //                 }}
-  //               />
-  //               <Text style={{ color: colors.textSecondary }} className="text-xs font-medium">
-  //                 {month}
-  //               </Text>
-  //             </View>
-  //           )
-  //         )}
-  //       </View>
-  //     </View>
-  //   </>
-  // );
-
   return (
-    <View style={{ backgroundColor: colors.background }} className="flex-1">
+    <View style={{ backgroundColor: 'rgba(22,22,22,1)' }} className="flex-1">
          {/* Linear Gradient Background - 40% green top, black bottom */}
-   <LinearGradient
+   {/* <LinearGradient
         colors={
           isDarkColorScheme
             ? [
@@ -763,7 +889,7 @@ export default function PortfolioScreen() {
           right: 0,
           bottom: 0,
         }}
-      />
+      /> */}
       <FlatList
         data={[]}
         keyExtractor={(_, i) => i.toString()}
@@ -775,46 +901,6 @@ export default function PortfolioScreen() {
         nestedScrollEnabled={true}
       />
 
-      {/* Bottom Actions */}
-      {/* <View className="left-0 right-0 z-10 mb-16 px-4 pb-6">
-        <View
-          style={{
-            backgroundColor: isDarkColorScheme ? 'rgba(11, 61, 54, 0.95)' : '#FFFFFF',
-            borderWidth: isDarkColorScheme ? 0 : 1,
-            borderColor: colors.border,
-            shadowColor: isDarkColorScheme ? '#000' : 'rgba(45, 55, 72, 0.08)',
-            shadowOffset: { width: 0, height: isDarkColorScheme ? 10 : 8 },
-            shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
-            shadowRadius: isDarkColorScheme ? 20 : 24,
-            elevation: isDarkColorScheme ? 20 : 8,
-          }}
-          className="flex-row items-center justify-around rounded-full px-3 py-1">
-          <TouchableOpacity
-            onPress={() => router.push('../wallet')}
-            className="flex-1 flex-col items-center justify-center p-2">
-            <Ionicons name="add" size={24} color={colors.textPrimary} />
-            <Text style={{ color: colors.textPrimary }} className="mt-0.5 text-xs font-medium">
-              Deposit
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => router.push('/portfolio/myassets/assets-first')}
-            className="flex-1 flex-col items-center justify-center p-2">
-            <Ionicons name="cube" size={24} color={colors.textPrimary} />
-            <Text style={{ color: colors.textPrimary }} className="mt-0.5 text-xs font-medium">
-             My Assets
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => router.push('../portfolio/guidance/guidance-one')}
-            className="flex-1 flex-col items-center justify-center p-2">
-            <Ionicons name="document-text-outline" size={24} color={colors.textPrimary} />
-            <Text style={{ color: colors.textPrimary }} className="mt-0.5 text-xs font-medium">
-              Guidance
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View> */}
     </View>
   );
 }

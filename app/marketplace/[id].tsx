@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import * as SecureStore from 'expo-secure-store';
 import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { apiClient } from '@/services/api/apiClient';
+// Temporarily disable WebSocket to prevent socket.io-client crash
+// TODO: Re-enable once socket.io-client polyfill is properly configured
+// import { useWebSocket } from '@/services/websocket/useWebSocket';
+import { useFocusEffect } from 'expo-router';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -32,6 +36,25 @@ export default function ListingDetailScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
+
+  // WebSocket connection for real-time price updates
+  // Temporarily disabled to prevent socket.io-client crash
+  // TODO: Re-enable once socket.io-client polyfill is properly configured
+  const isConnected = false;
+  const subscribe = (_event: string, _callback: (...args: any[]) => void) => () => {};
+  const emit = (_event: string, _data?: any) => {};
+  // const { isConnected, subscribe, emit } = useWebSocket({
+  //   enabled: true, // Always enabled if user is authenticated (handled by hook)
+  //   onConnect: () => {
+  //     console.log('[Marketplace] WebSocket connected');
+  //   },
+  //   onDisconnect: () => {
+  //     console.log('[Marketplace] WebSocket disconnected');
+  //   },
+  //   onError: (error) => {
+  //     console.error('[Marketplace] WebSocket error:', error);
+  //   },
+  // });
 
 
   // Interface for daily candle data from API
@@ -170,6 +193,106 @@ export default function ListingDetailScreen() {
   
       fetchDailyCandles();
     }, [listing]); // Depend on listing instead of id
+
+  // WebSocket subscription state
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Subscribe to property price updates via WebSocket when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      // Wait for listing and WebSocket connection
+      if (!listing || !listing.property?.id || !isConnected) {
+        return;
+      }
+
+      // Already subscribed, skip
+      if (isSubscribed) {
+        return;
+      }
+
+      const propertyId = listing.property.id;
+      console.log('[Marketplace] Subscribing to property updates:', propertyId);
+
+      // Subscribe to property room
+      emit('subscribe:property', { propertyId });
+
+      // Listen for candle updates
+      const unsubscribe = subscribe('candle:updated', (data: {
+        propertyId: string;
+        candle: {
+          date: string | Date;
+          openPrice: number;
+          highPrice: number;
+          lowPrice: number;
+          closePrice: number;
+          volume: number;
+          tradeCount: number;
+        };
+        timestamp: Date;
+      }) => {
+        // Only process updates for current property
+        if (data.propertyId !== propertyId) {
+          return;
+        }
+
+        console.log('[Marketplace] Received candle update:', data);
+
+        // Update the candles data with the new candle
+        setCandlesData((prevData) => {
+          const candleDate = new Date(data.candle.date);
+          const candleDateStr = candleDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+          // Calculate average of high and low: (highPrice + lowPrice) / 2
+          const averagePrice = (data.candle.highPrice + data.candle.lowPrice) / 2;
+
+          // Check if candle for this date already exists
+          const existingIndex = prevData.findIndex(
+            (item) => item.date.toISOString().split('T')[0] === candleDateStr
+          );
+
+          const newCandle: LineGraphDataPoint = {
+            date: candleDate,
+            value: averagePrice,
+            volume: data.candle.volume,
+          };
+
+          if (existingIndex >= 0) {
+            // Update existing candle
+            const updated = [...prevData];
+            updated[existingIndex] = newCandle;
+            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+          } else {
+            // Add new candle
+            const updated = [...prevData, newCandle];
+            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+          }
+        });
+      });
+
+      unsubscribeRef.current = unsubscribe;
+      setIsSubscribed(true);
+
+      // Cleanup: unsubscribe when screen loses focus
+      return () => {
+        console.log('[Marketplace] Unsubscribing from property updates:', propertyId);
+        emit('unsubscribe:property', { propertyId });
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+        setIsSubscribed(false);
+      };
+    }, [listing, isConnected, subscribe, emit, isSubscribed])
+  );
+
+  // Handle connection state changes (re-subscribe if connection is restored)
+  useEffect(() => {
+    if (isConnected && listing?.property?.id && !isSubscribed) {
+      // Connection restored, trigger re-subscription via focus effect
+      // This will be handled by the useFocusEffect above
+    }
+  }, [isConnected, listing, isSubscribed]);
 
   const handleUnpublish = async () => {
     if (!listing) return;
@@ -813,6 +936,8 @@ export default function ListingDetailScreen() {
               }}
             />
 
+
+
             <View className="flex-row justify-between mb-2">
               <Text style={{ color: colors.textMuted }} className="text-sm">
                 Available Tokens
@@ -829,6 +954,9 @@ export default function ListingDetailScreen() {
                 {listing.property.displayCode}
               </Text>
             </View>
+
+          
+
             <View className="flex-row justify-between mb-2">
               <Text style={{ color: colors.textMuted }} className="text-sm">
                 Minimum Order

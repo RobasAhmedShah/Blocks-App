@@ -6,12 +6,14 @@ import { Investment } from '@/types/portfolio';
 import { Transaction } from '@/types/wallet';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 
 interface PortfolioWeeklyChartProps {
   monthlyIncome: number;
   investments?: Investment[];
   totalValue?: number;
   transactions?: Transaction[];
+  portfolioCandlesData?: LineGraphDataPoint[];
 }
 
 export function PortfolioWeeklyChart({
@@ -19,9 +21,10 @@ export function PortfolioWeeklyChart({
   investments = [],
   totalValue = 0,
   transactions = [],
+  portfolioCandlesData = [],
 }: PortfolioWeeklyChartProps) {
   const { colors, isDarkColorScheme } = useColorScheme();
-  const [view, setView] = useState<'income' | 'investments'>('income');
+  const [view, setView] = useState<'income' | 'investments' | 'history'>('history');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [interpolatedX, setInterpolatedX] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -731,17 +734,94 @@ export function PortfolioWeeklyChart({
     );
   };
 
+  // ========== RENDER PORTFOLIO VALUE HISTORY CHART ==========
+  const renderPortfolioHistoryChart = () => {
+    if (portfolioCandlesData.length === 0) {
+      return (
+        <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
+          <Ionicons name="trending-up-outline" size={48} color={colors.textMuted} />
+          <Text style={{ color: colors.textMuted, fontSize: 14, marginTop: 12, textAlign: 'center' }}>
+            No portfolio history data available
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <View style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
+              Portfolio Value History
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="stats-chart" size={16} color={colors.primary} />
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+                {portfolioCandlesData.length} days
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <SimpleLineGraph 
+          data={portfolioCandlesData}
+          lineColor={colors.primary}
+          gradientColor={colors.primary}
+        />
+      </>
+    );
+  };
+
   return (
     <View
       style={{
-        backgroundColor: isDarkColorScheme ? 'rgba(8, 105, 92, 0.36)' : '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
+        borderRadius: 20,
+        overflow: 'hidden',
         borderWidth: 1,
-        borderColor: isDarkColorScheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+      
       }}
     >
+      <View style={{
+        backgroundColor: colors.card,
+        padding: 16,
+      }}>
+      <View style={{ 
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+      }} />
+      
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+
+      <TouchableOpacity
+        onPress={() => {
+          setView('history');
+          setSelectedIndex(null);
+          setInterpolatedX(null);
+          setIsDragging(false);
+        }}
+        style={{
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 10,
+          backgroundColor: view === 'history' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+        }}
+      >
+        <Text
+          style={{
+            color: view === 'history' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
+            fontWeight: '600',
+            fontSize: 13,
+          }}
+        >
+          Portfolio History
+        </Text>
+      </TouchableOpacity>
+
         <TouchableOpacity
           onPress={() => {
             setView('income');
@@ -752,13 +832,13 @@ export function PortfolioWeeklyChart({
           style={{
             paddingHorizontal: 12,
             paddingVertical: 6,
-            borderRadius: 8,
-            backgroundColor: view === 'income' ? 'rgba(22,163,74,0.15)' : 'transparent',
+            borderRadius: 10,
+            backgroundColor: view === 'income' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
           }}
         >
           <Text
             style={{
-              color: view === 'income' ? colors.primary : colors.textMuted,
+              color: view === 'income' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
               fontWeight: '600',
               fontSize: 13,
             }}
@@ -777,13 +857,13 @@ export function PortfolioWeeklyChart({
           style={{
             paddingHorizontal: 12,
             paddingVertical: 6,
-            borderRadius: 8,
-            backgroundColor: view === 'investments' ? 'rgba(22,163,74,0.15)' : 'transparent',
+            borderRadius: 10,
+            backgroundColor: view === 'investments' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
           }}
         >
           <Text
             style={{
-              color: view === 'investments' ? colors.primary : colors.textMuted,
+              color: view === 'investments' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
               fontWeight: '600',
               fontSize: 13,
             }}
@@ -791,9 +871,16 @@ export function PortfolioWeeklyChart({
             Investment Timeline
           </Text>
         </TouchableOpacity>
+
       </View>
 
-      {view === 'income' ? renderRentalIncomeChart() : renderInvestmentTimelineChart()}
+      {view === 'income' 
+        ? renderRentalIncomeChart() 
+        : view === 'investments' 
+        ? renderInvestmentTimelineChart() 
+        : renderPortfolioHistoryChart()
+      }
+      </View>
     </View>
   );
 }

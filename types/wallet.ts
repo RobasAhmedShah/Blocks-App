@@ -8,7 +8,7 @@ export interface WalletBalance {
 
 export interface Transaction {
   id: string;
-  type: 'deposit' | 'withdraw' | 'investment' | 'rental_income' | 'rental' | 'transfer';
+  type: 'deposit' | 'withdraw' | 'investment' | 'rental_income' | 'rental' | 'transfer' | 'reward';
   amount: number;
   date: string;
   description: string;

@@ -41,12 +41,16 @@ export function SimpleLineGraph({
   const graphWidth = chartWidth - padding.left - padding.right;
   const graphHeight = chartHeight - padding.top - padding.bottom;
 
-  const maxValue = Math.max(...data.map(d => d.value), 1);
-  const minValue = Math.min(...data.map(d => d.value), 0);
+  // Handle empty data array to prevent Math.max/Math.min errors
+  const hasData = data && data.length > 0;
+  const values = hasData ? data.map(d => d.value) : [];
+  const maxValue = hasData && values.length > 0 ? Math.max(...values, 1) : 1;
+  const minValue = hasData && values.length > 0 ? Math.min(...values, 0) : 0;
   const valueRange = maxValue - minValue || 1;
 
   // Convert to SVG path coordinates
   const points = useMemo(() => {
+    if (!hasData) return [];
     return data.map((item, index) => {
       const divisor = data.length > 1 ? (data.length - 1) : 1;
       const x = padding.left + (index / divisor) * graphWidth;
@@ -61,7 +65,7 @@ export function SimpleLineGraph({
         volume: item.volume // Include volume in points
       };
     });
-  }, [data, maxValue, minValue, graphWidth, graphHeight, padding.left, padding.top, valueRange]);
+  }, [data, hasData, maxValue, minValue, graphWidth, graphHeight, padding.left, padding.top, valueRange]);
 
   const validPoints = useMemo(() => {
     return points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));

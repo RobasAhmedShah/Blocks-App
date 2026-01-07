@@ -17,6 +17,7 @@ import { LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { apiClient } from '@/services/api/apiClient';
 import { profileApi } from '@/services/api/profile.api';
 import { CircularDragRotator } from '@/components/portfolio/CircularDragRotator';
+
 // Temporarily disable WebSocket to prevent socket.io-client crash
 // TODO: Re-enable once socket.io-client polyfill is properly configured
 // import { useWebSocket } from '@/services/websocket/useWebSocket';
@@ -364,17 +365,19 @@ export default function PortfolioScreen() {
     investments[0]
   );
 
+
+
   const renderHeader = () => (
     <>
       {/* Header */}
       <View >
-      <View className="px-4 pb-6 pt-12">
+      <View className="px-8 pb-2 pt-16 mb-4">
         
     
       
-        <View className="mb-6 flex-row items-center justify-between">
-          <Text style={{ color: colors.textPrimary }} className="text-2xl font-bold">
-            Portfolio
+        {/* <View className="mb-6 flex-row items-center justify-between">
+          <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif' }} className="text-2xl">
+           
             </Text>
           <TouchableOpacity 
             onPress={() => {
@@ -408,7 +411,7 @@ export default function PortfolioScreen() {
               </View>
             )}
           </TouchableOpacity>
-        </View>
+        </View> */}
               
 
         {/* <View

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, StyleSheet, LayoutChangeEvent, PanResponder, Text, Pressable } from "react-native";
+import { View, StyleSheet, LayoutChangeEvent, PanResponder, Text, Pressable, TouchableOpacity } from "react-native";
 import Svg, { Path, Circle, Text as SvgText } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { Investment } from "@/types/portfolio";
@@ -99,6 +99,10 @@ export function CircularDragRotator({
   const velocityRef = useRef(0);
   const lastTimeRef = useRef(Date.now());
   const animationFrameRef = useRef<number | null>(null);
+  
+  // Track touch start position for tap detection
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const hasDraggedRef = useRef(false);
 
   const [, force] = useState(0);
 
@@ -147,6 +151,42 @@ export function CircularDragRotator({
   const gapStart = Math.PI * 1.5; // Start of gap (bottom right)
   const gapEnd = 0; // End of gap (top)
 
+  // Check if a touch position is within a knob
+  const getKnobAtPosition = (touchX: number, touchY: number) => {
+    if (!layout) return null;
+    
+    const cx = layout.x + layout.w / 2;
+    const cy = layout.y + layout.h / 2;
+    const relX = touchX - cx;
+    const relY = touchY - cy;
+    
+    for (let index = 0; index < actualKnobs.length; index++) {
+      const knob = actualKnobs[index];
+      const baseAngle = index * angleStep;
+      const knobAngle = normalizeAngle(baseAngle + offsetAngleRef.current);
+      
+      // Only check knobs in visible arc
+      if (!isAngleInVisibleArc(knobAngle, gapStart, gapEnd)) {
+        continue;
+      }
+      
+      const pos = polarToCartesian(size / 2, size / 2, radius, knobAngle);
+      const knobX = pos.x - size / 2;
+      const knobY = pos.y - size / 2;
+      
+      const distance = Math.sqrt(
+        Math.pow(relX - knobX, 2) + Math.pow(relY - knobY, 2)
+      );
+      
+      // Check if touch is within knob radius (with some tolerance)
+      if (distance <= knobSize / 2 + 5) {
+        return knob;
+      }
+    }
+    
+    return null;
+  };
+
   const applyMomentum = () => {
     if (Math.abs(velocityRef.current) > 0.001) {
       offsetAngleRef.current += velocityRef.current;
@@ -168,8 +208,16 @@ export function CircularDragRotator({
           }
           velocityRef.current = 0;
 
-          if (!layout) return;
+          // Track touch start for tap detection
           const { pageX, pageY } = e.nativeEvent;
+          touchStartRef.current = {
+            x: pageX,
+            y: pageY,
+            time: Date.now(),
+          };
+          hasDraggedRef.current = false;
+
+          if (!layout) return;
           const cx = layout.x + layout.w / 2;
           const cy = layout.y + layout.h / 2;
           lastAngleRef.current = Math.atan2(pageY - cy, pageX - cx);
@@ -178,6 +226,18 @@ export function CircularDragRotator({
         onPanResponderMove: (e) => {
           if (!layout) return;
           const { pageX, pageY } = e.nativeEvent;
+          
+          // Check if user has moved enough to be considered a drag
+          if (touchStartRef.current) {
+            const dx = pageX - touchStartRef.current.x;
+            const dy = pageY - touchStartRef.current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 10) {
+              hasDraggedRef.current = true;
+            }
+          }
+          
           const cx = layout.x + layout.w / 2;
           const cy = layout.y + layout.h / 2;
           const currentAngle = Math.atan2(pageY - cy, pageX - cx);
@@ -198,14 +258,30 @@ export function CircularDragRotator({
           lastTimeRef.current = now;
           force((v) => v + 1);
         },
-        onPanResponderRelease: () => {
-          // Start momentum animation
+        onPanResponderRelease: (e) => {
+          const { pageX, pageY } = e.nativeEvent;
+          
+          // Check if this was a tap (not a drag)
+          if (!hasDraggedRef.current && touchStartRef.current) {
+            const timeDiff = Date.now() - touchStartRef.current.time;
+            
+            // If released quickly and didn't drag, treat as tap
+            if (timeDiff < 300) {
+              const tappedKnob = getKnobAtPosition(pageX, pageY);
+              if (tappedKnob) {
+                handleKnobPress(tappedKnob.propertyId, tappedKnob.id);
+                return;
+              }
+            }
+          }
+          
+          // Start momentum animation if dragged
           if (Math.abs(velocityRef.current) > 0.001) {
             animationFrameRef.current = requestAnimationFrame(applyMomentum);
           }
         },
       }),
-    [layout]
+    [layout, actualKnobs, angleStep, size, radius, knobSize]
   );
 
   const onLayout = (_: LayoutChangeEvent) => {
@@ -267,38 +343,36 @@ export function CircularDragRotator({
           const pos = polarToCartesian(size / 2, size / 2, radius, knobAngle);
 
           return (
+            
             <React.Fragment key={knob.id}>
-              {/* Main bubble */}
-              <Circle
-                cx={pos.x}
-                cy={pos.y}
-                r={knobSize / 2}
-                fill={knob.color}
-                stroke="rgba(255, 255, 255, 0.8)"
-                strokeWidth={2}
-                opacity={0.9}
-                onPress={() => handleKnobPress(knob.propertyId, knob.id)}
-              />
-              {/* Inner highlight */}
-              {/* <Circle
-                cx={pos.x - knobSize / 6}
-                cy={pos.y - knobSize / 6}
-                r={knobSize / 4}
-                fill="rgba(255, 255, 255, 0.4)"
-                onPress={() => handleKnobPress(knob.propertyId, knob.id)}
-              /> */}
-              {/* Property name first letter */}
-              <SvgText
-                x={pos.x}
-                y={pos.y + 4}
-                fontSize={knobSize / 2.5}
-                fill="rgba(255, 255, 255, 0.95)"
-                textAnchor="middle"
-                fontWeight="bold"
-                onPress={() => handleKnobPress(knob.propertyId, knob.id)}
-              >
-                {knob.firstLetter}
-              </SvgText>
+                {/* Main bubble */}
+                <Circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={knobSize / 2}
+                  fill={knob.color}
+                  stroke="rgba(255, 255, 255, 0.8)"
+                  strokeWidth={2}
+                  opacity={0.9}
+                />
+                {/* Inner highlight */}
+                {/* <Circle
+                  cx={pos.x - knobSize / 6}
+                  cy={pos.y - knobSize / 6}
+                  r={knobSize / 4}
+                  fill="rgba(255, 255, 255, 0.4)"
+                /> */}
+                {/* Property name first letter */}
+                <SvgText
+                  x={pos.x}
+                  y={pos.y + 4}
+                  fontSize={knobSize / 2.5}
+                  fill="rgba(255, 255, 255, 0.95)"
+                  textAnchor="middle"
+                  fontWeight="bold"
+                >
+                  {knob.firstLetter}
+                </SvgText>
             </React.Fragment>
           );
         })}

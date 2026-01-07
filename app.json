@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.1.25",
+    "version": "1.1.26",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -73,7 +73,7 @@
       },
       "package": "com.intelik.Blocks",
       "googleServicesFile": "./google-services.json", 
-      "versionCode": 136,
+      "versionCode": 137,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"

@@ -183,9 +183,43 @@ export default function WalletScreen() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Radial Gradient Background */}
+      <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                {isDarkColorScheme ? (
+                  <>
+                    {/* Dark Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="90%" cy="0%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                ) : (
+                  <>
+                    {/* Light Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="10%" cy="10%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                )}
+              </Defs>
+
+              {/* Base Layer */}
+              <Rect 
+                width="100%" 
+                height="100%" 
+                fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
+              />
+
+              {/* Layer the gradients on top of the base */}
+              <Rect width="100%" height="50%" fill="url(#grad1)" />
+            </Svg>
+          </View>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
       {/* Linear Gradient Background - Same as BlocksHomeScreen */}
-      <LinearGradient
+      {/* <LinearGradient
         colors={
           isDarkColorScheme
             ? [
@@ -211,7 +245,7 @@ export default function WalletScreen() {
           right: 0,
           bottom: 0,
         }}
-      />
+      /> */}
       {/* Header */}
       <View
         style={{

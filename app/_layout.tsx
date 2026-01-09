@@ -18,6 +18,7 @@ import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { useNotifications } from '@/services/useNotifications';
 import * as NavigationBar from 'expo-navigation-bar';
+import { WalletConnectProvider } from '@/src/wallet/WalletConnectProvider';
 
 const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
@@ -52,32 +53,34 @@ export default function RootLayout() {
 
   // Wrap everything in the required providers
   return (
-    <AuthProvider>
-      <AppProvider>
-        <GuidanceProvider>
-          <NotificationProvider>
-            <ThemeProvider>
-              <TourProvider>
-                <CopilotProvider
-                  tooltipComponent={CustomTooltip}
-                  stepNumberComponent={() => null}
-                  overlay="view"
-                  animated={true}
-                  backdropColor="rgba(0, 0, 0, 0.85)"
-                  arrowColor="#00C896"
-                  verticalOffset={10}
-                  androidStatusBarVisible={true}>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <RootNavigation />
-                    <StatusBar style="auto" />
-                  </GestureHandlerRootView>
-                </CopilotProvider>
-              </TourProvider>
-            </ThemeProvider>
-          </NotificationProvider>
-        </GuidanceProvider>
-      </AppProvider>
-    </AuthProvider>
+    <WalletConnectProvider>
+      <AuthProvider>
+        <AppProvider>
+          <GuidanceProvider>
+            <NotificationProvider>
+              <ThemeProvider>
+                <TourProvider>
+                  <CopilotProvider
+                    tooltipComponent={CustomTooltip}
+                    stepNumberComponent={() => null}
+                    overlay="view"
+                    animated={true}
+                    backdropColor="rgba(0, 0, 0, 0.85)"
+                    arrowColor="#00C896"
+                    verticalOffset={10}
+                    androidStatusBarVisible={true}>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <RootNavigation />
+                      <StatusBar style="auto" />
+                    </GestureHandlerRootView>
+                  </CopilotProvider>
+                </TourProvider>
+              </ThemeProvider>
+            </NotificationProvider>
+          </GuidanceProvider>
+        </AppProvider>
+      </AuthProvider>
+    </WalletConnectProvider>
   );
 }
 

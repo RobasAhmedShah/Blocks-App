@@ -1,4 +1,4 @@
-import React,{useState,useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlatList, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -17,11 +17,62 @@ import { LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { apiClient } from '@/services/api/apiClient';
 import { profileApi } from '@/services/api/profile.api';
 import { CircularDragRotator } from '@/components/portfolio/CircularDragRotator';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 
 // Temporarily disable WebSocket to prevent socket.io-client crash
 // TODO: Re-enable once socket.io-client polyfill is properly configured
 // import { useWebSocket } from '@/services/websocket/useWebSocket';
 
+// Glass Card Component
+const GlassCard2 = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+  <BlurView 
+    intensity={28} 
+    tint="dark" 
+    style={[{ 
+      backgroundColor: 'rgba(255, 255, 255, 0.10)',
+      borderRadius: 18, 
+      borderWidth: 1, 
+      borderColor: 'rgba(255,255,255,0.18)', 
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 4 },
+      // elevation: 6,
+    }, style]}
+  >
+    {/* Subtle top highlight */}
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.35)',
+      }}
+    />
+    {children}
+  </BlurView>
+);
+
+const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+  <BlurView intensity={25} tint="dark" style={[{ backgroundColor: 'rgba(22, 22, 22, 0.56)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
+    {/* Subtle top highlight */}
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.35)',
+      }}
+    />
+    {children}
+  </BlurView>
+);
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -36,15 +87,15 @@ export default function PortfolioScreen() {
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  
+
 
 
   // WebSocket connection for real-time portfolio updates
   // Temporarily disabled to prevent socket.io-client crash
   // TODO: Re-enable once socket.io-client polyfill is properly configured
   const isConnected = false;
-  const subscribe = (_event: string, _callback: (...args: any[]) => void) => () => {};
-  const emit = (_event: string, _data?: any) => {};
+  const subscribe = (_event: string, _callback: (...args: any[]) => void) => () => { };
+  const emit = (_event: string, _data?: any) => { };
   // const { isConnected, subscribe, emit } = useWebSocket({
   //   enabled: !isGuest && isAuthenticated,
   //   onConnect: () => {
@@ -71,7 +122,8 @@ export default function PortfolioScreen() {
   }
 
   // Fetch portfolio candles data
-  useEffect(() => {
+  useFocusEffect(
+    React.useCallback(() => {
     const fetchPortfolioCandles = async () => {
       if (isGuest || !isAuthenticated) return;
 
@@ -79,7 +131,7 @@ export default function PortfolioScreen() {
         // Get user ID from profile
         const profile = await profileApi.getProfile();
         const userId = profile.userInfo.id;
-        
+
         if (!userId) return;
 
         setCurrentUserId(userId);
@@ -110,108 +162,108 @@ export default function PortfolioScreen() {
     };
 
     fetchPortfolioCandles();
-  }, [isGuest, isAuthenticated]);
+  }, [isGuest, isAuthenticated]));
 
 
   // WebSocket subscription state
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const unsubscribeRef = React.useRef<(() => void) | null>(null);
+  // const [isSubscribed, setIsSubscribed] = useState(false);
+  // const unsubscribeRef = React.useRef<(() => void) | null>(null);
 
   // Subscribe to portfolio WebSocket updates when connected and screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      if (isGuest || !isAuthenticated || !currentUserId) {
-        return;
-      }
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     if (isGuest || !isAuthenticated || !currentUserId) {
+  //       return;
+  //     }
 
-      // Wait for WebSocket connection
-      if (!isConnected) {
-        console.log('[Portfolio] Waiting for WebSocket connection...');
-        return;
-      }
+  //     // Wait for WebSocket connection
+  //     if (!isConnected) {
+  //       console.log('[Portfolio] Waiting for WebSocket connection...');
+  //       return;
+  //     }
 
-      // Already subscribed, skip
-      if (isSubscribed) {
-        return;
-      }
+  //     // Already subscribed, skip
+  //     if (isSubscribed) {
+  //       return;
+  //     }
 
-      console.log('[Portfolio] Subscribing to portfolio updates');
+  //     console.log('[Portfolio] Subscribing to portfolio updates');
 
-      // Subscribe to portfolio room
-      emit('subscribe:portfolio');
+  //     // Subscribe to portfolio room
+  //     emit('subscribe:portfolio');
 
-      // Listen for portfolio candle updates
-      const unsubscribe = subscribe('portfolio:candle:updated', (data: {
-        userId: string;
-        candle: {
-          date: string | Date;
-          openValue: number;
-          highValue: number;
-          lowValue: number;
-          closeValue: number;
-          totalInvested: number;
-          snapshotCount: number;
-        };
-        timestamp: Date;
-      }) => {
-        // Only process updates for current user
-        if (data.userId !== currentUserId) {
-          return;
-        }
+  //     // Listen for portfolio candle updates
+  //     const unsubscribe = subscribe('portfolio:candle:updated', (data: {
+  //       userId: string;
+  //       candle: {
+  //         date: string | Date;
+  //         openValue: number;
+  //         highValue: number;
+  //         lowValue: number;
+  //         closeValue: number;
+  //         totalInvested: number;
+  //         snapshotCount: number;
+  //       };
+  //       timestamp: Date;
+  //     }) => {
+  //       // Only process updates for current user
+  //       if (data.userId !== currentUserId) {
+  //         return;
+  //       }
 
-        console.log('[Portfolio] Received portfolio candle update:', data);
+  //       console.log('[Portfolio] Received portfolio candle update:', data);
 
-        // Update the candles data with the new candle
-        setPortfolioCandlesData((prevData) => {
-          const candleDate = new Date(data.candle.date);
-          const candleDateStr = candleDate.toISOString().split('T')[0]; // YYYY-MM-DD
+  //       // Update the candles data with the new candle
+  //       setPortfolioCandlesData((prevData) => {
+  //         const candleDate = new Date(data.candle.date);
+  //         const candleDateStr = candleDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-          // Check if candle for this date already exists
-          const existingIndex = prevData.findIndex(
-            (item) => item.date.toISOString().split('T')[0] === candleDateStr
-          );
+  //         // Check if candle for this date already exists
+  //         const existingIndex = prevData.findIndex(
+  //           (item) => item.date.toISOString().split('T')[0] === candleDateStr
+  //         );
 
-          const newCandle: LineGraphDataPoint = {
-            date: candleDate,
-            value: data.candle.closeValue,
-          };
+  //         const newCandle: LineGraphDataPoint = {
+  //           date: candleDate,
+  //           value: data.candle.closeValue,
+  //         };
 
-          if (existingIndex >= 0) {
-            // Update existing candle
-            const updated = [...prevData];
-            updated[existingIndex] = newCandle;
-            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
-          } else {
-            // Add new candle
-            const updated = [...prevData, newCandle];
-            return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
-          }
-        });
-      });
+  //         if (existingIndex >= 0) {
+  //           // Update existing candle
+  //           const updated = [...prevData];
+  //           updated[existingIndex] = newCandle;
+  //           return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+  //         } else {
+  //           // Add new candle
+  //           const updated = [...prevData, newCandle];
+  //           return updated.sort((a, b) => a.date.getTime() - b.date.getTime());
+  //         }
+  //       });
+  //     });
 
-      unsubscribeRef.current = unsubscribe;
-      setIsSubscribed(true);
+  //     unsubscribeRef.current = unsubscribe;
+  //     setIsSubscribed(true);
 
-      // Cleanup: unsubscribe when screen loses focus
-      return () => {
-        console.log('[Portfolio] Unsubscribing from portfolio updates');
-        emit('unsubscribe:portfolio');
-        if (unsubscribeRef.current) {
-          unsubscribeRef.current();
-          unsubscribeRef.current = null;
-        }
-        setIsSubscribed(false);
-      };
-    }, [isConnected, currentUserId, isGuest, isAuthenticated, subscribe, emit, isSubscribed])
-  );
+  //     // Cleanup: unsubscribe when screen loses focus
+  //     return () => {
+  //       console.log('[Portfolio] Unsubscribing from portfolio updates');
+  //       emit('unsubscribe:portfolio');
+  //       if (unsubscribeRef.current) {
+  //         unsubscribeRef.current();
+  //         unsubscribeRef.current = null;
+  //       }
+  //       setIsSubscribed(false);
+  //     };
+  //   }, [isConnected, currentUserId, isGuest, isAuthenticated, subscribe, emit, isSubscribed])
+  // );
 
   // Handle connection state changes (re-subscribe if connection is restored)
-  useEffect(() => {
-    if (isConnected && currentUserId && !isGuest && isAuthenticated && !isSubscribed) {
-      // Connection restored, trigger re-subscription via focus effect
-      // This will be handled by the useFocusEffect above
-    }
-  }, [isConnected, currentUserId, isGuest, isAuthenticated, isSubscribed]);
+  // useEffect(() => {
+  //   if (isConnected && currentUserId && !isGuest && isAuthenticated && !isSubscribed) {
+  //     // Connection restored, trigger re-subscription via focus effect
+  //     // This will be handled by the useFocusEffect above
+  //   }
+  // }, [isConnected, currentUserId, isGuest, isAuthenticated, isSubscribed]);
 
 
   // Refresh investments and transactions when screen comes into focus
@@ -238,24 +290,24 @@ export default function PortfolioScreen() {
     return (
       <View
         className="flex-1 items-center justify-center"
-      style={{ backgroundColor: colors.background }}>
-      <ArcLoader size={46} color={colors.primary} />
-    </View>
+        style={{ backgroundColor: colors.background }}>
+        <ArcLoader size={46} color={colors.primary} />
+      </View>
     );
   }
 
   // Calculate stats - use totalInvested from hook for consistency with totalValue calculation
   const totalInvested = totalInvestedFromHook;
-  
+
   // Calculate total earnings from rental income and rewards only (not from property appreciation)
   // This ensures earnings persist even if tokens are sold
   const totalEarnings = transactions
-    .filter(tx => 
-      (tx.type === 'rental_income' || tx.type === 'rental' || tx.type === 'reward') && 
+    .filter(tx =>
+      (tx.type === 'rental_income' || tx.type === 'rental' || tx.type === 'reward') &&
       tx.status === 'completed'
     )
     .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-  
+
   // Calculate this month's earnings from actual rental income and rewards transactions
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -266,7 +318,7 @@ export default function PortfolioScreen() {
     date: new Date(tx.date),
     value: tx.amount,
   }));
-  
+
   const thisMonthEarnings = transactions
     .filter(tx => {
       if ((tx.type !== 'rental_income' && tx.type !== 'rental') || tx.status !== 'completed') {
@@ -274,14 +326,14 @@ export default function PortfolioScreen() {
       }
       try {
         const txDate = new Date(tx.date);
-        return txDate.getMonth() === currentMonth && 
-               txDate.getFullYear() === currentYear;
+        return txDate.getMonth() === currentMonth &&
+          txDate.getFullYear() === currentYear;
       } catch {
         return false;
       }
     })
     .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-  
+
   // Calculate last month's earnings for comparison
   const lastMonthEarnings = transactions
     .filter(tx => {
@@ -290,27 +342,27 @@ export default function PortfolioScreen() {
       }
       try {
         const txDate = new Date(tx.date);
-        return txDate.getMonth() === lastMonth && 
-               txDate.getFullYear() === lastMonthYear;
+        return txDate.getMonth() === lastMonth &&
+          txDate.getFullYear() === lastMonthYear;
       } catch {
         return false;
       }
     })
     .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-  
+
   // Calculate percentage change from last month
   const earningsGrowthPercent = lastMonthEarnings > 0
     ? ((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100
     : 0;
-  
+
   const averageMonthly = monthlyRentalIncome;
-  
+
   // Debug logs for portfolio calculations
   console.log('=== Portfolio Calculation Debug ===');
   console.log('Number of investments:', investments.length);
   console.log('Raw totalValue (from getTotalValue):', totalValue);
   console.log('Raw totalInvested (from getTotalInvested):', totalInvested);
-  
+
   // Log individual investment details for verification
   console.log('Individual Investment Details:');
   investments.forEach((inv, index) => {
@@ -324,27 +376,27 @@ export default function PortfolioScreen() {
       difference: inv.currentValue - (inv.tokens * (inv.property?.tokenPrice || 0))
     });
   });
-  
+
   // Manual calculation verification
   const manualTotalValue = investments.reduce((sum, inv) => {
     const manualValue = inv.tokens * (inv.property?.tokenPrice || 0);
     return sum + manualValue;
   }, 0);
   const manualTotalInvested = investments.reduce((sum, inv) => sum + inv.investedAmount, 0);
-  
+
   console.log('Manual Calculation:');
   console.log('Manual totalValue (sum of tokens × tokenPrice):', manualTotalValue);
   console.log('Manual totalInvested (sum of investedAmount):', manualTotalInvested);
   console.log('Difference (manualTotalValue - totalValue):', manualTotalValue - totalValue);
   console.log('Difference (manualTotalInvested - totalInvested):', manualTotalInvested - totalInvested);
-  
+
   // Calculate total loss/gain from invested amount
   // Calculate loss from raw values first, then round only the final result
   // This prevents rounding errors from accumulating
   // Loss = totalInvested - totalValue (positive means loss, negative means gain)
   const totalLoss = totalInvested - totalValue;
   const hasLoss = totalLoss > 0;
-  
+
   console.log('Loss Calculation:');
   console.log('Raw totalValue:', totalValue);
   console.log('Raw totalInvested:', totalInvested);
@@ -358,7 +410,7 @@ export default function PortfolioScreen() {
   console.log('Rounded totalLoss:', Math.round(totalLoss * 100) / 100);
   console.log('Verification with rounded values: (rounded totalInvested - rounded totalLoss) =', (Math.round(totalInvested * 100) / 100) - (Math.round(totalLoss * 100) / 100));
   console.log('Expected rounded totalValue:', Math.round(totalValue * 100) / 100);
-  
+
   // Find best performing property
   const bestProperty = investments.reduce(
     (best, current) => (current.roi > (best?.roi || 0) ? current : best),
@@ -371,11 +423,14 @@ export default function PortfolioScreen() {
     <>
       {/* Header */}
       <View >
-      <View className="px-8 pb-2 pt-16 mb-4">
-        
-    
-      
-        {/* <View className="mb-6 flex-row items-center justify-between">
+
+        <View className="px-8 pb-2 pt-16 mb-4">
+         
+
+   
+
+
+          {/* <View className="mb-6 flex-row items-center justify-between">
           <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif' }} className="text-2xl">
            
             </Text>
@@ -412,9 +467,9 @@ export default function PortfolioScreen() {
             )}
           </TouchableOpacity>
         </View> */}
-              
 
-        {/* <View
+
+          {/* <View
           style={
             
             {
@@ -496,152 +551,99 @@ export default function PortfolioScreen() {
           </View>
         </View>
         </View> */}
-      </View>
-
-<View className="flex-1 items-center justify-center pt-0 pb-10">
-
-      <CircularDragRotator
-        size={360}
-        totalInvested={totalInvested}
-        totalValue={totalValue}
-        investments={investments}
-      />
-</View>
-
-
-      {/* Quick Actions Row */}
-      <View className="mx-4">
-        <View className="flex-row"
-        style={{
-          backgroundColor: colors.card,
-          borderRadius: 16,
-          padding: 16,
-          borderWidth: 1,
-          borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-        }}
-        >
-        
-        {[
-          { label: 'Deposit', icon: 'add', route: '../wallet' },
-          { label: 'My Assets', icon: 'cube', route: '../portfolio/myassets/assets-first' },
-          { label: 'Guidance', icon: 'document-text-outline', route: '../portfolio/guidance/guidance-one' },
-          { label: 'Market', icon: 'storefront', route: '/marketplace' },
-        ].map((item, index) => (
-          <TouchableOpacity
-            onPress={() => router.push(item.route as any)}
-            style={{
-              flex: 1,
-              // backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-              // borderRadius: 16,
-              paddingVertical: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              // borderWidth: 1,
-              borderRightWidth: index === 3 ? 0 : 2,
-              borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-            }}
-            >
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-              <Ionicons name={item.icon as any} size={24} color={colors.primaryForeground} />
-            </View>
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-          
         </View>
-      </View>
 
-      {/* Stats Overview Cards */}
-      <View className="mt-6 px-4">
-        <View className="mb-3 flex-row items-center justify-between">
-          <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
-          Overview
-        </Text>
-          <TouchableOpacity>
-            <Text style={{ color: colors.primary }} className="text-sm font-medium">
-              View All
-            </Text>
-          </TouchableOpacity>
+        <View className="flex-1 items-center justify-center pt-0 pb-10">
+
+          <CircularDragRotator
+            size={360}
+            totalInvested={totalInvested}
+            totalValue={totalValue}
+            investments={investments}
+          />
         </View>
-        <View className="flex-row flex-wrap gap-3">
-          {/* Total Earnings Card */}
-          <View
-            style={{
-              flex: 1,
-              minWidth: '47%',
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-            }}>
-            <View className="mb-2 flex-row items-center justify-between">
-              <View
+
+
+        {/* Quick Actions Row */}
+        <View className="mx-4">
+          <GlassCard style={{ padding: 16 }}>
+          <View className="flex-row">
+
+            {[
+              { label: 'Deposit', icon: 'add', route: '../wallet' },
+              { label: 'My Assets', icon: 'cube', route: '../portfolio/myassets/assets-first' },
+              { label: 'Guidance', icon: 'document-text-outline', route: '../portfolio/guidance/guidance-one' },
+              { label: 'Market', icon: 'storefront', route: '/marketplace' },
+            ].map((item, index) => (
+              <TouchableOpacity
+                key={item.label}
+                onPress={() => router.push(item.route as any)}
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                  flex: 1,
+                  // backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+                  // borderRadius: 16,
+                  paddingVertical: 10,
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}>
-                <Ionicons name="trending-up" size={18} color={colors.primary} />
-              </View>
-              <View
-                style={{
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 8,
-                }}>
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
-                  All Time
+                  // borderWidth: 1,
+                  borderRightWidth: index === 3 ? 0 : 2,
+                  borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+                }}
+              >
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: colors.primary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <Ionicons name={item.icon as any} size={24} color={colors.primaryForeground} />
+                </View>
+                <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                  {item.label}
                 </Text>
-              </View>
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-              Total Earnings
-            </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
-              ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
-          </View>
+              </TouchableOpacity>
+            ))}
 
-          {/* This Month Card */}
-          <View
-            style={{
-              flex: 1,
-              minWidth: '47%',
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-            }}>
-            <View className="mb-2 flex-row items-center justify-between">
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <Ionicons name="calendar" size={18} color={colors.primary} />
-              </View>
-              {lastMonthEarnings > 0 && earningsGrowthPercent !== 0 && (
+          </View>
+          </GlassCard>
+        </View>
+
+        {/* Stats Overview Cards */}
+        <View className="mt-6 px-4">
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              Overview
+            </Text>
+            <TouchableOpacity>
+              <Text style={{ color: colors.primary }} className="text-sm font-medium">
+                View All
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row flex-wrap gap-3">
+            {/* Total Earnings Card */}
+            <GlassCard
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                padding: 16,
+              }}>
+              <View className="mb-2 flex-row items-center justify-between">
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="trending-up" size={18} color={colors.primary} />
+                </View>
                 <View
                   style={{
                     backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
@@ -650,222 +652,293 @@ export default function PortfolioScreen() {
                     borderRadius: 8,
                   }}>
                   <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
-                    {earningsGrowthPercent >= 0 ? '+' : ''}{earningsGrowthPercent.toFixed(1)}%
+                    All Time
                   </Text>
                 </View>
-              )}
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-              This Month
-            </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
-              ${thisMonthEarnings.toFixed(2)}
-            </Text>
-          </View>
-
-          {/* Total Invested Card */}
-          <View
-            style={{
-              flex: 1,
-              minWidth: '47%',
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-            }}>
-            <View className="mb-2">
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <Ionicons name="wallet" size={18} color={colors.primary} />
               </View>
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-              Total Invested
-            </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
-              ${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
-          </View>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                Total Earnings
+              </Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
+                ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </GlassCard>
 
-          {/* Total Loss Card */}
-          <View
-            style={{
-              flex: 1,
-              minWidth: '47%',
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-            }}>
-            <View className="mb-2">
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: hasLoss 
-                    ? (isDarkColorScheme ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)')
-                    : (isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)'),
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <Ionicons 
-                  name={hasLoss ? "trending-down" : "trending-up"} 
-                  size={18} 
-                  color={hasLoss ? "#EF4444" : colors.primary} 
-                />
+            {/* This Month Card */}
+            <GlassCard
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                padding: 16,
+              }}>
+              <View className="mb-2 flex-row items-center justify-between">
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="calendar" size={18} color={colors.primary} />
+                </View>
+                {lastMonthEarnings > 0 && earningsGrowthPercent !== 0 && (
+                  <View
+                    style={{
+                      backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 8,
+                    }}>
+                    <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
+                      {earningsGrowthPercent >= 0 ? '+' : ''}{earningsGrowthPercent.toFixed(1)}%
+                    </Text>
+                  </View>
+                )}
               </View>
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-              {hasLoss ? 'Total Loss' : 'Total Gain'}
-            </Text>
-            <Text style={{ 
-              color: hasLoss ? '#EF4444' : colors.primary, 
-              fontSize: 20, 
-              fontWeight: 'bold' 
-            }}>
-              {hasLoss ? '-' : '+'}${Math.abs(totalLoss).toLocaleString('en-US', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
-              })}
-            </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
-              From ${totalInvested.toLocaleString('en-US', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
-              })} invested
-            </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                This Month
+              </Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
+                ${thisMonthEarnings.toFixed(2)}
+              </Text>
+            </GlassCard>
+
+            {/* Total Invested Card */}
+            <GlassCard
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                padding: 16,
+              }}>
+              <View className="mb-2">
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons name="wallet" size={18} color={colors.primary} />
+                </View>
+              </View>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                Total Invested
+              </Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>
+                ${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </GlassCard>
+
+            {/* Total Loss Card */}
+            <GlassCard
+              style={{
+                flex: 1,
+                minWidth: '47%',
+                padding: 16,
+              }}>
+              <View className="mb-2">
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: hasLoss
+                      ? (isDarkColorScheme ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)')
+                      : (isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)'),
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons
+                    name={hasLoss ? "trending-down" : "trending-up"}
+                    size={18}
+                    color={hasLoss ? "#EF4444" : colors.primary}
+                  />
+                </View>
+              </View>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                {hasLoss ? 'Total Loss' : 'Total Gain'}
+              </Text>
+              <Text style={{
+                color: hasLoss ? '#EF4444' : colors.primary,
+                fontSize: 20,
+                fontWeight: 'bold'
+              }}>
+                {hasLoss ? '-' : '+'}${Math.abs(totalLoss).toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                From ${totalInvested.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })} invested
+              </Text>
+            </GlassCard>
           </View>
         </View>
-      </View>
 
 
         {/* Properties Header */}
-        <View className="mb-3 mt-6 px-4">
-        <View className="flex-row items-center justify-between">
-        <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
-            YOUR PROPERTIES
-          </Text>
-          <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
-            <Text style={{ color: colors.primary }} className="text-sm font-semibold">
-              View All
-        </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Overlapping Property Cards */}
-      <View className="mb-6 px-4">
-        <PropertyCardStack data={investments} />
-      </View>
-
-      
-
-      {/* Weekly Performance Chart */}
-      <View className="mt-6 px-4">
-        <PortfolioWeeklyChart 
-          monthlyIncome={monthlyRentalIncome}
-          investments={investments}
-          totalValue={totalValue}
-          transactions={transactions}
-          portfolioCandlesData={portfolioCandlesData}
-        />
-      </View>
-
-      {/* Performance Summary */}
-      <View className="mt-4 px-4">
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: 16,
-            padding: 18,
-            borderWidth: 1,
-            borderColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-          }}>
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 10,
-                }}>
-                <Ionicons name="stats-chart" size={18} color={colors.primary} />
-              </View>
-              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
-                Performance Summary
-            </Text>
-            </View>
-          </View>
-          
-          <View className="mb-3 flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-              Average Monthly Return
-            </Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
-              ${averageMonthly.toFixed(2)}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-              marginVertical: 10,
-            }}
-          />
-
-          <View className="mb-3 flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Best Performer</Text>
-            <Text
-              style={{ color: colors.primary, fontSize: 15, fontWeight: '700' }}
-              numberOfLines={1}>
-              {bestProperty?.property.title || 'N/A'}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-              marginVertical: 10,
-            }}
-          />
-
+        <View className="mb-3 mt-8 px-4">
           <View className="flex-row items-center justify-between">
-            <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Active Properties</Text>
-            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
-              {investments.length}
+            <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+              YOUR PROPERTIES
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/portfolio/myassets/assets-first')}>
+              <Text style={{ color: colors.primary }} className="text-sm font-semibold">
+                View All
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Overlapping Property Cards */}
+        <View className="mb-6 px-4">
+          <PropertyCardStack data={investments} />
+        </View>
+
+
+        {/* Analytics Header */}
+        <View className="px-4">
+          <View className="flex-row items-center justify-between">
+            <Text style={{ color: colors.textPrimary }} className="text-xl font-bold">
+              Analytics
             </Text>
           </View>
         </View>
-      </View>
 
-    
+        {/* Weekly Performance Chart */}
+        <View className="mt-6 px-4">
+          <PortfolioWeeklyChart
+            monthlyIncome={monthlyRentalIncome}
+            investments={investments}
+            totalValue={totalValue}
+            transactions={transactions}
+            portfolioCandlesData={portfolioCandlesData}
+          />
+        </View>
 
-      {/* Saved Plans Section */}
-      <SavedPlansSection />
+        {/* Performance Summary */}
+        <View className="mt-4 px-4">
+          <GlassCard style={{ padding: 18 }}>
+            <View className="mb-4 flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 10,
+                  }}>
+                  <Ionicons name="stats-chart" size={18} color={colors.primary} />
+                </View>
+                <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+                  Performance Summary
+                </Text>
+              </View>
+            </View>
+
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                Average Monthly Return
+              </Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
+                ${averageMonthly.toFixed(2)}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                marginVertical: 10,
+              }}
+            />
+
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Best Performer</Text>
+              <Text
+                style={{ color: colors.primary, fontSize: 15, fontWeight: '700' }}
+                numberOfLines={1}>
+                {bestProperty?.property.title || 'N/A'}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                height: 1,
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                marginVertical: 10,
+              }}
+            />
+
+            <View className="flex-row items-center justify-between">
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Active Properties</Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>
+                {investments.length}
+              </Text>
+            </View>
+          </GlassCard>
+        </View>
+
+
+
+        {/* Saved Plans Section */}
+        <SavedPlansSection />
       </View>
     </>
   );
 
   return (
     <View style={{ backgroundColor: 'rgba(22,22,22,1)' }} className="flex-1">
-         {/* Linear Gradient Background - 40% green top, black bottom */}
-   {/* <LinearGradient
+
+
+             {/* Radial Gradient Background */}
+             <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                {isDarkColorScheme ? (
+                  <>
+                    {/* Dark Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="90%" cy="0%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                ) : (
+                  <>
+                    {/* Light Mode - Top Right Glow */}
+                    <RadialGradient id="grad1" cx="10%" cy="10%" r="80%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                )}
+              </Defs>
+
+              {/* Base Layer */}
+              <Rect 
+                width="100%" 
+                height="100%" 
+                fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
+              />
+
+              {/* Layer the gradients on top of the base */}
+              <Rect width="100%" height="50%" fill="url(#grad1)" />
+            </Svg>
+          </View>
+
+
+      {/* Linear Gradient Background - 40% green top, black bottom */}
+      {/* <LinearGradient
         colors={
           isDarkColorScheme
             ? [

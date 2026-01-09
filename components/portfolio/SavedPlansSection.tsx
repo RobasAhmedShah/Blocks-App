@@ -13,6 +13,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { savedPlansService, SavedPlan } from '@/services/savedPlans';
 import { useGuidance } from '@/contexts/GuidanceContext';
 import { useApp } from '@/contexts/AppContext';
+import { BlurView } from 'expo-blur';
 
 export function SavedPlansSection() {
   const router = useRouter();
@@ -163,20 +164,46 @@ export function SavedPlansSection() {
         contentContainerStyle={{ gap: 12, paddingRight: 4 }}
       >
         {savedPlans.map((plan) => (
-          <TouchableOpacity
+          <View
             key={plan.id}
-            onPress={() => handleUsePlan(plan)}
-            activeOpacity={0.8}
             style={{
               width: 280,
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 16,
+              borderRadius: 18,
+              overflow: 'hidden',
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: 'rgba(255,255,255,0.18)',
+              shadowColor: '#000',
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 4 },
+              // elevation: 6,
               marginRight: 12,
             }}
           >
+            <BlurView
+              intensity={28}
+              tint="dark"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                padding: 16,
+              }}
+            >
+              {/* Subtle top highlight */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  backgroundColor: 'rgba(255,255,255,0.35)',
+                }}
+              />
+              
+              <TouchableOpacity
+                onPress={() => handleUsePlan(plan)}
+                activeOpacity={0.8}
+              >
             {/* Plan Header */}
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center gap-2">
@@ -319,7 +346,9 @@ export function SavedPlansSection() {
             >
               Saved {new Date(plan.createdAt).toLocaleDateString()}
             </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
+            </BlurView>
+          </View>
         ))}
       </ScrollView>
     </View>

@@ -578,8 +578,8 @@ function BlocksHomeScreen() {
                         
                         {/* Stat Chips */}
                         <View className="flex-row gap-2">
-                          {propertyData.amenities?.slice(0, 3).map((amenity: string) => (
-                            <View key={amenity} className="flex-row gap-2">
+                          {propertyData.amenities?.slice(0, 3).map((amenity: string, amenityIndex: number) => (
+                            <View key={`${item.id}-amenity-${amenityIndex}`} className="flex-row gap-2">
                               {/* <Ionicons name={amenity as any} size={20} color="#FFFFFF" /> */}
                               <GlassChip text={amenity} />
                             </View>
@@ -621,13 +621,20 @@ function BlocksHomeScreen() {
 
           {/* List Cards */}
           <View className="px-5 gap-4 mb-6">
-            {[...affordable, ...midRange].slice(0, 3).map((item) => {
+            {(() => {
+              // Remove duplicates by id to prevent duplicate keys
+              const combined = [...affordable, ...midRange];
+              const uniqueItems = combined.filter((item, index, self) => 
+                index === self.findIndex((t) => t.id === item.id)
+              );
+              return uniqueItems.slice(0, 3);
+            })().map((item, index) => {
               const property = item.property || state.properties.find(p => p.id === item.id);
               if (!property) return null;
               
               return (
                 <TouchableOpacity
-                  key={item.id}
+                  key={`${item.id}-${index}`}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/property/${item.id}`)}
                 >
@@ -638,6 +645,7 @@ function BlocksHomeScreen() {
                       style={{ width: 72, height: 72, borderRadius: 14 }}
                       resizeMode="cover"
                     />
+                  
                     
                     {/* Middle Content */}
                     <View className="flex-1">
@@ -701,6 +709,11 @@ function BlocksHomeScreen() {
             </View>
           )}
 
+          
+            <GuidanceCard />
+          
+
+
           {/* Additional Sections (preserved for tour) */}
           {featured.length > 0 && (
             <View className="mt-6 mb-4">
@@ -727,13 +740,13 @@ function BlocksHomeScreen() {
                 name={TOUR_STEPS.HOME.GUIDANCE_CARD.name}
               >
                 <CopilotView>
-                  <GuidanceCard />
+                 
                 </CopilotView>
               </CopilotStep>
             </View>
           )}
 
-          <CTAButton />
+        
         </Animated.ScrollView>
       </SafeAreaView>
     </View>

@@ -1,9 +1,17 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, StyleSheet, LayoutChangeEvent, PanResponder, Text, Pressable, TouchableOpacity } from "react-native";
-import Svg, { Path, Circle, Text as SvgText } from "react-native-svg";
-import { useRouter } from "expo-router";
-import { Investment } from "@/types/portfolio";
+import { View, StyleSheet, LayoutChangeEvent, PanResponder } from "react-native";
+import Svg, { Path, Text as SvgText } from "react-native-svg";
 import { useColorScheme } from '@/lib/useColorScheme';
+
+type Investment = {
+  id: string;
+  currentValue: number;
+  property?: {
+    id: string;
+    title: string;
+    displayCode?: string;
+  };
+};
 
 type CircularDragRotatorProps = {
   size?: number;
@@ -32,9 +40,23 @@ const describeArc = (
   startAngle: number,
   endAngle: number
 ) => {
-  const start = polarToCartesian(cx, cy, r, startAngle);
-  const end = polarToCartesian(cx, cy, r, endAngle);
-  const largeArcFlag = endAngle - startAngle <= Math.PI ? "0" : "1";
+  let normalizedStart = normalizeAngle(startAngle);
+  let normalizedEnd = normalizeAngle(endAngle);
+  
+  let angularSpan = normalizedEnd - normalizedStart;
+  if (angularSpan < 0) {
+    angularSpan += 2 * Math.PI;
+  }
+  
+  if (angularSpan < 0.001) {
+    angularSpan = 0.001;
+    normalizedEnd = normalizeAngle(normalizedStart + angularSpan);
+  }
+  
+  const start = polarToCartesian(cx, cy, r, normalizedStart);
+  const end = polarToCartesian(cx, cy, r, normalizedEnd);
+  
+  const largeArcFlag = angularSpan <= Math.PI ? "0" : "1";
 
   return `M ${start.x} ${start.y}
           A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
@@ -45,37 +67,8 @@ const normalizeAngle = (angle: number) => {
   return normalized < 0 ? normalized + 2 * Math.PI : normalized;
 };
 
-const isAngleInVisibleArc = (angle: number, gapStart: number, gapEnd: number) => {
-  const norm = normalizeAngle(angle);
-  const normStart = normalizeAngle(gapStart);
-  const normEnd = normalizeAngle(gapEnd);
-  
-  if (normStart < normEnd) {
-    return norm < normStart || norm > normEnd;
-  } else {
-    return norm < normStart && norm > normEnd;
-  }
-};
-
-// Color palette for property knobs (greenish/emerald theme)
-const PROPERTY_COLORS = [
-  '#10b981', // emerald-500
-  '#34d399', // emerald-400
-  '#6ee7b7', // emerald-300
-  '#059669', // emerald-600
-  '#047857', // emerald-700
-  '#14b8a6', // teal-500
-  '#2dd4bf', // teal-400
-  '#5eead4', // teal-300
-  '#0d9488', // teal-600
-  '#0f766e', // teal-700
-  '#22c55e', // green-500
-  '#4ade80', // green-400
-  '#86efac', // green-300
-];
-
 export function CircularDragRotator({
-  size = 200,
+  size = 300,
   ringWidth = 50,
   knobSize = 40,
   inset = 20,
@@ -83,7 +76,6 @@ export function CircularDragRotator({
   totalValue,
   investments,
 }: CircularDragRotatorProps) {
-  const router = useRouter();
   const containerRef = useRef<View>(null);
   const [layout, setLayout] = useState<{
     x: number;
@@ -91,107 +83,105 @@ export function CircularDragRotator({
     w: number;
     h: number;
   } | null>(null);
-  const { colors } = useColorScheme();
 
-  // Offset angle for scrolling the knobs around the ring
+  const { colors } = useColorScheme();
   const offsetAngleRef = useRef(0);
   const lastAngleRef = useRef(0);
   const velocityRef = useRef(0);
   const lastTimeRef = useRef(Date.now());
   const animationFrameRef = useRef<number | null>(null);
   
-  // Track touch start position for tap detection
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const hasDraggedRef = useRef(false);
 
-  const [, force] = useState(0);
+  const [, forceUpdate] = useState(0);
 
   const radius = size / 2 - inset - ringWidth / 2;
   
-  // Map investments to knobs
+  // FIXED: Proper knob calculation
   const actualKnobs = useMemo(() => {
-    return investments.map((investment, index) => {
-      const propertyName = investment.property?.title || investment.property?.displayCode || 'P';
-      const firstLetter = propertyName.charAt(0).toUpperCase();
-      
-      return {
-        id: investment.id,
-        propertyId: investment.property?.id || investment.id,
-        // color: PROPERTY_COLORS[index % PROPERTY_COLORS.length],
-        color: PROPERTY_COLORS[9],
-        firstLetter,
-        investment,
-      };
-    });
-  }, [investments]);
+    const FULL = Math.PI * 2;
+    const GAP = 0.4;
+    const MIN_ARC = 0.1;
   
-  const angleStep = actualKnobs.length > 0 ? (2 * Math.PI) / actualKnobs.length : 0;
+    const n = investments.length;
+    if (n === 0) return [];
   
-  // Format number with commas
-  const formatNumber = (num: number): string => {
-    return Math.round(num).toLocaleString('en-US');
-  };
+    const totalGapSpace = n * GAP;
+    const arcBudget = FULL - totalGapSpace;
   
-  // Handle knob press - navigate to myassets
-  const handleKnobPress = (propertyId: string, investmentId: string) => {
-    router.push({
-      pathname: '/portfolio/myassets/assets-first',
-      params: { 
-        id: investmentId,
-        propertyId: propertyId,
-      },
-    } as any);
-  };
+    const values = investments.map(i => Math.max(i.currentValue || 0, 0));
+    const totalValueSafe = Math.max(
+      values.reduce((a, b) => a + b, 0),
+      1
+    );
   
-  // 75% visible arc = 270 degrees = 1.5π radians
-  // Gap is 25% = 90 degrees = 0.5π radians
-  // Place gap at the bottom (270° to 360°/0°)
-  const visibleArcLength = Math.PI * 1.5; // 270 degrees
-  const gapSize = Math.PI * 0.5; // 90 degrees
-  const gapStart = Math.PI * 1.5; // Start of gap (bottom right)
-  const gapEnd = 0; // End of gap (top)
-
-  // Check if a touch position is within a knob
-  const getKnobAtPosition = (touchX: number, touchY: number) => {
-    if (!layout) return null;
-    
-    const cx = layout.x + layout.w / 2;
-    const cy = layout.y + layout.h / 2;
-    const relX = touchX - cx;
-    const relY = touchY - cy;
-    
-    for (let index = 0; index < actualKnobs.length; index++) {
-      const knob = actualKnobs[index];
-      const baseAngle = index * angleStep;
-      const knobAngle = normalizeAngle(baseAngle + offsetAngleRef.current);
-      
-      // Only check knobs in visible arc
-      if (!isAngleInVisibleArc(knobAngle, gapStart, gapEnd)) {
-        continue;
+    // Step 1: initial proportional arcs
+    let arcs = values.map(v => (v / totalValueSafe) * arcBudget);
+  
+    // Step 2: enforce minimums
+    let deficit = 0;
+    arcs = arcs.map(a => {
+      if (a < MIN_ARC) {
+        deficit += (MIN_ARC - a);
+        return MIN_ARC;
       }
-      
-      const pos = polarToCartesian(size / 2, size / 2, radius, knobAngle);
-      const knobX = pos.x - size / 2;
-      const knobY = pos.y - size / 2;
-      
-      const distance = Math.sqrt(
-        Math.pow(relX - knobX, 2) + Math.pow(relY - knobY, 2)
-      );
-      
-      // Check if touch is within knob radius (with some tolerance)
-      if (distance <= knobSize / 2 + 5) {
-        return knob;
+      return a;
+    });
+  
+    // Step 3: redistribute deficit from larger arcs
+    if (deficit > 0) {
+      const adjustable = arcs
+        .map((a, i) => ({ a, i }))
+        .filter(x => x.a > MIN_ARC);
+  
+      const adjustableSum =
+        adjustable.reduce((s, x) => s + (x.a - MIN_ARC), 0);
+  
+      if (adjustableSum > 0) {
+        adjustable.forEach(({ a, i }) => {
+          const reducible = a - MIN_ARC;
+          const reduction = (reducible / adjustableSum) * deficit;
+          arcs[i] = a - reduction;
+        });
       }
     }
-    
-    return null;
-  };
+  
+    // Step 4: layout
+    let angle = 0;
+    return investments.map((inv, i) => {
+      const start = angle;
+      const end = angle + arcs[i];
+      const center = (start + end) / 2;
+  
+      angle = end + GAP;
+  
+      const name = inv.property?.title || "Property";
+      const spaceIndex = name.indexOf(" ");
+
+      return {
+        id: inv.id,
+        propertyId: inv.property?.id || inv.id,
+        color: colors.card,
+        firstLetter: spaceIndex > 0 && spaceIndex < name.length - 1
+          ? name.charAt(0).toUpperCase() + name.charAt(spaceIndex + 1).toUpperCase()
+          : name.charAt(0).toUpperCase(),
+        investment: inv,
+        arcAngle: arcs[i],
+        startAngle: start,
+        endAngle: end,
+        centerAngle: center,
+        percent:(arcs[i]/FULL)*100
+      };
+    });
+  }, [investments, totalValue]);
+  
 
   const applyMomentum = () => {
     if (Math.abs(velocityRef.current) > 0.001) {
       offsetAngleRef.current += velocityRef.current;
-      velocityRef.current *= 0.95; // Friction
-      force((v) => v + 1);
+      velocityRef.current *= 0.95;
+      forceUpdate(v => v + 1);
       animationFrameRef.current = requestAnimationFrame(applyMomentum);
     }
   };
@@ -202,13 +192,11 @@ export function CircularDragRotator({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (e) => {
-          // Stop momentum
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
           }
           velocityRef.current = 0;
 
-          // Track touch start for tap detection
           const { pageX, pageY } = e.nativeEvent;
           touchStartRef.current = {
             x: pageX,
@@ -227,7 +215,6 @@ export function CircularDragRotator({
           if (!layout) return;
           const { pageX, pageY } = e.nativeEvent;
           
-          // Check if user has moved enough to be considered a drag
           if (touchStartRef.current) {
             const dx = pageX - touchStartRef.current.x;
             const dy = pageY - touchStartRef.current.y;
@@ -247,41 +234,32 @@ export function CircularDragRotator({
           
           let deltaAngle = currentAngle - lastAngleRef.current;
           
-          // Handle wrap-around
           if (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
           if (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
           
           offsetAngleRef.current += deltaAngle;
-          velocityRef.current = deltaAngle / dt * 16; // Normalize to 60fps
+          velocityRef.current = deltaAngle / dt * 16;
           
           lastAngleRef.current = currentAngle;
           lastTimeRef.current = now;
-          force((v) => v + 1);
+          forceUpdate(v => v + 1);
         },
-        onPanResponderRelease: (e) => {
-          const { pageX, pageY } = e.nativeEvent;
-          
-          // Check if this was a tap (not a drag)
+        onPanResponderRelease: () => {
           if (!hasDraggedRef.current && touchStartRef.current) {
             const timeDiff = Date.now() - touchStartRef.current.time;
-            
-            // If released quickly and didn't drag, treat as tap
             if (timeDiff < 300) {
-              const tappedKnob = getKnobAtPosition(pageX, pageY);
-              if (tappedKnob) {
-                handleKnobPress(tappedKnob.propertyId, tappedKnob.id);
-                return;
-              }
+              // Handle tap if needed
             }
           }
           
-          // Start momentum animation if dragged
           if (Math.abs(velocityRef.current) > 0.001) {
             animationFrameRef.current = requestAnimationFrame(applyMomentum);
           }
+          
+          touchStartRef.current = null;
         },
       }),
-    [layout, actualKnobs, angleStep, size, radius, knobSize]
+    [layout, actualKnobs]
   );
 
   const onLayout = (_: LayoutChangeEvent) => {
@@ -290,94 +268,67 @@ export function CircularDragRotator({
     );
   };
 
-  // Render only the 75% visible arc
-  const arcPath = describeArc(
-    size / 2, 
-    size / 2, 
-    radius, 
-    0, // Start at top
-    Math.PI * 1.5 // End at 270 degrees (75% of circle)
-  );
-  // Render only the 75% visible arc
-  const arcPath2 = describeArc(
-    size / 2, 
-    size / 2, 
-    radius, 
-    0, // Start at top
-    Math.PI * 1.99999 // End at 270 degrees (75% of circle)
-  );
+  const fullRingPath = describeArc(size / 2, size / 2, radius, 0, Math.PI * 1.99999);
 
   return (
     <View 
-    className="flex-1 items-center justify-center"
       ref={containerRef}
       onLayout={onLayout}
       style={[styles.container, { width: size, height: size }]}
       {...panResponder.panHandlers}
     >
       <Svg width={size} height={size}>
-        {/* Background ring - 75% arc, drawn first (behind knobs) */}
         <Path
-          d={arcPath2}
-          strokeWidth={ringWidth}
-          fill={colors.grey5}
-        />
-        <Path
-          d={arcPath}
-          stroke={colors.primary}
-          strokeWidth={ringWidth}
-          fill={colors.grey5}
+          d={fullRingPath}
+          stroke={colors.card}
+          strokeWidth={ringWidth + 10}
+          fill="none"
           strokeLinecap="round"
         />
 
-        {/* Render knobs - only those in visible arc */}
-        {actualKnobs.map((knob, index) => {
-          const baseAngle = index * angleStep;
-          const knobAngle = normalizeAngle(baseAngle + offsetAngleRef.current);
+        {actualKnobs.map((knob,i) => {
+          const scrolledStartAngle = normalizeAngle(knob.startAngle + offsetAngleRef.current);
+          const scrolledEndAngle = normalizeAngle(knob.endAngle + offsetAngleRef.current);
+          const scrolledCenterAngle = normalizeAngle(knob.centerAngle + offsetAngleRef.current);
           
-          // Only render knobs that are in the visible 75% arc
-          if (!isAngleInVisibleArc(knobAngle, gapStart, gapEnd)) {
-            return null;
-          }
-          
-          const pos = polarToCartesian(size / 2, size / 2, radius, knobAngle);
+          const knobArcPath = describeArc(size / 2, size / 2, radius, scrolledStartAngle, scrolledEndAngle);
+          const labelPos = polarToCartesian(size / 2, size / 2, radius, scrolledCenterAngle);
 
           return (
-            
-            <React.Fragment key={knob.id}>
-                {/* Main bubble */}
-                <Circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={knobSize / 2}
-                  fill={knob.color}
-                  stroke="rgba(255, 255, 255, 0.8)"
-                  strokeWidth={2}
-                  opacity={0.9}
-                />
-                {/* Inner highlight */}
-                {/* <Circle
-                  cx={pos.x - knobSize / 6}
-                  cy={pos.y - knobSize / 6}
-                  r={knobSize / 4}
-                  fill="rgba(255, 255, 255, 0.4)"
-                /> */}
-                {/* Property name first letter */}
-                <SvgText
-                  x={pos.x}
-                  y={pos.y + 4}
-                  fontSize={knobSize / 2.5}
-                  fill="rgba(255, 255, 255, 0.95)"
-                  textAnchor="middle"
-                  fontWeight="bold"
-                >
-                  {knob.firstLetter}
-                </SvgText>
+            <React.Fragment key={i}>
+              <Path
+                d={knobArcPath}
+                stroke={colors.primary}
+                strokeWidth={ringWidth}
+                fill="none"
+                strokeLinecap="round"
+              />
+              {/* First letter on top line */}
+              <SvgText
+                x={labelPos.x}
+                y={labelPos.y - 2}
+                fontSize={knobSize / 2.5}
+                fill="rgba(255, 255, 255, 0.95)"
+                textAnchor="middle"
+                fontWeight="bold"
+              >
+                {knob.firstLetter}
+              </SvgText>
+              {/* Percentage on bottom line */}
+              <SvgText
+                x={labelPos.x}
+                y={labelPos.y + knobSize / 2.5 + 2}
+                fontSize={knobSize / 3}
+                fill="rgba(255, 255, 255, 0.85)"
+                textAnchor="middle"
+                fontWeight="500"
+              >
+                {`${knob.percent.toFixed(1)}%`}
+              </SvgText>
             </React.Fragment>
           );
         })}
         
-        {/* Center text - Total Holdings */}
         <SvgText
           x={size / 2}
           y={size / 2 - 12}
@@ -385,29 +336,20 @@ export function CircularDragRotator({
           fill="rgba(255, 255, 255, 0.6)"
           textAnchor="middle"
           fontWeight="500"
-        
         >
           Total Holdings
         </SvgText>
-        {(() => {
-          const roundedValue = Math.round(totalValue * 100) / 100;
-          return (
-            <>
-              {/* Integer part - larger, centered */}   
-              <SvgText
-                x={size / 2}
-                y={size / 2 + 20}
-                fontSize={28}
-                fill="#10b981"
-                textAnchor="middle"
-                fontWeight="300"
-              >
-                {'$' + roundedValue}
-              </SvgText>
-             
-            </>
-          );
-        })()}
+        
+        <SvgText
+          x={size / 2}
+          y={size / 2 + 20}
+          fontSize={28}
+          fill="#10b981"
+          textAnchor="middle"
+          fontWeight="300"
+        >
+          {`$ ${Math.round(totalValue * 100) / 100}`}
+        </SvgText>
       </Svg>
     </View>
   );

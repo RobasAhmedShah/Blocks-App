@@ -127,7 +127,7 @@ export default function WalletScreen() {
     if (activeTab === 'all') return true;
     if (activeTab === 'rental_income') {
       // Show both 'rental' and 'rental_income' when filtering by rental_income
-      return tx.type === 'rental' || tx.type === 'rental_income';
+      return tx.type === 'rental' || tx.type === 'rental_income' || tx.type === 'reward';
     }
     return tx.type === activeTab;
   });
@@ -181,7 +181,7 @@ export default function WalletScreen() {
     }
   };
 
-  return (
+  return(
     <View style={{ flex: 1 }}>
       {/* Radial Gradient Background */}
       <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
@@ -657,6 +657,7 @@ export default function WalletScreen() {
                     color:
                       transaction.type === 'deposit' ||
                       transaction.type === 'rental' ||
+                      transaction.type === 'reward' ||
                       transaction.type === 'rental_income'
                         ? colors.primary
                         : transaction.type === 'withdraw' || transaction.type === 'investment'

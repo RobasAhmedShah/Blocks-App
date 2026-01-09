@@ -291,7 +291,7 @@ export default function AssetsFirstScreen() {
     if (investments.length <= 1) return null;
     
     return (
-      <View className="flex-row justify-center items-center py-4 gap-2">
+      <View className="flex-row justify-center items-center py-2 gap-2">
         {investments.map((_, index) => (
       <View 
             key={index}
@@ -360,7 +360,7 @@ export default function AssetsFirstScreen() {
       <SafeAreaView className="flex-1">
         {/* Fixed Header */}
         <View 
-          className="flex-row justify-between items-center px-6 mt-8"
+          className="flex-row justify-between items-center px-6 mt-[1rem] h-[10vh]"
           style={{ 
             backgroundColor: colors.background,
             position: 'absolute',
@@ -405,9 +405,9 @@ export default function AssetsFirstScreen() {
         </View>
 
         {/* Content Area - with padding for fixed header */}
-        <View className="flex-1" style={{ paddingTop: 68,marginTop: 26 }}>
+        <View className="flex-1" style={{ paddingTop: 20, marginTop: 26 }}>
         {/* Carousel */}
-        <View className="flex-1">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center',height: '200%' }}>
           <FlatList
             ref={flatListRef}
             data={investments}
@@ -421,6 +421,7 @@ export default function AssetsFirstScreen() {
             contentContainerStyle={{ 
               paddingHorizontal: SPACING,
               alignItems: 'center',
+              justifyContent: 'center',
             }}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
@@ -443,7 +444,7 @@ export default function AssetsFirstScreen() {
         {renderDots()}
 
         {/* Action Buttons */}
-        <View className="flex-row px-4 pt-2 gap-3">
+        <View className="flex-row px-4 pt-2 pb-2 gap-3">
           <TouchableOpacity
             className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-2xl"
               style={{ backgroundColor: colors.primary }}
@@ -488,7 +489,7 @@ export default function AssetsFirstScreen() {
           </View>
 
         {/* Navigation Hint */}
-        <View className="flex-row items-center justify-center gap-2 py-4">
+        <View className="flex-row items-center justify-center gap-2 py-2">
             <Ionicons name="chevron-back" size={16} color={colors.textMuted} />
           <Text 
             className="text-[13px] font-medium"

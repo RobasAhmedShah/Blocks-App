@@ -145,7 +145,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       <View
         style={{ 
           width: CARD_WIDTH, 
-          height: CARD_HEIGHT,
+          height: CARD_HEIGHT *0.9,
           left: -15,
         }}
       >

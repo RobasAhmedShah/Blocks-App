@@ -7,6 +7,7 @@ import { Transaction } from '@/types/wallet';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
+import { BlurView } from 'expo-blur';
 
 interface PortfolioWeeklyChartProps {
   monthlyIncome: number;
@@ -775,25 +776,34 @@ export function PortfolioWeeklyChart({
   return (
     <View
       style={{
-        borderRadius: 20,
+        borderRadius: 18,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-      
+        borderColor: 'rgba(255,255,255,0.18)',
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 4 },
+        // elevation: 6,
       }}
     >
-      <View style={{
-        backgroundColor: colors.card,
-        padding: 16,
-      }}>
-      <View style={{ 
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.10)',
-      }} />
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.10)',
+          padding: 16,
+        }}
+      >
+        {/* Subtle top highlight */}
+        <View style={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          backgroundColor: 'rgba(255,255,255,0.35)',
+        }} />
       
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
 
@@ -813,7 +823,7 @@ export function PortfolioWeeklyChart({
       >
         <Text
           style={{
-            color: view === 'history' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
+            color: view === 'history' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
             fontWeight: '600',
             fontSize: 13,
           }}
@@ -838,7 +848,7 @@ export function PortfolioWeeklyChart({
         >
           <Text
             style={{
-              color: view === 'income' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
+              color: view === 'income' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
               fontWeight: '600',
               fontSize: 13,
             }}
@@ -880,7 +890,7 @@ export function PortfolioWeeklyChart({
         ? renderInvestmentTimelineChart() 
         : renderPortfolioHistoryChart()
       }
-      </View>
+      </BlurView>
     </View>
   );
 }

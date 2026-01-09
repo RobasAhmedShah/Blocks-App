@@ -11,6 +11,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { router } from 'expo-router';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
@@ -86,26 +87,52 @@ function PropertyMiniCard({
     <Animated.View
       style={[
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          shadowColor: isDarkColorScheme ? '#000' : 'rgba(0,0,0,0.08)',
+          borderRadius: 18,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.18)',
+          shadowColor: '#000',
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 4 },
+          // elevation: 6,
+          marginRight: isLast ? 0 : 14,
+          height: 160,
+          width: 180,
         },
         animatedStyle,
       ]}
-      className={`mr-[14px] h-[160px] w-[180px] ${
-        isLast ? 'mr-0' : ''
-      } rounded-2xl border shadow-md`}
     >
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() =>
-          router.push({
-            pathname: '/portfolio/myassets/assets-first',
-            params: { propertyId: item.property.id },
-          })
-        }
-        className="flex-1 px-4 py-4"
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.10)',
+          flex: 1,
+        }}
       >
+        {/* Subtle top highlight */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 1,
+            backgroundColor: 'rgba(255,255,255,0.35)',
+          }}
+        />
+        
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({
+              pathname: '/portfolio/myassets/assets-first',
+              params: { propertyId: item.property.id },
+            })
+          }
+          className="flex-1 px-4 py-4"
+        >
         {/* Header Row */}
         <View className="mb-3 flex-row items-center gap-3">
           <View
@@ -167,6 +194,7 @@ function PropertyMiniCard({
           </Text>
         </View>
       </TouchableOpacity>
+      </BlurView>
     </Animated.View>
   );
 }

@@ -18,6 +18,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { useApp } from '@/contexts/AppContext';
 import { bankWithdrawalsAPI, BankWithdrawalRequest } from '@/services/api/bank-withdrawals.api';
+import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
+import { Pressable } from 'react-native';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -29,6 +31,12 @@ export default function WalletScreen() {
   const [activeTab, setActiveTab] = useState('all');
   const [pendingWithdrawals, setPendingWithdrawals] = useState<BankWithdrawalRequest[]>([]);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>('usdc');
+  
+  // WalletConnect
+  const { connect, disconnect, isConnected, address, provider } = useWalletConnect();
+  const [cryptoBalance, setCryptoBalance] = useState<string>('0.00');
+  const [refreshingBalance, setRefreshingBalance] = useState(false);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
@@ -50,6 +58,37 @@ export default function WalletScreen() {
     }
   }, [isGuest, isAuthenticated]);
 
+  // Load crypto wallet balance
+  const loadCryptoBalance = React.useCallback(async (showLoading = false) => {
+    if (!isConnected || !address || !provider) {
+      setCryptoBalance('0.00');
+      return;
+    }
+    
+    try {
+      if (showLoading) {
+        setRefreshingBalance(true);
+      }
+      
+      // Get ETH balance using provider
+      const balance = await provider.request({
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+      });
+      
+      // Convert from wei to ETH (balance is in hex)
+      const ethBalance = parseInt(balance, 16) / 1e18;
+      setCryptoBalance(ethBalance.toFixed(4));
+    } catch (error) {
+      console.error('Error loading crypto balance:', error);
+      setCryptoBalance('0.00');
+    } finally {
+      if (showLoading) {
+        setRefreshingBalance(false);
+      }
+    }
+  }, [isConnected, address, provider]);
+
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
@@ -58,7 +97,11 @@ export default function WalletScreen() {
         loadTransactions();
         loadPendingWithdrawals();
       }
-    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated])
+      // Load crypto balance if connected
+      if (isConnected) {
+        loadCryptoBalance();
+      }
+    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, loadCryptoBalance])
   );
 
   // Show SignInGate if in guest mode (after all hooks)
@@ -307,6 +350,37 @@ export default function WalletScreen() {
             )}
           </TouchableOpacity>
         </View>
+        
+        {/* Navigation Tabs - Above the Card */}
+        <View className="mb-4 flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setWalletTab('usdc')}
+            style={{
+              flex: 1,
+              backgroundColor: walletTab === 'usdc' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+              borderRadius: 12,
+              padding: 12,
+            }}>
+            <Text style={{ color: walletTab === 'usdc' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+              Custody
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setWalletTab('crypto')}
+            style={{
+              flex: 1,
+              backgroundColor: walletTab === 'crypto' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+              borderRadius: 12,
+              padding: 12,
+            }}>
+            <Text style={{ color: walletTab === 'crypto' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+              Crypto
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Wallet Card - Shows based on selected tab */}
+        {walletTab === 'usdc' ? (
         <View
           style={{
             backgroundColor: isDarkColorScheme ? colors.background : 'rgba(255, 255, 255, 0.8)',
@@ -375,9 +449,6 @@ export default function WalletScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                // backgroundColor: isDarkColorScheme
-                //   ? 'rgba(34, 197, 94, 0.2)'
-                //   : 'rgba(34, 197, 94, 0.15)',
                 borderRadius: 20,
                 paddingHorizontal: 10,
                 paddingVertical: 5,
@@ -533,8 +604,148 @@ export default function WalletScreen() {
             </View>
           </View>
         </View>
+        ) : (
+        /* Crypto Wallet Card */
+        <View
+          style={{
+            backgroundColor: isDarkColorScheme ? colors.background : 'rgba(255, 255, 255, 0.8)',
+            borderRadius: 30,
+            overflow: 'hidden',
+          }}
+          className="p-4 pb-2">
+          {/* Radial Gradient Background */}
+          <View style={{ position: 'absolute', inset: 0 }}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                {isDarkColorScheme ? (
+                  <>
+                    <RadialGradient id="grad3" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                    </RadialGradient>
+                    <RadialGradient id="grad4" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                      <Stop offset="0%" stopColor="#60a5fa" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                ) : (
+                  <>
+                    <RadialGradient id="grad3" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                      <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </RadialGradient>
+                    <RadialGradient id="grad4" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                      <Stop offset="0%" stopColor="#93c5fd" stopOpacity="0.2" />
+                      <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0" />
+                    </RadialGradient>
+                  </>
+                )}
+              </Defs>
+              <Rect width="100%" height="100%" fill={isDarkColorScheme ? "#022c22" : "#eff6ff"} />
+              <Rect width="100%" height="100%" fill="url(#grad3)" />
+              <Rect width="100%" height="100%" fill="url(#grad4)" />
+            </Svg>
+          </View>
+
+          {!isConnected ? (
+            /* Not Connected State */
+            <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <MaterialIcons name="account-balance-wallet" size={64} color={colors.textMuted} />
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8 }}>
+                Connect Your Crypto Wallet
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 24, textAlign: 'center', paddingHorizontal: 32 }}>
+                Connect MetaMask or other wallets to view your crypto balance
+              </Text>
+              <Pressable
+                onPress={connect}
+                style={{
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 32,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+                  Connect Wallet
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            /* Connected State */
+            <>
+              <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 6, marginBottom: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#3b82f6', marginRight: 6 }} />
+                  <Text style={{ color: isDarkColorScheme ? '#FFFFFF' : '#1e40af', fontSize: 11, fontWeight: '500', opacity: 0.9 }}>
+                    Crypto Balance
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ alignItems: 'baseline', justifyContent: 'center', flexDirection: 'row', marginTop: 4, marginBottom: 4 }}>
+                <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
+                  {cryptoBalance}
+                </Text>
+                <Text style={{ color: '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
+                  ETH
+                </Text>
+              </View>
+
+              <View style={{ marginTop: 8, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                  Connected Wallet
+                </Text>
+                <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: 'monospace' }}>
+                  {address?.slice(0, 6)}...{address?.slice(-4)}
+                </Text>
+              </View>
+
+              <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+                <Pressable
+                  onPress={async () => {
+                    await loadCryptoBalance(true);
+                  }}
+                  disabled={refreshingBalance}
+                  style={{ 
+                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
+                    paddingHorizontal: 16, 
+                    paddingVertical: 8, 
+                    borderRadius: 8,
+                    opacity: refreshingBalance ? 0.6 : 1,
+                  }}>
+                  {refreshingBalance ? (
+                    <ActivityIndicator size="small" color="#3b82f6" />
+                  ) : (
+                    <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
+                      Refresh
+                    </Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    try {
+                      await disconnect();
+                      // Reset crypto balance after disconnecting
+                      setCryptoBalance('0.00');
+                    } catch (error) {
+                      console.error('Error disconnecting wallet:', error);
+                    }
+                  }}
+                  style={{ backgroundColor: isDarkColorScheme ? colors.card : 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+                  <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '600' }}>
+                    Disconnect
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+        )}
       </View>
       
+      {/* Only show transactions for USDC wallet */}
+      {walletTab === 'usdc' && (
+        <>
       {/* Quick Actions */}
       {/* Transaction Filters */}
       <View className="mx-4 mb-4">
@@ -673,6 +884,8 @@ export default function WalletScreen() {
           ))
         )}
       </ScrollView>
+        </>
+      )}
       {/* </ScrollView> */}
     </View>
   );

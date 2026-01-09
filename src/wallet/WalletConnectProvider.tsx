@@ -57,9 +57,29 @@ export const WalletConnectProvider = ({ children }: WalletConnectProviderProps) 
   // Use the official WalletConnect Modal hook
   const { open, close, isConnected, address, provider } = useWalletConnectModal();
 
+  const handleDisconnect = async () => {
+    try {
+      // If provider exists and has disconnect method, use it
+      if (provider && typeof provider.disconnect === 'function') {
+        await provider.disconnect();
+      }
+      
+      // Close the modal (this also disconnects the session in WalletConnect Modal)
+      await close();
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      // Ensure modal is closed even if disconnect fails
+      try {
+        await close();
+      } catch (closeError) {
+        console.error('Error closing modal:', closeError);
+      }
+    }
+  };
+
   const value: WalletConnectContextType = {
     connect: open,
-    disconnect: close,
+    disconnect: handleDisconnect,
     isConnected,
     address: address || null,
     provider,

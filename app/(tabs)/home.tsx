@@ -32,8 +32,6 @@ import { MarketplacePreviewRow } from '@/components/marketplace/MarketplacePrevi
 import Constants from 'expo-constants';
 import { Defs, RadialGradient, Rect, Stop, Svg } from 'react-native-svg';
 import { GlassChip } from '@/components/GlassChip';
-import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
-import { Pressable } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
@@ -78,9 +76,6 @@ function BlocksHomeScreen() {
   // KYC Status using hook (with caching)
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const { isGuest, isAuthenticated } = useAuth();
-  
-  // WalletConnect
-  const { connect, isConnected, address } = useWalletConnect();
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -739,27 +734,6 @@ function BlocksHomeScreen() {
           )}
 
           <CTAButton />
-          
-          {/* WalletConnect Button */}
-          <View className="px-5 mb-6">
-            <Pressable
-              onPress={connect}
-              style={{
-                padding: 12,
-                backgroundColor: '#000',
-                borderRadius: 8,
-                marginTop: 16,
-              }}>
-              <Text style={{ color: '#fff', textAlign: 'center' }}>
-                {isConnected ? 'Wallet Connected' : 'Connect Wallet'}
-              </Text>
-            </Pressable>
-            {isConnected && address && (
-              <Text style={{ marginTop: 8, fontSize: 12, color: '#9EDC5A', textAlign: 'center' }}>
-                {address}
-              </Text>
-            )}
-          </View>
         </Animated.ScrollView>
       </SafeAreaView>
     </View>

@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -47,7 +48,8 @@ export default function PropertyDetailHero() {
   // Map property data to component props
   const imageUrl = property ? getPropertyImageUrl(property.images) : "";
   const title = property?.title || "Property";
-  const subtitle = property?.builder?.name || property?.displayCode || "Property";
+  const builderName = property?.builder?.name || property?.displayCode || "Property";
+  const builderLogo = property?.builder?.logo || "";
   const rating = property?.builder?.rating || 5.0;
   const reviews = property?.builder?.projectsCompleted || 0;
   const location = property?.location || property?.city || "Location not available";
@@ -123,10 +125,20 @@ export default function PropertyDetailHero() {
     }
   };
 
+  // Check if property has tier tokens
+  const hasTierTokens = property?.tokens && property.tokens.length > 0 && 
+    property.tokens.some(token => token.isActive !== false);
+
   const handleTakeTourPress = () => {
-    // Navigate to property details/invest screen
+    // Navigate based on whether property has tiers
     if (property?.id) {
-      router.push(`/property/tier/${property.id}` as any);
+      if (hasTierTokens) {
+        // Property has tiers - navigate to tier selection screen
+        router.push(`/property/tier/${property.id}` as any);
+      } else {
+        // Property has no tiers - navigate directly to details screen
+        router.push(`/property/details/${property.id}` as any);
+      }
     }
   };
   const { width, height } = useWindowDimensions();
@@ -171,7 +183,7 @@ export default function PropertyDetailHero() {
     <View className="flex-1 bg-black items-center justify-center">
       <View
         style={{ width: maxW, height: '100%' }}
-        className="overflow-hidden rounded-[44px] bg-black"
+        className="overflow-hidden bg-black"
       >
         <ImageBackground
           source={{ uri: imageUrl }}
@@ -209,7 +221,7 @@ export default function PropertyDetailHero() {
             </View>
 
             {/* Notch pill (mock) */}
-            <View className="absolute top-3 left-1/2 -translate-x-1/2 w-[120px] h-9 bg-black/80 rounded-full" />
+            {/* <View className="absolute top-3 left-1/2 -translate-x-1/2 w-[120px] h-9 bg-black/80 rounded-full" /> */}
 
             {/* Header row */}
             <View className="mt-10 px-6 flex-row items-center justify-between">
@@ -229,12 +241,17 @@ export default function PropertyDetailHero() {
                     elevation: 8,
                   }}
                 >
-                  <MaterialIcons name="bar-chart" size={26} color="#fff" />
+                  {/* <MaterialIcons name="bar-chart" size={26} color="#fff" /> */}
+                  <Image
+                    source={{ uri: builderLogo }}
+                    className="w-12 h-12 rounded-full"
+                    resizeMode="cover"
+                  ></Image>
                 </View>
 
                 <View>
                   <Text className="text-white text-lg text-lg font-semibold leading-tight">
-                    {subtitle}
+                    {builderName}
                   </Text>
 
                   <View className="flex-row items-center gap-1">
@@ -280,7 +297,7 @@ export default function PropertyDetailHero() {
                 </View>
 
                 <View className="flex-row items-center gap-3 flex-1 justify-end">
-                  <Pressable
+                  {/* <Pressable
                     onPress={handleBoltPress}
                     className="items-center justify-center rounded-full"
                     style={{
@@ -295,7 +312,7 @@ export default function PropertyDetailHero() {
                     }}
                   >
                     <MaterialIcons name="bolt" size={24} color="#fff" />
-                  </Pressable>
+                  </Pressable> */}
 
                   <Pressable
                     onPress={handleTakeTourPress}
@@ -311,16 +328,22 @@ export default function PropertyDetailHero() {
                       overflow: "hidden",
                     }}
                   >
-                    <MaterialIcons name="location-on" size={20} color="rgba(24,24,27,0.65)" />
-                    <Text className="text-zinc-900 font-extrabold">See Tier Token</Text>
+                    <MaterialIcons 
+                      name={hasTierTokens ? "token" : "info"} 
+                      size={20} 
+                      color="rgba(24,24,27,0.65)" 
+                    />
+                    <Text className="text-zinc-900 font-extrabold">
+                      {hasTierTokens ? "View Appartments" : "View Details"}
+                    </Text>
                   </Pressable>
                 </View>
               </View>
 
               {/* Home indicator (mock) */}
-              <View className="mt-5 items-center">
+              {/* <View className="mt-5 items-center">
                 <View className="w-[134px] h-[5px] bg-white/35 rounded-full" />
-              </View>
+              </View> */}
             </View>
           </SafeAreaView>
         </ImageBackground>

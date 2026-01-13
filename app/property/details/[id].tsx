@@ -76,10 +76,7 @@ const AmenityChip = ({ icon, name }: { icon: string; name: string }) => (
 );
 
 export default function PropertyDetailScreen() {
-  const params = useLocalSearchParams<{ id: string | string[]; tokenId?: string | string[] }>();
-  // Handle id as string or array (Expo Router can return arrays)
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const tokenIdParam = Array.isArray(params.tokenId) ? params.tokenId[0] : params.tokenId;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { property, loading, error } = useProperty(id || "");
   const { balance } = useWallet();
@@ -123,28 +120,12 @@ export default function PropertyDetailScreen() {
     })
   ).current;
 
-  // Initialize selected token from route parameter (tokenId) when property loads
-  useEffect(() => {
-    if (property && property.tokens && tokenIdParam) {
-      // Find the token that matches the tokenId from route params
-      const tokenFromRoute = property.tokens.find(t => t.id === tokenIdParam);
-      if (tokenFromRoute && tokenFromRoute.isActive !== false) {
-        console.log('[Tier Detail] Initializing selected token from route:', tokenFromRoute.name);
-        setSelectedToken(tokenFromRoute);
-      } else {
-        console.log('[Tier Detail] Token ID from route not found or inactive:', tokenIdParam);
-      }
-    }
-  }, [property, tokenIdParam]);
-
   // Debug: Log tokens to see if they're being received (must be before any early returns)
   useEffect(() => {
     if (property) {
       console.log('[Property Detail] Property loaded:', property.title);
       console.log('[Property Detail] Property has tokens array?', Array.isArray(property.tokens));
       console.log('[Property Detail] Tokens count:', property.tokens?.length || 0);
-      console.log('[Property Detail] TokenId from route:', tokenIdParam);
-      console.log('[Property Detail] Selected token:', selectedToken?.name || 'None');
       if (property.tokens && property.tokens.length > 0) {
         console.log('[Property Detail] All tokens:', property.tokens.map(t => ({ 
           id: t.id, 
@@ -168,7 +149,7 @@ export default function PropertyDetailScreen() {
         console.log('[Property Detail] Full property object:', JSON.stringify(property, null, 2).substring(0, 500));
       }
     }
-  }, [property, tokenIdParam, selectedToken]);
+  }, [property]);
 
   // Geocode property location to coordinates - run on mount for hero map
   useEffect(() => {
@@ -483,7 +464,7 @@ export default function PropertyDetailScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: 'bold', marginBottom: 8 }} numberOfLines={2}>
-                  {selectedToken?.apartmentType}
+                  {property.title}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.55)" />
@@ -651,7 +632,7 @@ export default function PropertyDetailScreen() {
           <View style={{ paddingHorizontal: 18 }}>
           {activeTab === "Financials" && (
             <View>
-              {/* Token Summary Cards - Show selected token data if available, otherwise show aggregate */}
+              {/* Token Summary Cards - Show if tokens exist */}
               {activeTokens.length > 0 && (
                 <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
                   <GlassCard style={{ flex: 1, padding: 16 }}>
@@ -661,16 +642,11 @@ export default function PropertyDetailScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
-                          {currentToken ? 'Tokens Available' : 'Tokens Left'}
+                          Tokens Left
                         </Text>
                         <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' }}>
-                          {currentToken ? currentToken.availableTokens.toLocaleString() : totalTokensLeft.toLocaleString()}
+                          {totalTokensLeft.toLocaleString()}
                         </Text>
-                        {currentToken && (
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>
-                            {currentToken.name}
-                          </Text>
-                        )}
                       </View>
                     </View>
                   </GlassCard>
@@ -683,14 +659,9 @@ export default function PropertyDetailScreen() {
                         <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>
                           ROI
                         </Text>
-                        <Text style={{ color: currentToken?.color || '#9EDC5A', fontSize: 20, fontWeight: 'bold' }}>
-                          {tokenROI.toFixed(1)}%
+                        <Text style={{ color: '#9EDC5A', fontSize: 20, fontWeight: 'bold' }}>
+                          {averageROI.toFixed(1)}%
                         </Text>
-                        {currentToken && (
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>
-                            {currentToken.name}
-                          </Text>
-                        )}
                       </View>
                     </View>
                   </GlassCard>
@@ -698,7 +669,7 @@ export default function PropertyDetailScreen() {
               )}
 
               {/* Token Tiers Section - Show all tokens */}
-              {/* {activeTokens.length > 0 && (
+              {activeTokens.length > 0 && (
                 <GlassCard style={{ padding: 20, marginBottom: 24 }}>
                   <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
                     Token Tiers
@@ -719,7 +690,7 @@ export default function PropertyDetailScreen() {
                         }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                 
+                          {/* Token Symbol Badge */}
                           <View 
                             style={{ 
                               width: 48, 
@@ -777,71 +748,35 @@ export default function PropertyDetailScreen() {
                     ))}
                   </View>
                 </GlassCard>
-              )} */}
+              )}
 
-              {/* Entry Anchor - Show selected tier details prominently */}
-              <GlassCard style={{ padding: 24, marginBottom: 24, borderWidth: currentToken ? 2 : 0, borderColor: currentToken?.color || 'transparent' }}>
-                {currentToken ? (
-                  <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <View 
-                        style={{ 
-                          width: 32, 
-                          height: 32, 
-                          borderRadius: 16, 
-                          backgroundColor: currentToken.color,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginRight: 12,
-                        }} 
-                      >
-                        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>
-                          {currentToken.tokenSymbol}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>
-                          {currentToken.name}
-                        </Text>
-                        {currentToken.apartmentType && (
-                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-                            {currentToken.apartmentType}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>
-                      ${tokenPrice.toFixed(2)} per token
+              {/* Entry Anchor */}
+              <GlassCard style={{ padding: 24, marginBottom: 24 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>
+                  Invest from ${property.minInvestment.toFixed(2)}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 16 }}>
+                  Expected annual yield: {tokenROI}%
+                  {currentToken && activeTokens.length > 0 && (
+                    <Text style={{ color: currentToken.color, fontSize: 14, marginLeft: 8 }}>
+                      ({currentToken.name})
                     </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 16, marginBottom: 12 }}>
-                      Expected annual yield: <Text style={{ color: currentToken.color, fontWeight: 'bold' }}>{tokenROI}%</Text>
+                  )}
+                </Text>
+                {currentToken && (
+                  <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View 
+                      style={{ 
+                        width: 16, 
+                        height: 16, 
+                        borderRadius: 8, 
+                        backgroundColor: currentToken.color,
+                      }} 
+                    />
+                    <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>
+                      Token Price: ${tokenPrice.toFixed(2)} | Available: {currentToken.availableTokens.toLocaleString()} tokens
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                      <View 
-                        style={{ 
-                          width: 16, 
-                          height: 16, 
-                          borderRadius: 8, 
-                          backgroundColor: currentToken.color,
-                        }} 
-                      />
-                      <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>
-                        Available: {currentToken.availableTokens.toLocaleString()} / {currentToken.totalTokens.toLocaleString()} tokens
-                      </Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 8 }}>
-                      Minimum investment: ${property.minInvestment.toFixed(2)}
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>
-                      Invest from ${property.minInvestment.toFixed(2)}
-                    </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 16 }}>
-                      Expected annual yield: {tokenROI}%
-                    </Text>
-                  </>
+                  </View>
                 )}
               </GlassCard>
 
@@ -1201,7 +1136,7 @@ export default function PropertyDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 4 }}>From</Text>
               <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>
-              ${currentToken?.pricePerTokenUSDT.toFixed(2)}
+                ${property.minInvestment.toFixed(2)}
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

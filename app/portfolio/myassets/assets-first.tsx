@@ -412,7 +412,7 @@ export default function AssetsFirstScreen() {
             ref={flatListRef}
             data={investments}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.propertyToken?.id || item.property.id}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, PanResponder, ScrollView } from 'react-native';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { Investment } from '@/types/portfolio';
@@ -807,80 +807,84 @@ export function PortfolioWeeklyChart({
       
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
 
-      <TouchableOpacity
-        onPress={() => {
-          setView('history');
-          setSelectedIndex(null);
-          setInterpolatedX(null);
-          setIsDragging(false);
-        }}
-        style={{
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          borderRadius: 10,
-          backgroundColor: view === 'history' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        <Text
-          style={{
-            color: view === 'history' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
-            fontWeight: '600',
-            fontSize: 13,
-          }}
-        >
-          Portfolio History
-        </Text>
-      </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => {
-            setView('income');
-            setSelectedIndex(null);
-            setInterpolatedX(null);
-            setIsDragging(false);
-          }}
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 10,
-            backgroundColor: view === 'income' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-          }}
-        >
-          <Text
+        <ScrollView horizontal>
+          <TouchableOpacity
+            onPress={() => {
+              setView('history');
+              setSelectedIndex(null);
+              setInterpolatedX(null);
+              setIsDragging(false);
+            }}
             style={{
-              color: view === 'income' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
-              fontWeight: '600',
-              fontSize: 13,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 10,
+              marginRight: 4,
+              backgroundColor: view === 'history' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
             }}
           >
-            Rental Income / ROI
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={{
+                color: view === 'history' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: '600',
+                fontSize: 13,
+              }}
+            >
+              Portfolio History
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => {
-            setView('investments');
-            setSelectedIndex(null);
-            setInterpolatedX(null);
-            setIsDragging(false);
-          }}
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 10,
-            backgroundColor: view === 'investments' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-          }}
-        >
-          <Text
+          <TouchableOpacity
+            onPress={() => {
+              setView('income');
+              setSelectedIndex(null);
+              setInterpolatedX(null);
+              setIsDragging(false);
+            }}
             style={{
-              color: view === 'investments' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
-              fontWeight: '600',
-              fontSize: 13,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 10,
+              marginRight: 4,
+              backgroundColor: view === 'income' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
             }}
           >
-            Investment Timeline
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={{
+                color: view === 'income' ? colors.primary : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: '600',
+                fontSize: 13,
+              }}
+            >
+              Rental Income / ROI
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              setView('investments');
+              setSelectedIndex(null);
+              setInterpolatedX(null);
+              setIsDragging(false);
+            }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 10,
+              backgroundColor: view === 'investments' ? 'rgba(158, 220, 90, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+            }}
+          >
+            <Text
+              style={{
+                color: view === 'investments' ? '#9EDC5A' : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: '600',
+                fontSize: 13,
+              }}
+            >
+              Investment Timeline
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
 
       </View>
 

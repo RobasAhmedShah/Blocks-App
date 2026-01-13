@@ -26,7 +26,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const property = item.property;
   const token = item.propertyToken;
   const tokenColor = token?.color || tierInfo.tierColor;
-  const tokenName = token?.name || 'Standard Token';
+  const tokenName = token?.apartmentType;
   const tokenROI = token?.expectedROI || item.roi;
   // Calculate ownership based on token's total tokens if available, otherwise use property total
   const tokenTotalTokens = token?.totalTokens || property.totalTokens;
@@ -228,7 +228,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 <View 
                   className="px-3 py-1.5 rounded-full flex-row items-center gap-2"
                   style={{ backgroundColor: `${tokenColor}15` }} >
-                  {token && (
+                  { (
                     <View 
                       style={{ 
                         width: 8, 
@@ -244,7 +244,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                     {token ? token.tokenSymbol : tierInfo.tier}
                   </Text>
                 </View>
-                {token && (
+                { (
                   <Text 
                     className="text-[10px] mt-1"
                     style={{ color: 'rgba(255,255,255,0.6)' }}>

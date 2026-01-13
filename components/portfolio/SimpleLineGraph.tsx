@@ -41,9 +41,64 @@ export function SimpleLineGraph({
   const graphWidth = chartWidth - padding.left - padding.right;
   const graphHeight = chartHeight - padding.top - padding.bottom;
 
+  // Fill in missing days with previous day's value (forward fill)
+  const filledData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    // Sort data by date
+    const sortedData = [...data].sort((a, b) => a.date.getTime() - b.date.getTime());
+    
+    if (sortedData.length === 0) return [];
+    
+    const startDate = new Date(sortedData[0].date);
+    const endDate = new Date(sortedData[sortedData.length - 1].date);
+    
+    // Normalize dates to start of day for comparison
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    
+    // Create a map of existing data points by date timestamp
+    const dataMap = new Map<number, LineGraphDataPoint>();
+    sortedData.forEach(point => {
+      const date = new Date(point.date);
+      date.setHours(0, 0, 0, 0);
+      const dateKey = date.getTime();
+      dataMap.set(dateKey, point);
+    });
+    
+    // Fill in all days between start and end
+    const filled: LineGraphDataPoint[] = [];
+    let lastValue: number = sortedData[0].value;
+    
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      currentDate.setHours(0, 0, 0, 0);
+      const dateKey = currentDate.getTime();
+      const existingPoint = dataMap.get(dateKey);
+      
+      if (existingPoint) {
+        // Use existing data point
+        filled.push(existingPoint);
+        lastValue = existingPoint.value;
+      } else {
+        // Fill with previous day's value, but set volume to 0 for missing days
+        filled.push({
+          date: new Date(currentDate),
+          value: lastValue,
+          volume: 0, // Set sold value to 0 for days without data
+        });
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return filled;
+  }, [data]);
+
   // Handle empty data array to prevent Math.max/Math.min errors
-  const hasData = data && data.length > 0;
-  const values = hasData ? data.map(d => d.value) : [];
+  const hasData = filledData && filledData.length > 0;
+  const values = hasData ? filledData.map(d => d.value) : [];
   const maxValue = hasData && values.length > 0 ? Math.max(...values, 1) : 1;
   const minValue = hasData && values.length > 0 ? Math.min(...values, 0) : 0;
   const valueRange = maxValue - minValue || 1;
@@ -51,8 +106,8 @@ export function SimpleLineGraph({
   // Convert to SVG path coordinates
   const points = useMemo(() => {
     if (!hasData) return [];
-    return data.map((item, index) => {
-      const divisor = data.length > 1 ? (data.length - 1) : 1;
+    return filledData.map((item, index) => {
+      const divisor = filledData.length > 1 ? (filledData.length - 1) : 1;
       const x = padding.left + (index / divisor) * graphWidth;
       const normalizedValue = (item.value - minValue) / valueRange;
       const y = padding.top + graphHeight - (normalizedValue * graphHeight);
@@ -65,7 +120,7 @@ export function SimpleLineGraph({
         volume: item.volume // Include volume in points
       };
     });
-  }, [data, hasData, maxValue, minValue, graphWidth, graphHeight, padding.left, padding.top, valueRange]);
+  }, [filledData, hasData, maxValue, minValue, graphWidth, graphHeight, padding.left, padding.top, valueRange]);
 
   const validPoints = useMemo(() => {
     return points.filter(p => !isNaN(p.x) && !isNaN(p.y) && isFinite(p.x) && isFinite(p.y));
@@ -542,7 +597,7 @@ export function SimpleLineGraph({
       </View>
 
       {/* Enhanced X-axis labels */}
-      {showLabels && (
+      {/* {showLabels && (
         <View style={{ 
           flexDirection: 'row', 
           justifyContent: 'space-between', 
@@ -550,8 +605,27 @@ export function SimpleLineGraph({
           // marginTop: selectedPoint ? 65 : 12,
           paddingHorizontal: 4,
         }}>
-          {data.map((item, index) => {
-            const pointIndex = validPoints.findIndex(p => p.date.getTime() === item.date.getTime());
+          {filledData.map((item, index) => {
+            // Only show labels for every Nth day to avoid overcrowding
+            // Show first, last, and evenly spaced days in between
+            const totalDays = filledData.length;
+            const labelInterval = Math.max(1, Math.floor(totalDays / 7)); // Show ~7 labels max
+            const shouldShowLabel = index === 0 || 
+                                   index === totalDays - 1 || 
+                                   index % labelInterval === 0 ||
+                                   (index === Math.floor(totalDays / 2)); // Show middle point
+            
+            if (!shouldShowLabel) {
+              return <View key={index} style={{ flex: 1 }} />;
+            }
+            
+            const pointIndex = validPoints.findIndex(p => {
+              const pointDate = new Date(p.date);
+              const itemDate = new Date(item.date);
+              pointDate.setHours(0, 0, 0, 0);
+              itemDate.setHours(0, 0, 0, 0);
+              return pointDate.getTime() === itemDate.getTime();
+            });
             const isSelected = selectedIndex === pointIndex && pointIndex >= 0;
             
             return (
@@ -573,7 +647,7 @@ export function SimpleLineGraph({
             );
           })}
         </View>
-      )}
+      )} */}
     </View>
   );
 }

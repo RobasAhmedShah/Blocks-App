@@ -290,7 +290,7 @@ export default function PortfolioScreen() {
     return (
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: colors.background }}>
+        style={{ backgroundColor: 'rgb(32, 32, 32)' }}>
         <ArcLoader size={46} color={colors.primary} />
       </View>
     );

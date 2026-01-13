@@ -184,28 +184,37 @@ export default function App() {
 
                 return (
                   <View key={token.id} className="mt-8">
-                    <View className="rounded-3xl overflow-hidden min-h-[340px] relative shadow-xl">
+                    <View className="rounded-3xl overflow-hidden min-h-[240px] relative shadow-xl">
+                    <TouchableOpacity 
+                          onPress={() => router.push({
+                            pathname: '/property/tier/tierDetail' as any,
+                            params: { 
+                              id: property?.id,
+                              tokenId: token.id 
+                            }
+                          })}
+                        >
                       <ImageBackground
                         source={{ uri: propertyImage }}
-                        className="min-h-[340px] p-6 flex-col justify-between"
+                        className="min-h-[240px] p-6 flex-col justify-between"
                         resizeMode="cover"
                         imageStyle={{ opacity: 0.8 }}
                         style={{ backgroundColor: '#4A3B2E' }}
                       >
                         <View className="flex-row items-center gap-1.5">
                           <Ionicons name="location" size={14} color="rgba(255,255,255,0.8)" />
-                          <Text className="text-sm text-white/80">{location}</Text>
+                          <Text className="text-lg text-white/80">{location}</Text>
                         </View>
 
-                        <View>
-                          <Text className="text-3xl font-bold text-white mb-2">{token.name}</Text>
+                        <View style={{borderRadius:10,padding:10,display:'flex'}}>
+                          <Text className="text-3xl font-bold text-white mb-2">{token.apartmentType}</Text>
                           {token.description && (
                             <Text className="text-sm text-white/70 mb-3" numberOfLines={2}>
                               {token.description}
                             </Text>
                           )}
                           {(features.bedrooms > 0 || features.bathrooms > 0) && (
-                            <View className="flex-row gap-3 text-white/90 text-sm">
+                            <View className="flex-row gap-3 text-white/90 text-sm mb-2">
                               {features.bedrooms > 0 && (
                                 <View className="flex-row items-center gap-1">
                                   <View className="w-4 h-4 bg-[#E67E22] rounded-full flex items-center justify-center">
@@ -224,10 +233,15 @@ export default function App() {
                               )}
                             </View>
                           )}
+                          <View 
+                          className="px-6 py-1.5 rounded-full self-start"
+                          style={{backgroundColor:'rgb(211, 133, 31)'}}>
+                            <Text className="text-white text-lg font-bold">{prices[1]}</Text>
+                          </View>
                         </View>
 
                         {/* Price Tags - Positioned on right */}
-                        <View className="absolute right-6 top-1/2 -translate-y-1/2 gap-4" style={{ transform: [{ translateY: -50 }] }}>
+                        {/* <View className="absolute right-6 top-1/2 -translate-y-1/2 gap-4" style={{ transform: [{ translateY: -50 }],borderWidth:2,borderColor:'orange',borderRadius:10,padding:10,display:'flex'}}>
                           <View className="bg-slate-800/60 px-4 py-1.5 rounded-full">
                             <Text className="text-white text-xs">{prices[0]}</Text>
                           </View>
@@ -237,25 +251,14 @@ export default function App() {
                           <View className="bg-slate-800/60 px-4 py-1.5 rounded-full">
                             <Text className="text-white text-xs">{prices[2]}</Text>
                           </View>
-                        </View>
-
-                        <TouchableOpacity 
-                          onPress={() => router.push({
-                            pathname: '/property/tier/tierDetail' as any,
-                            params: { 
-                              id: property?.id,
-                              tokenId: token.id 
-                            }
-                          })}
-                          style={{backgroundColor:'rgba(238, 134, 16, 0.39)',borderWidth:2,borderColor:'orange',borderRadius:10,padding:10,display:'flex'}}
-                        >
-                            <Text className="font-bold text-white">{token.apartmentType}</Text>
-                        </TouchableOpacity>
+                        </View> */}
 
                         {/* Decorative circles */}
                         <View className="absolute right-0 bottom-0 w-48 h-48 border border-white/10 rounded-full" style={{ right: -64, bottom: -64 }} />
                         <View className="absolute right-0 bottom-0 w-64 h-64 border border-white/5 rounded-full" style={{ right: -80, bottom: -80 }} />
                       </ImageBackground>
+                      
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );

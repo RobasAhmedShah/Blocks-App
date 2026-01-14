@@ -19,6 +19,8 @@ import { profileApi } from '@/services/api/profile.api';
 import { CircularDragRotator } from '@/components/portfolio/CircularDragRotator';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
+import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 // Temporarily disable WebSocket to prevent socket.io-client crash
 // TODO: Re-enable once socket.io-client polyfill is properly configured
@@ -86,6 +88,9 @@ export default function PortfolioScreen() {
   const [portfolioCandlesData, setPortfolioCandlesData] = useState<LineGraphDataPoint[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Check account restrictions - if account is restricted, show blocking screen
+  const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
 
 
 
@@ -896,6 +901,17 @@ export default function PortfolioScreen() {
       </View>
     </>
   );
+
+  // Show restriction screen if account is restricted
+  if (showRestrictionScreen && restrictionDetails) {
+    return (
+      <AccountRestrictedScreen
+        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+        message={restrictionDetails.message}
+        restrictionType={restrictionDetails.restrictionType}
+      />
+    );
+  }
 
   return (
     <View style={{ backgroundColor: 'rgba(22,22,22,1)' }} className="flex-1">

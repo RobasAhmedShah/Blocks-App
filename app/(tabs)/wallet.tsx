@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -20,6 +21,8 @@ import { useApp } from '@/contexts/AppContext';
 import { bankWithdrawalsAPI, BankWithdrawalRequest } from '@/services/api/bank-withdrawals.api';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { Pressable } from 'react-native';
+import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -31,12 +34,16 @@ export default function WalletScreen() {
   const [activeTab, setActiveTab] = useState('all');
   const [pendingWithdrawals, setPendingWithdrawals] = useState<BankWithdrawalRequest[]>([]);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  
+  // Check account restrictions - if account is restricted, show blocking screen
+  const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
   const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>('usdc');
   
   // WalletConnect
   const { connect, disconnect, isConnected, address, provider } = useWalletConnect();
   const [cryptoBalance, setCryptoBalance] = useState<string>('0.00');
   const [refreshingBalance, setRefreshingBalance] = useState(false);
+  const isLoadingBalanceRef = React.useRef(false);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
@@ -60,7 +67,14 @@ export default function WalletScreen() {
 
   // Load crypto wallet balance
   const loadCryptoBalance = React.useCallback(async (showLoading = false) => {
+    console.log('[Crypto Balance] loadCryptoBalance called', { 
+      isConnected, 
+      address: address ? `${address.slice(0, 10)}...` : null, 
+      hasProvider: !!provider 
+    });
+    
     if (!isConnected || !address || !provider) {
+      console.log('[Crypto Balance] Missing connection details, setting balance to 0.00');
       setCryptoBalance('0.00');
       return;
     }
@@ -70,17 +84,67 @@ export default function WalletScreen() {
         setRefreshingBalance(true);
       }
       
-      // Get ETH balance using provider
-      const balance = await provider.request({
-        method: 'eth_getBalance',
-        params: [address, 'latest'],
-      });
+      console.log('[Crypto Balance] Fetching balance from Geth Testnet RPC...', { address });
+      
+      // Always query from Geth Testnet RPC (bypassing WalletConnect provider)
+      const testnetRpcUrl = 'http://192.168.1.142:7545';
+      console.log('[Crypto Balance] Querying testnet RPC:', testnetRpcUrl);
+      
+      let balance: string;
+      
+      try {
+        const rpcResponse = await fetch(testnetRpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getBalance',
+            params: [address, 'latest'],
+            id: 1,
+          }),
+        });
+        
+        if (!rpcResponse.ok) {
+          throw new Error(`RPC request failed with status ${rpcResponse.status}`);
+        }
+        
+        const rpcData = await rpcResponse.json();
+        
+        if (rpcData.error) {
+          throw new Error(rpcData.error.message || 'RPC error');
+        }
+        
+        if (rpcData.result) {
+          console.log('[Crypto Balance] Testnet RPC balance response:', rpcData.result);
+          balance = rpcData.result;
+        } else {
+          throw new Error('No result from RPC');
+        }
+      } catch (rpcError) {
+        console.error('[Crypto Balance] Testnet RPC query failed:', rpcError);
+        throw rpcError;
+      }
+      
+      console.log('[Crypto Balance] Raw balance response:', balance);
       
       // Convert from wei to ETH (balance is in hex)
       const ethBalance = parseInt(balance, 16) / 1e18;
-      setCryptoBalance(ethBalance.toFixed(4));
+      const formattedBalance = ethBalance.toFixed(4);
+      
+      console.log('[Crypto Balance] Converted balance:', { 
+        raw: balance, 
+        wei: parseInt(balance, 16), 
+        eth: ethBalance, 
+        formatted: formattedBalance 
+      });
+      
+      setCryptoBalance(formattedBalance);
     } catch (error) {
-      console.error('Error loading crypto balance:', error);
+      console.error('[Crypto Balance] Error loading crypto balance:', error);
+      console.error('[Crypto Balance] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       setCryptoBalance('0.00');
     } finally {
       if (showLoading) {
@@ -88,6 +152,45 @@ export default function WalletScreen() {
       }
     }
   }, [isConnected, address, provider]);
+
+  // Load crypto balance when wallet connects or address/provider changes
+  React.useEffect(() => {
+    console.log('[Crypto Balance] Connection state changed', { 
+      isConnected, 
+      address: address ? `${address.slice(0, 10)}...` : null, 
+      hasProvider: !!provider 
+    });
+    
+    if (isConnected && address && provider) {
+      // Prevent duplicate calls
+      if (isLoadingBalanceRef.current) {
+        console.log('[Crypto Balance] Balance already loading, skipping...');
+        return;
+      }
+      
+      console.log('[Crypto Balance] Wallet connected, loading balance...');
+      isLoadingBalanceRef.current = true;
+      
+      // Small delay to ensure provider is fully ready
+      const timer = setTimeout(async () => {
+        try {
+          await loadCryptoBalance(true);
+        } finally {
+          isLoadingBalanceRef.current = false;
+        }
+      }, 300);
+      
+      return () => {
+        clearTimeout(timer);
+        isLoadingBalanceRef.current = false;
+      };
+    } else {
+      console.log('[Crypto Balance] Wallet not connected, resetting balance');
+      setCryptoBalance('0.00');
+      isLoadingBalanceRef.current = false;
+    }
+  }, [isConnected, address, provider, loadCryptoBalance]);
+
 
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
@@ -97,16 +200,27 @@ export default function WalletScreen() {
         loadTransactions();
         loadPendingWithdrawals();
       }
-      // Load crypto balance if connected
-      if (isConnected) {
+      // Refresh crypto balance if connected
+      if (isConnected && address && provider) {
         loadCryptoBalance();
       }
-    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, loadCryptoBalance])
+    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, loadCryptoBalance])
   );
 
   // Show SignInGate if in guest mode (after all hooks)
   if (isGuest || !isAuthenticated) {
     return <SignInGate />;
+  }
+
+  // Show restriction screen if account is restricted
+  if (showRestrictionScreen && restrictionDetails) {
+    return (
+      <AccountRestrictedScreen
+        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+        message={restrictionDetails.message}
+        restrictionType={restrictionDetails.restrictionType}
+      />
+    );
   }
 
   // Convert pending withdrawal requests to transaction-like objects
@@ -558,7 +672,23 @@ export default function WalletScreen() {
             {/* Deposit */}
             <View className="items-center rounded-2xl py-4">
               <TouchableOpacity
-                onPress={() => router.push('../wallet')}
+                onPress={() => {
+                  // Check complianceStatus before navigating
+                  const complianceStatus = balance?.complianceStatus;
+                  if (complianceStatus === 'restricted') {
+                    const message = balance?.blockedReason || 'Your account is restricted. Deposits are not allowed. Please contact Blocks team.';
+                    
+                    Alert.alert(
+                      'Deposit Blocked',
+                      message,
+                      [{ text: 'OK' }],
+                      { cancelable: true }
+                    );
+                    return; // Don't navigate
+                  }
+                  // If complianceStatus is 'clear', proceed to deposit methods
+                  router.push('../wallet');
+                }}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(22, 163, 74, 0.15)',
                   boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
@@ -742,7 +872,7 @@ export default function WalletScreen() {
         </View>
         )}
       </View>
-      
+
       {/* Only show transactions for USDC wallet */}
       {walletTab === 'usdc' && (
         <>

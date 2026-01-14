@@ -28,6 +28,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from 'expo-blur';
 import { Svg, Defs, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { GlassChip } from "@/components/GlassChip";
+import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 // Custom Alert Component
 interface CustomAlertProps {
@@ -253,6 +255,9 @@ export default function BlocksProfileScreen() {
   const [demoMode, setDemoMode] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Check account restrictions - if account is restricted, show blocking screen
+  const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
+  
   // Custom Alert States - MUST be declared before any early returns
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
@@ -293,6 +298,17 @@ export default function BlocksProfileScreen() {
   // Show SignInGate if in guest mode (after ALL hooks are called)
   if (isGuest && !isAuthenticated) {
     return <SignInGate />;
+  }
+
+  // Show restriction screen if account is restricted
+  if (showRestrictionScreen && restrictionDetails) {
+    return (
+      <AccountRestrictedScreen
+        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+        message={restrictionDetails.message}
+        restrictionType={restrictionDetails.restrictionType}
+      />
+    );
   }
 
   // Save demo mode state

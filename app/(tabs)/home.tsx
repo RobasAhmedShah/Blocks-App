@@ -32,6 +32,8 @@ import { MarketplacePreviewRow } from '@/components/marketplace/MarketplacePrevi
 import Constants from 'expo-constants';
 import { Defs, RadialGradient, Rect, Stop, Svg } from 'react-native-svg';
 import { GlassChip } from '@/components/GlassChip';
+import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 const { width, height } = Dimensions.get('window');
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
@@ -76,6 +78,9 @@ function BlocksHomeScreen() {
   // KYC Status using hook (with caching)
   const { kycStatus, kycLoading, loadKycStatus } = useKycCheck();
   const { isGuest, isAuthenticated } = useAuth();
+  
+  // Check account restrictions - if account is restricted, show blocking screen
+  const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -390,6 +395,17 @@ function BlocksHomeScreen() {
   // Get current hero property
   const heroProperty = featured[heroIndex] || featured[0];
   const heroPropertyData = heroProperty?.property || state.properties.find(p => p.id === heroProperty?.id);
+
+  // Show restriction screen if account is restricted
+  if (showRestrictionScreen && restrictionDetails) {
+    return (
+      <AccountRestrictedScreen
+        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+        message={restrictionDetails.message}
+        restrictionType={restrictionDetails.restrictionType}
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1,backgroundColor: 'rgba(22, 22, 22, 1)' }}>

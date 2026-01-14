@@ -367,6 +367,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             totalInvested: walletBalance.totalInvested,
             totalEarnings: walletBalance.totalEarnings,
             pendingDeposits: totalPendingDeposits,
+            complianceStatus: walletBalance.complianceStatus, // Include compliance status
+            blockedReason: walletBalance.blockedReason, // Include blocked reason if available
           },
         };
       });

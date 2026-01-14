@@ -832,7 +832,31 @@ export default function WalletScreen() {
                 </Text>
               </View>
 
-              <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+              <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <Pressable
+                  onPress={() => router.push('/wallet/send' as any)}
+                  style={{ 
+                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(16, 185, 129, 0.15)', 
+                    paddingHorizontal: 16, 
+                    paddingVertical: 8, 
+                    borderRadius: 8,
+                  }}>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                    Send
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/wallet/receive' as any)}
+                  style={{ 
+                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
+                    paddingHorizontal: 16, 
+                    paddingVertical: 8, 
+                    borderRadius: 8,
+                  }}>
+                  <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
+                    Receive
+                  </Text>
+                </Pressable>
                 <Pressable
                   onPress={async () => {
                     await loadCryptoBalance(true);

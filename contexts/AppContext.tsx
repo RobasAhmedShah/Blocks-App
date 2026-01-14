@@ -58,7 +58,7 @@ interface AppContextType {
 
   // Investment Actions
   loadInvestments: () => Promise<void>;
-  invest: (amount: number, propertyId: string, tokenCount: number) => Promise<void>;
+  invest: (amount: number, propertyId: string, tokenCount: number, propertyTokenId?: string) => Promise<void>;
   
   // Property Actions
   getProperty: (id: string) => Property | undefined;

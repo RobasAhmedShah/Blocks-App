@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Switch,
   Dimensions,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Modal from 'react-native-modal';
 import Slider from '@react-native-community/slider';
+import { CustomModal } from '@/components/common/CustomModal';
 
 const { height } = Dimensions.get('window');
 const SCREEN_HEIGHT = height;
@@ -172,52 +171,18 @@ export default function PropertyFilterModal({
   };
 
   return (
-    <Modal
-      isVisible={visible}
-      onSwipeComplete={onClose}
-      swipeDirection="down"
-      propagateSwipe={false}
-      style={{ justifyContent: 'flex-end', margin: 0 }}
-      avoidKeyboard={true}
-      onBackdropPress={onClose}
-      swipeThreshold={50}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
-      useNativeDriverForBackdrop={true}
-      scrollTo={null}
-      scrollOffset={0}
-      scrollOffsetMax={400}
+    <CustomModal
+      visible={visible}
+      onClose={onClose}
+      height={0.88}
+      showDragHandle={true}
+      enableSwipeToClose={true}
+      enableBackdropPress={true}
+      backgroundColor="rgba(22, 22, 22, 1)"
+      borderTopRadius={24}
+      isDarkColorScheme={true}
     >
-      <View
-        style={{
-          height: SCREEN_HEIGHT * 0.88,
-          backgroundColor: 'rgba(22, 22, 22, 1)',
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Handle */}
-        <View
-          style={{
-            height: 40,
-            width: '100%',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingTop: 8,
-            paddingBottom: 8,
-          }}
-        >
-          <View
-            style={{
-              height: 6,
-              width: 40,
-              borderRadius: 3,
-              backgroundColor: '#E5E5E5',
-            }}
-          />
-        </View>
-
+      <View style={{ flex: 1 }}>
         {/* Header */}
         <View
           style={{
@@ -246,17 +211,10 @@ export default function PropertyFilterModal({
           </TouchableOpacity>
         </View>
 
-        {/* Scrollable Content */}
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          showsVerticalScrollIndicator={true}
-          nestedScrollEnabled={true}
-          bounces={true}
-          scrollEventThrottle={16}
-        >
+        {/* Content */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 120 }}>
           {/* Sort By Section */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
+          <View style={{ paddingTop: 24, paddingBottom: 16 }}>
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 12 }}>
               Sort By
             </Text>
@@ -294,7 +252,7 @@ export default function PropertyFilterModal({
           </View>
 
           {/* Investment Amount / Tokens Section */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
+          <View style={{ paddingTop: 24, paddingBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
                 {filterMode === 'amount' ? 'Investment Amount' : 'Token Count'}
@@ -384,7 +342,7 @@ export default function PropertyFilterModal({
           </View>
 
           {/* Expected Return Period Section */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
+          <View style={{ paddingTop: 24, paddingBottom: 16 }}>
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 12 }}>
               Expected Return Period
             </Text>
@@ -421,7 +379,7 @@ export default function PropertyFilterModal({
 
           {/* Property Type Section */}
           {availablePropertyTypes.length > 0 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
+            <View style={{ paddingTop: 24, paddingBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 12 }}>
                 Property Type
               </Text>
@@ -477,7 +435,7 @@ export default function PropertyFilterModal({
 
           {/* Location Section */}
           {availableCities.length > 0 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 }}>
+            <View style={{ paddingTop: 24, paddingBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 12 }}>
                 Location
               </Text>
@@ -526,7 +484,6 @@ export default function PropertyFilterModal({
           {/* Status Section */}
           <View
             style={{
-              paddingHorizontal: 20,
               paddingTop: 24,
               paddingBottom: 16,
               flexDirection: 'row',
@@ -547,60 +504,60 @@ export default function PropertyFilterModal({
               thumbColor="#FFFFFF"
             />
           </View>
-        </ScrollView>
-
-        {/* Sticky Footer */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: 'rgba(22, 22, 22, 1)',
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255, 255, 255, 0.1)',
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            paddingBottom: 32,
-            flexDirection: 'row',
-            gap: 12,
-          }}
-        >
-          <TouchableOpacity
-            onPress={handleClearFilters}
-            style={{
-              flex: 1,
-              paddingVertical: 14,
-              borderRadius: 12,
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.1)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>
-              Clear filters
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              flex: 1,
-              paddingVertical: 14,
-              borderRadius: 12,
-              backgroundColor: '#9EDC5A',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#0B1A12' }}>
-              Show results
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+
+      {/* Sticky Footer */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: 'rgba(22, 22, 22, 1)',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255, 255, 255, 0.1)',
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+          paddingBottom: 32,
+          flexDirection: 'row',
+          gap: 12,
+        }}
+      >
+        <TouchableOpacity
+          onPress={handleClearFilters}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            borderRadius: 12,
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>
+            Clear filters
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onClose}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            borderRadius: 12,
+            backgroundColor: '#9EDC5A',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: '600', color: '#0B1A12' }}>
+            Show results
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </CustomModal>
   );
 }
 

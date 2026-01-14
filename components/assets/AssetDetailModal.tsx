@@ -4,9 +4,7 @@ import {
   Text,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   ScrollView,
-  Animated,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -21,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { ASSETS_CONSTANTS } from './constants';
 import { getModalStats } from './utils';
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
+import { CustomModal } from '@/components/common/CustomModal';
 
 const { SCREEN_WIDTH, SCREEN_HEIGHT } = ASSETS_CONSTANTS;
 
@@ -48,18 +47,10 @@ interface AssetDetailModalProps {
   investment: any;
   colors: any;
   isDarkColorScheme: boolean;
-  modalTranslateY: Animated.Value;
-  modalScale: Animated.Value;
-  modalBackgroundOpacity: Animated.Value;
-  modalHeaderOpacity: Animated.Value;
-  modalScrollY: Animated.Value;
-  isModalAtTop: boolean;
   selectedRange: string;
   onClose: () => void;
   onShare: () => void;
-  onScroll: (event: any) => void;
   onRangeChange: (range: string) => void;
-  modalPanResponder: any;
 }
 
 // Sub-components
@@ -201,17 +192,10 @@ export function AssetDetailModal({
   investment,
   colors,
   isDarkColorScheme,
-  modalTranslateY,
-  modalScale,
-  modalBackgroundOpacity,
-  modalHeaderOpacity,
-  isModalAtTop,
   selectedRange,
   onClose,
   onShare,
-  onScroll,
   onRangeChange,
-  modalPanResponder,
 }: AssetDetailModalProps) {
   // All hooks must be called before any conditional returns
   const router = useRouter();
@@ -304,108 +288,19 @@ export function AssetDetailModal({
 
 
   return (
-    <>
-      {/* Dimmed Background */}
-      <Animated.View
-        className="absolute inset-0"
-        style={{
-          backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.5)',
-          opacity: modalBackgroundOpacity,
-        }}
-        pointerEvents="none"
-      />
-
-      {/* Modal Container */}
-      <Animated.View 
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: SCREEN_HEIGHT * 0.82,
-          transform: [
-            { translateY: modalTranslateY },
-            { scale: modalScale },
-          ],
-          backgroundColor: colors.background,
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          borderTopWidth: isDarkColorScheme ? 0 : 1,
-          borderTopColor: isDarkColorScheme ? 'transparent' : colors.border,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: isDarkColorScheme ? 0.3 : 0.15,
-          shadowRadius: 20,
-          elevation: 20,
-        }}
-      >
-        <SafeAreaView className="flex-1">
-          {/* Drag Handle */}
-          <View 
-            className="items-center pt-2 pb-1"
-            style={{ paddingVertical: 8 }}
-            {...(isModalAtTop ? modalPanResponder.panHandlers : {})}
-          >
-            <View 
-              style={{ backgroundColor: colors.muted }}
-              className="w-10 h-1 rounded-full"
-            />
-          </View>
-
-          {/* Floating Header */}
-          {/* <Animated.View
-            style={{
-              opacity: modalHeaderOpacity,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 10,
-              // backgroundColor: isDarkColorScheme 
-              //   ? 'rgba(58, 155, 34, 0.95)' 
-              //   : 'rgba(255, 255, 255, 0.95)',
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-            }}
-            {...(isModalAtTop ? modalPanResponder.panHandlers : {})}
-          >
-            <SafeAreaView>
-              <View className="px-4 py-3 flex-row items-center justify-between">
-                <TouchableOpacity 
-                  onPress={onClose} 
-                  className="w-10 h-10 items-center justify-center rounded-full -ml-2"
-                  style={{ backgroundColor: colors.muted }}
-                >
-                  <Ionicons name="chevron-down" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View className="flex-1 items-center px-4">
-                  <Text 
-                    style={{ color: colors.textPrimary }}
-                    className="text-base font-bold"
-                    numberOfLines={1}
-                  >
-                    {property.title}
-                  </Text>
-                </View>
-                <TouchableOpacity 
-                  onPress={onShare}
-                  style={{ backgroundColor: colors.muted }}
-                  className="w-10 h-10 items-center justify-center rounded-full"
-                >
-                  <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-            </SafeAreaView>
-          </Animated.View> */}
-
-          {/* Scrollable Content */}
-          <ScrollView
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            bounces={true}
-          >
+    <CustomModal
+      visible={visible}
+      onClose={onClose}
+      height={0.82}
+      showDragHandle={true}
+      enableSwipeToClose={true}
+      enableBackdropPress={true}
+      isDarkColorScheme={isDarkColorScheme}
+      colors={colors}
+      onScroll={(event) => {
+        // Handle scroll if needed
+      }}
+    >
             <View className="px-5 pt-4 pb-6">
               {/* Hero Section */}
               <View className="rounded-2xl overflow-hidden mb-4 shadow-lg">
@@ -468,12 +363,13 @@ export function AssetDetailModal({
                 </Text>
                 <View className="flex-row flex-wrap gap-3">
                   {modalStats.map((stat, index) => (
-                    <EnhancedModalStatCard 
-                      key={index} 
-                      stat={stat} 
-                      colors={colors} 
-                      isDarkColorScheme={isDarkColorScheme}
-                    />
+                    <View {...({ key: index } as any)}>
+                      <EnhancedModalStatCard 
+                        stat={stat} 
+                        colors={colors} 
+                        isDarkColorScheme={isDarkColorScheme}
+                      />
+                    </View>
                   ))}
                 </View>
               </View>
@@ -610,11 +506,12 @@ export function AssetDetailModal({
                   </Text>
                   <View className="gap-3">
                     {newsData.map((news: { id: string; icon: string; iconBg: string; title: string; description: string; time: string }) => (
-                      <ModalUpdateCard 
-                        key={news.id} 
-                        news={news} 
-                        colors={colors}
-                      />
+                      <View {...({ key: news.id } as any)}>
+                        <ModalUpdateCard 
+                          news={news} 
+                          colors={colors}
+                        />
+                      </View>
                     ))}
                   </View>
                 </View>
@@ -790,10 +687,7 @@ export function AssetDetailModal({
 
             {/* Bottom Spacing */}
             <View className="h-8" />
-          </ScrollView>
-        </SafeAreaView>
-      </Animated.View>
-    </>
+    </CustomModal>
   );
 }
 

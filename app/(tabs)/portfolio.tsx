@@ -59,7 +59,7 @@ const GlassCard2 = ({ children, style }: { children: React.ReactNode; style?: an
   </BlurView>
 );
 
-const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+const GlassCard = ({ children, style }: { children?: React.ReactNode; style?: any }) => (
   <BlurView intensity={25} tint="dark" style={[{ backgroundColor: 'rgba(22, 22, 22, 0.56)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
     {/* Subtle top highlight */}
     <View
@@ -572,48 +572,48 @@ export default function PortfolioScreen() {
         {/* Quick Actions Row */}
         <View className="mx-4">
           <GlassCard style={{ padding: 16 }}>
-          <View className="flex-row">
+            <View className="flex-row">
 
-            {[
-              { label: 'Deposit', icon: 'add', route: '../wallet' },
-              { label: 'My Assets', icon: 'cube', route: '../portfolio/myassets/assets-first' },
-              { label: 'Guidance', icon: 'document-text-outline', route: '../portfolio/guidance/guidance-one' },
-              { label: 'Market', icon: 'storefront', route: '/marketplace' },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={item.label}
-                onPress={() => router.push(item.route as any)}
-                style={{
-                  flex: 1,
-                  // backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
-                  // borderRadius: 16,
-                  paddingVertical: 10,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  // borderWidth: 1,
-                  borderRightWidth: index === 3 ? 0 : 2,
-                  borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
-                }}
-              >
-                <View
+              {[
+                { label: 'Deposit', icon: 'add', route: '../wallet' },
+                { label: 'My Assets', icon: 'cube', route: '../portfolio/myassets/assets-first' },
+                { label: 'Guidance', icon: 'document-text-outline', route: '../portfolio/guidance/guidance-one' },
+                { label: 'Market', icon: 'storefront', route: '/marketplace' },
+              ].map((item, index) => (
+                <TouchableOpacity
+                  key={item.label}
+                  onPress={() => router.push(item.route as any)}
                   style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: colors.primary,
+                    flex: 1,
+                    // backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.1)' : 'rgba(22, 163, 74, 0.08)',
+                    // borderRadius: 16,
+                    paddingVertical: 10,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: 8,
-                  }}>
-                  <Ionicons name={item.icon as any} size={24} color={colors.primaryForeground} />
-                </View>
-                <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                    // borderWidth: 1,
+                    borderRightWidth: index === 3 ? 0 : 2,
+                    borderColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.15)',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: colors.primary,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 8,
+                    }}>
+                    <Ionicons name={item.icon as any} size={24} color={colors.primaryForeground} />
+                  </View>
+                  <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
 
-          </View>
+            </View>
           </GlassCard>
         </View>
 

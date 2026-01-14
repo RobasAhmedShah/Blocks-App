@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -485,9 +486,9 @@ export default function HomeScreen() {
         </View>
 
         {/* Search Bar */}
-        {/* <View
+        <View
           style={{ backgroundColor: 'rgba(255, 255, 255, 0.06)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.10)' }}
-          className="flex-row items-center rounded-xl px-4 py-3"
+          className="flex-row items-center rounded-xl px-4 py-3 mx-2"
         >
           <MaterialIcons
             name="search"
@@ -502,7 +503,7 @@ export default function HomeScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-        </View> */}
+        </View>
       </View>
 
       {/* Filter Pills - Reduced Prominence */}

@@ -508,18 +508,10 @@ export default function AssetsFirstScreen() {
         investment={selectedInvestment}
         colors={colors} 
         isDarkColorScheme={isDarkColorScheme}
-        modalTranslateY={modalTranslateY}
-        modalScale={modalScale}
-        modalBackgroundOpacity={modalBackgroundOpacity}
-        modalHeaderOpacity={modalHeaderOpacity}
-        modalScrollY={modalScrollY}
-        isModalAtTop={isModalAtTop}
         selectedRange={selectedRange}
         onClose={closeModal}
         onShare={handleModalShare}
-        onScroll={handleModalScroll}
         onRangeChange={setSelectedRange}
-        modalPanResponder={modalPanResponder}
       />
 
       

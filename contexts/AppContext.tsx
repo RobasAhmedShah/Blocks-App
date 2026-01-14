@@ -84,6 +84,10 @@ interface AppContextType {
   toggleBookmark: (propertyId: string) => Promise<void>;
   isBookmarked: (propertyId: string) => boolean;
   getBookmarkedProperties: () => Property[];
+  
+  // Modal Visibility
+  isFilterModalVisible: boolean;
+  setFilterModalVisible: (visible: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -109,6 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const { isGuest } = useAuth();
 
   // Function to clear all user-specific data
@@ -1254,6 +1259,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleBookmark,
         isBookmarked,
         getBookmarkedProperties,
+        isFilterModalVisible,
+        setFilterModalVisible,
       }}
     >
       {children}

@@ -3,11 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
 import * as Haptics from 'expo-haptics';
+import { useApp } from '@/contexts/AppContext';
 
 export default function TabsLayout() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
+  const { isFilterModalVisible } = useApp();
 
   // Haptic feedback handler for tab taps
   const handleTabPress = () => {
@@ -27,9 +29,9 @@ export default function TabsLayout() {
 
   const screenWidth = Dimensions.get('window').width;
   const tabBarWidth = screenWidth * 0.7;
-  const tabBarLeftOffset = 0.1 * screenWidth * 0.5;
+  const tabBarLeftOffset = 0.1 * screenWidth * 0.8;
   const tabBarRightEdge = tabBarLeftOffset + tabBarWidth;
-  const walletButtonLeft = tabBarRightEdge + 12; // 12px spacing from tab bar
+  const walletButtonLeft = tabBarRightEdge + -5; // 12px spacing from tab bar
   const tabBarHeight = 80;
   const tabBarBottom = 10;
   const walletButtonBottom = tabBarBottom + (tabBarHeight - 64) / 2; // Center vertically with tab bar
@@ -63,20 +65,26 @@ export default function TabsLayout() {
           tabBarItemStyle: {
             justifyContent: 'center',
             alignItems: 'center',
+          },
+          tabBarIconStyle: {
             height: '100%',
+            width: '100%',
+            justifyContent:'center',
+            alignItems:'center',
           },
 
           tabBarStyle: {
             position: 'absolute',
-            bottom: 10,
-            height: 80,
-            width: '70%',
+            bottom: 20,
+            height: isFilterModalVisible ? 0 : 70,
+            width: '65%',
             transform: [{ translateX: tabBarLeftOffset }],
             borderRadius: 50,
-            paddingTop: '5%',
             backgroundColor: colors.card,
             borderWidth: 1,
             borderColor: colors.border,
+            opacity: isFilterModalVisible ? 0 : 1,
+            pointerEvents: isFilterModalVisible ? 'none' : 'auto',
 
             // ✅ Theme-aware shadow
             shadowColor: isDarkColorScheme ? '#000' : '#000',
@@ -105,6 +113,7 @@ export default function TabsLayout() {
                   width:60,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  marginVertical: 0,
                 }}>
                   <Ionicons
                     name={
@@ -131,34 +140,36 @@ export default function TabsLayout() {
       </Tabs>
 
       {/* Floating Wallet Button */}
-      <TouchableOpacity
-        onPress={handleWalletPress}
-        activeOpacity={0.8}
-        style={{
-          position: 'absolute',
-          bottom: walletButtonBottom,
-          left: walletButtonLeft,
-          width: 64,
-          height: 64,
-          borderRadius: 32,
-          backgroundColor: isWalletActive ? colors.primary : colors.card,
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor: isWalletActive ? colors.primary : colors.border,
-          shadowColor: '#000',
-          shadowOpacity: isWalletActive ? 0.3 : 0.15,
-          shadowOffset: { width: 0, height: 6 },
-          shadowRadius: 10,
-          elevation: 10,
-        }}
-      >
-        <Ionicons
-          name={isWalletActive ? 'wallet' : 'wallet-outline'}
-          size={30}
-          color={isWalletActive ? colors.primaryForeground : colors.textMuted}
-        />
-      </TouchableOpacity>
+      {!isFilterModalVisible && (
+        <TouchableOpacity
+          onPress={handleWalletPress}
+          activeOpacity={0.8}
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: walletButtonLeft,
+            width: 70,
+            height: 70,
+            borderRadius: 100,
+            backgroundColor: isWalletActive ? colors.primary : colors.card,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: isWalletActive ? colors.primary : colors.border,
+            shadowColor: '#000',
+            shadowOpacity: isWalletActive ? 0.3 : 0.15,
+            shadowOffset: { width: 0, height: 6 },
+            shadowRadius: 10,
+            elevation: 10,
+          }}
+        >
+          <Ionicons
+            name={isWalletActive ? 'wallet' : 'wallet-outline'}
+            size={30}
+            color={isWalletActive ? colors.primaryForeground : colors.textMuted}
+          />
+        </TouchableOpacity>
+      )}
     </>
   );
 }

@@ -34,7 +34,9 @@ export default function HomeScreen() {
     getBookmarkedProperties, 
     isLoadingProperties, 
     propertiesError,
-    refreshProperties 
+    refreshProperties,
+    isFilterModalVisible,
+    setFilterModalVisible,
   } = useApp();
   
   // Check account restrictions - if account is restricted, show blocking screen
@@ -42,9 +44,6 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [refreshing, setRefreshing] = useState(false);
-
-  // Filter modal state
-  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [filterState, setFilterState] = useState<PropertyFilterState>({
     sortBy: 'newest',
     tokenPriceRange: [0, 1000], // Keep for backward compatibility
@@ -478,7 +477,7 @@ export default function HomeScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => setIsFilterModalVisible(true)}
+            onPress={() => setFilterModalVisible(true)}
             className="w-10 h-10 items-center justify-center"
           >
             <Ionicons name="options-outline" size={24} color="#FFFFFF" />
@@ -613,7 +612,7 @@ export default function HomeScreen() {
       {/* Filter Modal */}
       <PropertyFilterModal
         visible={isFilterModalVisible}
-        onClose={() => setIsFilterModalVisible(false)}
+        onClose={() => setFilterModalVisible(false)}
         filterState={filterState}
         onFilterChange={setFilterState}
         onClearFilters={() => {

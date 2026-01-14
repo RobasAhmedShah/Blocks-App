@@ -48,7 +48,7 @@ const GlassButton = ({ onPress, icon, size = 36 }: { onPress: () => void; icon: 
 );
 
 // Glass Card Component
-const GlassCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
+const GlassCard = ({ children, style }: { children?: React.ReactNode; style?: any }) => (
   <BlurView intensity={10} tint="dark" style={[{ backgroundColor: 'rgba(22, 22, 22, 0.56)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', overflow: 'hidden' }, style]}>
     {children}
   </BlurView>
@@ -469,7 +469,7 @@ function BlocksHomeScreen() {
         >
 
           {/* Top Header Row */}
-          <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
+          <View className="flex-row items-center justify-between px-5 pt-4 mb-6">
             {/* Left: Avatar */}
             <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.7}>
               {userImage ? (
@@ -495,7 +495,7 @@ function BlocksHomeScreen() {
           </View>
 
           {/* Search Row */}
-          <View className="flex-row items-center gap-3 px-5 mb-4">
+          {/* <View className="flex-row items-center gap-3 px-5 mb-4">
             <GlassCard style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
               <Ionicons name="search" size={20} color="rgba(255,255,255,0.55)" style={{ marginRight: 12 }} />
               <TextInput
@@ -507,7 +507,7 @@ function BlocksHomeScreen() {
               />
             </GlassCard>
             <GlassButton icon="options-outline" size={40} onPress={() => {}} />
-          </View>
+          </View> */}
 
           {/* Featured Hero Carousel Card */}
           {featured.length > 0 && (

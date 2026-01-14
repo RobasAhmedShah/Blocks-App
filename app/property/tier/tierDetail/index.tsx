@@ -1235,13 +1235,13 @@ export default function PropertyDetailScreen() {
       </View>
 
       {/* Chatbot Modal */}
-      {property && (
+      {/* {property && (
         <PropertyChatbot
           property={property}
           visible={showChatbot}
           onClose={() => setShowChatbot(false)}
         />
-      )}
+      )} */}
     </View>
   );
 }

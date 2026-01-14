@@ -1,11 +1,13 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Platform } from 'react-native';
+import { View, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
 import * as Haptics from 'expo-haptics';
 
 export default function TabsLayout() {
   const { colors, isDarkColorScheme } = useColorScheme();
+  const router = useRouter();
+  const segments = useSegments();
 
   // Haptic feedback handler for tab taps
   const handleTabPress = () => {
@@ -14,106 +16,79 @@ export default function TabsLayout() {
     }
   };
 
+  // Handle wallet button press
+  const handleWalletPress = () => {
+    handleTabPress();
+    router.push('/(tabs)/wallet' as any);
+  };
+
+  // Check if wallet is active
+  const isWalletActive = segments[segments.length - 1] === 'wallet';
+
+  const screenWidth = Dimensions.get('window').width;
+  const tabBarWidth = screenWidth * 0.7;
+  const tabBarLeftOffset = 0.1 * screenWidth * 0.5;
+  const tabBarRightEdge = tabBarLeftOffset + tabBarWidth;
+  const walletButtonLeft = tabBarRightEdge + 12; // 12px spacing from tab bar
+  const tabBarHeight = 80;
+  const tabBarBottom = 10;
+  const walletButtonBottom = tabBarBottom + (tabBarHeight - 64) / 2; // Center vertically with tab bar
+
+  const tabs = [
+    { name: 'home', icon: 'home-outline', title: 'Home' },
+    { name: 'portfolio', icon: 'pie-chart-outline', title: 'Portfolio' },
+    { name: 'property', icon: 'business-outline', title: 'Properties' },
+    { name: 'profile', icon: 'person-outline', title: 'Profile' },
+  ];
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: true,
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: false,
 
-        // ✅ Theme-aware colors
-        tabBarActiveTintColor: colors.warning,
-        tabBarInactiveTintColor: colors.textMuted,
+          // ✅ Theme-aware colors
+          tabBarActiveTintColor: colors.warning,
+          tabBarInactiveTintColor: colors.textMuted,
 
+          tabBarLabelStyle: {
+            fontSize: 9,
+            fontWeight: '600',
+            marginTop: 2,
+            marginBottom: 2,
+            textTransform: 'uppercase',
+          },
 
-        tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: '600',
-          marginTop: 2,
-          marginBottom: 2,
-          textTransform: 'uppercase',
-        },
+          tabBarItemStyle: {
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+          },
 
-        tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-        },
+          tabBarStyle: {
+            position: 'absolute',
+            bottom: 10,
+            height: 80,
+            width: '70%',
+            transform: [{ translateX: tabBarLeftOffset }],
+            borderRadius: 50,
+            paddingTop: '5%',
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
 
-        tabBarStyle: {
-          position: 'absolute',
-          left: 20,
-          right: 20,
-          bottom: 10,
-          height: 80,
-          borderRadius: 50,
-          // paddingBottom: 8,
-          paddingTop: 14,
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-
-          // ✅ Theme-aware shadow
-          shadowColor: isDarkColorScheme ? '#000' : '#000',
-          shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
-          shadowOffset: { width: 0, height: 6 },
-          shadowRadius: 12,
-          elevation: 8,
-        },
-      }}
-    >
-      {[
-        { name: 'home', icon: 'home-outline', title: 'Home' },
-        { name: 'portfolio', icon: 'pie-chart-outline', title: 'Portfolio' },
-        { name: 'property', icon: 'business-outline', title: '' },
-        { name: 'wallet', icon: 'wallet-outline', title: 'Wallet' },
-        { name: 'profile', icon: 'person-outline', title: 'Profile' },
-      ].map((tab) =>
-        tab.name === 'property' ? (
+            // ✅ Theme-aware shadow
+            shadowColor: isDarkColorScheme ? '#000' : '#000',
+            shadowOpacity: isDarkColorScheme ? 0.25 : 0.08,
+            shadowOffset: { width: 0, height: 6 },
+            shadowRadius: 12,
+            elevation: 8,
+          },
+        }}
+      >
+        {tabs.map((tab) => (
           <Tabs.Screen
-            key={tab.name}
-            name={tab.name}
-            listeners={{
-              tabPress: () => {
-                handleTabPress();
-              },
-            }}
-            options={{
-              title: '',
-              tabBarIcon: ({ focused }) => (
-                <View
-                  style={{
-                    backgroundColor: colors.primary,
-                    height: 64,
-                    width: 64,
-                    borderRadius: 32,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    marginBottom: 24,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.3,
-                    shadowOffset: { width: 0, height: 6 },
-                    shadowRadius: 10,
-                    elevation: 10,
-                  }}
-                >
-                  <Ionicons
-                    name={
-                      focused
-                        ? (tab.icon.replace('-outline', '') as any)
-                        : (tab.icon as any)
-                    }
-                    size={30}
-                    color={colors.primaryForeground}
-                  />
-                </View>
-              ),
-            }}
-          />
-        ) : (
-          <Tabs.Screen
-            key={tab.name}
             name={tab.name}
             listeners={{
               tabPress: () => {
@@ -123,20 +98,67 @@ export default function TabsLayout() {
             options={{
               title: tab.title,
               tabBarIcon: ({ focused, color }) => (
-                <Ionicons
-                  name={
-                    focused
-                      ? (tab.icon.replace('-outline', '') as any)
-                      : (tab.icon as any)
-                  }
-                  size={26}
-                  color={color}
-                />
+                <View style={{
+                  backgroundColor: focused ? colors.background : 'rgba(255, 255, 255, 0)',
+                  borderRadius: 100,
+                  height:60,
+                  width:60,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Ionicons
+                    name={
+                      focused
+                        ? (tab.icon.replace('-outline', '') as any)
+                        : (tab.icon as any)
+                    }
+                    size={30}
+                    color={focused ? colors.primary : colors.textMuted}
+                  />
+                </View>
               ),
             }}
           />
-        )
-      )}
-    </Tabs>
+        ))}
+        
+        {/* Wallet screen - hidden from tab bar */}
+        <Tabs.Screen
+          name="wallet"
+          options={{
+            href: null, // Hide from tab bar
+          }}
+        />
+      </Tabs>
+
+      {/* Floating Wallet Button */}
+      <TouchableOpacity
+        onPress={handleWalletPress}
+        activeOpacity={0.8}
+        style={{
+          position: 'absolute',
+          bottom: walletButtonBottom,
+          left: walletButtonLeft,
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: isWalletActive ? colors.primary : colors.card,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: isWalletActive ? colors.primary : colors.border,
+          shadowColor: '#000',
+          shadowOpacity: isWalletActive ? 0.3 : 0.15,
+          shadowOffset: { width: 0, height: 6 },
+          shadowRadius: 10,
+          elevation: 10,
+        }}
+      >
+        <Ionicons
+          name={isWalletActive ? 'wallet' : 'wallet-outline'}
+          size={30}
+          color={isWalletActive ? colors.primaryForeground : colors.textMuted}
+        />
+      </TouchableOpacity>
+    </>
   );
 }

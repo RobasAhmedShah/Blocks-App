@@ -166,14 +166,11 @@ export default function ListingDetailScreen() {
             `/api/mobile/price-history/candles/${propertyId}?priceSource=marketplace`
           );
   
-          // Transform candles data: calculate average of high and low for each day
+          // Transform candles data: use close price for each day
           const transformedData: LineGraphDataPoint[] = candles.map((candle) => {
-            // Calculate average of high and low: (highPrice + lowPrice) / 2
-            const averagePrice = (candle.highPrice + candle.lowPrice) / 2;
-            
             return {
               date: new Date(candle.date), // Convert YYYY-MM-DD string to Date
-              value: averagePrice,
+              value: candle.closePrice,
               volume: candle.volume,
             };
           });
@@ -243,9 +240,6 @@ export default function ListingDetailScreen() {
           const candleDate = new Date(data.candle.date);
           const candleDateStr = candleDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-          // Calculate average of high and low: (highPrice + lowPrice) / 2
-          const averagePrice = (data.candle.highPrice + data.candle.lowPrice) / 2;
-
           // Check if candle for this date already exists
           const existingIndex = prevData.findIndex(
             (item) => item.date.toISOString().split('T')[0] === candleDateStr
@@ -253,7 +247,7 @@ export default function ListingDetailScreen() {
 
           const newCandle: LineGraphDataPoint = {
             date: candleDate,
-            value: averagePrice,
+            value: data.candle.closePrice,
             volume: data.candle.volume,
           };
 

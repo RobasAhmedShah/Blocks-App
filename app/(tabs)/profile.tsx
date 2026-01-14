@@ -11,6 +11,7 @@ import {
   Switch,
   Animated,
   RefreshControl,
+  InteractionManager,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -403,18 +404,26 @@ export default function BlocksProfileScreen() {
         {
           text: "Log Out",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut();
-              // AuthContext will automatically redirect to /onboarding/signin
-            } catch (error) {
-              console.error('Logout error:', error);
-              showAlert(
-                "Error",
-                "Failed to log out. Please try again.",
-                'error'
-              );
-            }
+          onPress: () => {
+            // CustomAlert will automatically call onClose() after onPress
+            // Use InteractionManager to ensure all interactions and animations complete
+            // before calling signOut, preventing hooks errors during render
+            InteractionManager.runAfterInteractions(async () => {
+              try {
+                await signOut();
+                // AuthContext useEffect will handle navigation automatically
+              } catch (error) {
+                console.error('Logout error:', error);
+                // Show error alert after component stabilizes
+                setTimeout(() => {
+                  showAlert(
+                    "Error",
+                    "Failed to log out. Please try again.",
+                    'error'
+                  );
+                }, 200);
+              }
+            });
           }
         }
       ]

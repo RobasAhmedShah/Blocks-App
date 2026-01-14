@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { Investment } from '@/types/portfolio';
+import { PropertyToken } from '@/types/property';
 
 export interface CreateInvestmentDto {
   propertyId: string;
@@ -33,6 +34,7 @@ export interface InvestmentResponse {
   createdAt: string;
   updatedAt: string;
   certificatePath?: string | null;
+  propertyToken?: PropertyToken | null;
 }
 
 export interface InvestmentsListResponse {

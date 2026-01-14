@@ -696,15 +696,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       console.log(`[AppContext] Filtered investments: ${validInvestments.length} valid out of ${investments.length} total`);
       
-      // Group investments by property ID
+      // Group investments by property token ID
       const investmentsByProperty = new Map<string, InvestmentResponse[]>();
       
       validInvestments.forEach((inv) => {
-        const propertyId = inv.property.id;
-        if (!investmentsByProperty.has(propertyId)) {
-          investmentsByProperty.set(propertyId, []);
+        // Use propertyTokenId if available, otherwise use propertyId
+        const propertyTokenId = inv.propertyToken?.id || inv.property.id;
+        if (!investmentsByProperty.has(propertyTokenId)) {
+          investmentsByProperty.set(propertyTokenId, []);
         }
-        investmentsByProperty.get(propertyId)!.push(inv);
+        investmentsByProperty.get(propertyTokenId)!.push(inv);
       });
       
       // Merge investments for the same property
@@ -781,6 +782,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.log(`[AppContext] Property ${propertyId}: No certificate path found for ${sortedInvestments.length} investment(s)`);
         }
         
+        // Get propertyToken from the first investment that has one
+        // If multiple investments have different tokens, use the first one's token
+        const propertyToken = sortedInvestments
+          .map((inv) => inv.propertyToken)
+          .find((token) => token !== null && token !== undefined) || null;
+        
         if (!propertyData) {
           console.warn(`Property ${firstInvestment.property.id} not found in state. Using minimal property data.`);
           // If property not found, we'll need to fetch it or use a minimal version
@@ -816,7 +823,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           features: {},
           documents: [],
           updates: [],
-        } as Property;
+        } as unknown as Property;
 
         return {
           id: firstInvestment.id, // Use the first investment's ID
@@ -828,6 +835,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           rentalYield: mergedRentalYield,
           monthlyRentalIncome: totalMonthlyRentalIncome,
           certificatePath: certificatePath, // Single certificate path shared by all investments for this property
+          propertyToken: propertyToken, // Property token from the first investment that has one
+          
         };
       });
 

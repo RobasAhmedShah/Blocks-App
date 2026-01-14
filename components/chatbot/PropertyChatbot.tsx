@@ -94,7 +94,7 @@ const LoadingDots = ({ colors }: { colors: any }) => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: colors.primary,
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot1),
         ]}
@@ -105,7 +105,7 @@ const LoadingDots = ({ colors }: { colors: any }) => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: colors.primary,
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot2),
         ]}
@@ -116,7 +116,7 @@ const LoadingDots = ({ colors }: { colors: any }) => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: colors.primary,
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot3),
         ]}
@@ -140,7 +140,7 @@ const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: {
             style={{
               fontSize: 14,
               fontWeight: '500',
-              color: colors.textSecondary,
+              color: 'rgb(209, 213, 219)',
               marginBottom: 4,
             }}
           >
@@ -148,14 +148,14 @@ const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: {
           </Text>
           <View
             style={{
-              backgroundColor: colors.primary,
+              backgroundColor: 'rgb(249, 250, 251)',
               borderRadius: 16,
               borderBottomRightRadius: 4,
               paddingHorizontal: 16,
               paddingVertical: 12,
             }}
           >
-            <Text style={{ color: colors.primaryForeground, fontSize: 16, lineHeight: 22 }}>
+            <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22 }}>
               {message.content}
             </Text>
           </View>
@@ -175,21 +175,21 @@ const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: {
           width: 32,
           height: 32,
           borderRadius: 16,
-          backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
+          backgroundColor: 'rgb(249, 250, 251)',
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1,
-          borderColor: colors.primary,
+          borderColor: 'rgb(249, 250, 251)',
         }}
       >
-        <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+        <Ionicons name="shield-checkmark" size={18} color='rgb(14, 19, 18)' />
       </View>
       <View style={{ flex: 1, maxWidth: '80%' }}>
         <Text
           style={{
             fontSize: 14,
             fontWeight: '500',
-            color: colors.textSecondary,
+            color: 'rgb(209, 213, 219)',
             marginBottom: 4,
           }}
         >
@@ -201,15 +201,15 @@ const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: {
               borderRadius: 16,
               borderBottomLeftRadius: 4,
               borderWidth: 1,
-              borderColor: isDarkColorScheme ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.5)',
-              backgroundColor: isDarkColorScheme ? 'rgba(127, 29, 29, 0.2)' : 'rgba(254, 242, 242, 0.8)',
+              borderColor: 'rgb(239, 68, 68)',
+              backgroundColor: 'rgb(254, 242, 242, 0.8)',
               paddingHorizontal: 16,
               paddingVertical: 12,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="warning" size={20} color="#EF4444" />
-              <Text style={{ color: colors.textPrimary, fontSize: 16, lineHeight: 22, flex: 1 }}>
+              <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22, flex: 1 }}>
                 {message.content}
               </Text>
             </View>
@@ -220,18 +220,18 @@ const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: {
               borderRadius: 16,
               borderBottomLeftRadius: 4,
               borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.card,
+              borderColor: 'rgb(249, 250, 251)',
+              backgroundColor: 'rgb(249, 250, 251)',
               paddingHorizontal: 16,
               paddingVertical: 12,
-              shadowColor: colors.primary,
+              shadowColor: 'rgb(14, 19, 18)',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.1,
               shadowRadius: 4,
               elevation: 2,
             }}
           >
-            <Text style={{ color: colors.textPrimary, fontSize: 16, lineHeight: 22 }}>
+            <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22 }}>
               {message.content}
             </Text>
           </View>
@@ -315,11 +315,11 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
       <View
         style={{
           height: SCREEN_HEIGHT * 0.9,
-          backgroundColor: colors.card,
+          backgroundColor: 'rgb(0, 0, 0)',
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopColor: 'rgb(249, 250, 251)',
           overflow: 'hidden',
         }}
       >
@@ -332,7 +332,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
             justifyContent: 'center',
             paddingTop: 8,
             paddingBottom: 8,
-            backgroundColor: colors.card,
+            backgroundColor: 'rgb(0, 0, 0)',
           }}
         >
           <View
@@ -340,7 +340,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
               height: 6,
               width: 40,
               borderRadius: 3,
-              backgroundColor: colors.textMuted,
+              backgroundColor: 'rgb(249, 250, 251)',
               opacity: 0.5,
             }}
           />
@@ -351,16 +351,16 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
           style={{ 
             paddingHorizontal: 16, 
             paddingBottom: 16,
-            backgroundColor: colors.card,
+            backgroundColor: 'rgb(0, 0, 0)',
             borderBottomWidth: 1,
-            borderBottomColor: colors.border,
+            borderBottomColor: 'rgb(249, 250, 251)',
           }}
         >
           <Text
             style={{
               fontSize: 20,
               fontWeight: 'bold',
-              color: colors.textPrimary,
+              color: 'rgb(249, 250, 251)',
               textAlign: 'center',
               marginBottom: 4,
             }}
@@ -371,7 +371,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
             <Text
               style={{
                 fontSize: 12,
-                color: colors.textMuted,
+                color: 'rgb(249, 250, 251)',
                 textAlign: 'center',
               }}
             >
@@ -388,7 +388,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
               <Text
                 style={{
                   fontSize: 12,
-                  color: colors.primary,
+                  color: '#34d399',
                   fontWeight: '600',
                 }}
               >
@@ -401,7 +401,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
         {/* Messages */}
         <ScrollView
           ref={scrollViewRef}
-          style={{ flex: 1, backgroundColor: colors.background }}
+          style={{ flex: 1, backgroundColor: 'rgb(0, 0, 0)' }}
           contentContainerStyle={{ 
             paddingHorizontal: 16, 
             paddingBottom: 100,
@@ -429,11 +429,11 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.2)' : 'rgba(22, 163, 74, 0.1)',
+                  backgroundColor: 'rgb(249, 250, 251)',
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 1,
-                  borderColor: colors.primary,
+                  borderColor: '#34d399',
                 }}
               >
                 <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
@@ -443,7 +443,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
                   style={{
                     fontSize: 14,
                     fontWeight: '500',
-                    color: colors.textSecondary,
+                    color: 'rgb(249, 250, 251)',
                     marginBottom: 4,
                   }}
                 >
@@ -455,12 +455,12 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
                     borderBottomLeftRadius: 4,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    backgroundColor: colors.card,
+                    backgroundColor: 'rgb(14, 19, 18)',
                     paddingHorizontal: 16,
                     paddingVertical: 18,
                   }}
                 >
-                  <LoadingDots colors={colors} />
+                  <LoadingDots colors={{ textPrimary: 'rgb(249, 250, 251)', textSecondary: 'rgb(209, 213, 219)' }} />
                 </View>
               </View>
             </View>
@@ -487,7 +487,7 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
                     borderRadius: 8,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    backgroundColor: colors.card,
+                        backgroundColor: 'rgb(0, 0, 0)',
                   }}
                   activeOpacity={0.7}
                 >
@@ -563,24 +563,24 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
             padding: 16,
             borderTopWidth: 1,
             borderTopColor: colors.border,
-            backgroundColor: colors.card,
+            backgroundColor: 'rgb(0, 0, 0)',
           }}
         >
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder="Ask me anything..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor='rgb(249, 250, 251)'
             style={{
               flex: 1,
               height: 48,
               borderRadius: 12,
-              backgroundColor: colors.card,
-              color: colors.textPrimary,
+              backgroundColor: 'rgb(0, 0, 0)',
+              color: 'rgb(249, 250, 251)',
               paddingHorizontal: 16,
               fontSize: 16,
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: 'rgb(249, 250, 251)',
             }}
             multiline={false}
             onSubmitEditing={() => {
@@ -603,11 +603,11 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
                 borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: colors.primary,
+                backgroundColor: 'rgb(249, 250, 251)',
                 opacity: input.trim() && !isLoading ? 1 : 0.5,
               }}
             >
-              <Ionicons name="send" size={22} color={colors.primaryForeground} />
+              <Ionicons name="send" size={22} color='rgb(14, 19, 18)' />
             </View>
           </TouchableOpacity>
         </View>

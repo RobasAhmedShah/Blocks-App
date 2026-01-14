@@ -1,5 +1,6 @@
 // @path: contexts/AuthContext.tsx
 import * as React from 'react';
+import { InteractionManager } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useSegments } from 'expo-router';
@@ -258,13 +259,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Allow guest mode to access non-onboarding routes
     if (!authState.isAuthenticated && !authState.isGuest && !inOnboardingGroup) {
       // Not authenticated, not guest, and NOT in onboarding, redirect to signin
-      router.replace('/onboarding/signin');
+      // Use InteractionManager to defer navigation until all interactions complete
+      // This prevents hooks errors during render by ensuring navigation happens after render cycle
+      const interaction = InteractionManager.runAfterInteractions(() => {
+        router.replace('/onboarding/signin');
+      });
+      
+      // Cleanup function to cancel navigation if component unmounts
+      return () => {
+        interaction.cancel();
+      };
     } else if (authState.isAuthenticated && inOnboardingGroup) {
       // Authenticated and in onboarding - check for pending notification route first
       navigateToPendingNotification().then((navigated) => {
         // If no pending notification or navigation failed, go to default home
         if (!navigated) {
-          router.replace('/(tabs)/home');
+          InteractionManager.runAfterInteractions(() => {
+            router.replace('/(tabs)/home');
+          });
         }
       });
     }

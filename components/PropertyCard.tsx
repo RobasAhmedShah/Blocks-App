@@ -41,7 +41,7 @@ export function PropertyCardStack({ data }: { data: any[] }) {
       >
         {data.map((item, index) => (
           <PropertyMiniCard
-            key={item.property?.id ?? index}
+            key={item.propertyToken?.id || item.property.id}
             item={item}
             index={index}
             scrollX={scrollX}

@@ -207,11 +207,7 @@ export default function WalletScreen() {
     }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, loadCryptoBalance])
   );
 
-  // Show SignInGate if in guest mode (after all hooks)
-  if (isGuest || !isAuthenticated) {
-    return <SignInGate />;
-  }
-
+  // IMPORTANT: All hooks must be called BEFORE any early returns
   // Show restriction screen if account is restricted
   if (showRestrictionScreen && restrictionDetails) {
     return (
@@ -289,16 +285,22 @@ export default function WalletScreen() {
     return tx.type === activeTab;
   });
 
+  // Show SignInGate if in guest mode (after ALL hooks are called)
+  if (isGuest || !isAuthenticated) {
+    return <SignInGate />;
+  }
+
+  // Loading state - after ALL hooks
   if (loading || loadingWithdrawals) {
     return (
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.background,
+          backgroundColor: 'rgb(32, 32, 32)',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color='rgb(22, 163, 74)' />
       </View>
     );
   }

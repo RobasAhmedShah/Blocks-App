@@ -343,7 +343,10 @@ function RootNavigation() {
       {/* Other screens */}
       <Stack.Screen name="property/[id]" />
       <Stack.Screen name="wallet" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="wallet/send" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="wallet/receive" options={{ presentation: 'modal' }} />
       <Stack.Screen name="invest/[id]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="invest/[id]/crypto-payment" options={{ presentation: 'modal' }} />
       <Stack.Screen name="notifications" options={{ presentation: 'modal' }} />
 
       {/* Profile Settings screens */}

@@ -31,6 +31,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
+import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 
 // Constants
 const BALANCE_EPSILON = 0.01;
@@ -53,8 +54,16 @@ export default function BuyTokensScreen() {
   const { balance } = useWallet();
   const { invest } = useApp();
   const { isVerified, kycLoading } = useKycCheck();
+  const { isConnected, address, provider, connect } = useWalletConnect();
   
   const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+  
+  // Payment method: 'wallet' (USD) or 'crypto' (ETH)
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'crypto'>('wallet');
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  
+  // Admin address for crypto payments
+  const ADMIN_ADDRESS = '0x7E92A4257904d19006b669028e2B2C5fa30fc12f';
 
   // Check complianceStatus - show blocking screen if restricted
   const complianceStatus = balance?.complianceStatus;
@@ -180,6 +189,17 @@ export default function BuyTokensScreen() {
   const tokenPrice = selectedToken?.pricePerTokenUSDT || property?.tokenPrice || 0;
   const effectiveTokenPrice = getEffectiveTokenPrice(tokenPrice);
   const maxInvestmentAmount = availableTokens * effectiveTokenPrice;
+  
+  // Calculate total investment amount
+  // Calculate investment amounts
+  const totalAmount = (tokenCount || 0) * effectiveTokenPrice;
+  const totalTransactionFee = totalAmount * 0.02;
+  const totalInvestment = totalAmount + totalTransactionFee;
+  
+  // Check balance for wallet payment method
+  const hasSufficientBalance = paymentMethod === 'wallet' 
+    ? balance.usdc >= (totalInvestment - BALANCE_EPSILON)
+    : true; // For crypto, balance check happens in payment screen
 
   if (propertyLoading || (activeTab === 'buy' && !property)) {
     return (
@@ -191,13 +211,6 @@ export default function BuyTokensScreen() {
       </LinearGradient>
     );
   }
-  
-  const totalAmount = (tokenCount || 0) * effectiveTokenPrice;
-  const transactionFee = totalAmount * 0.02; // 2% fee
-  const totalInvestment = totalAmount + transactionFee;
-  
-  // Check if user has sufficient balance
-  const hasSufficientBalance = balance.usdc >= (totalInvestment - BALANCE_EPSILON);
   
   // Check if investment meets minimum token requirement
   const meetsMinimumTokens = tokenCount >= MINIMUM_TOKENS;
@@ -413,6 +426,55 @@ export default function BuyTokensScreen() {
       return;
     }
 
+    // Handle crypto payment method
+    if (paymentMethod === 'crypto') {
+      if (!isConnected || !address || !provider) {
+        Alert.alert(
+          'Wallet Not Connected',
+          'Please connect your crypto wallet to pay with ETH',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Connect Wallet',
+              onPress: async () => {
+                try {
+                  await connect();
+                } catch (error) {
+                  console.error('Error connecting wallet:', error);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Navigate to crypto payment screen
+      const finalTokenCount = tokenCount;
+      const finalTotalAmount = finalTokenCount * effectiveTokenPrice;
+      const finalTotalTransactionFee = finalTotalAmount * 0.02;
+      const finalTotalInvestment = finalTotalAmount + finalTotalTransactionFee;
+
+      router.push({
+        pathname: `/invest/${selectedPropertyId}/crypto-payment` as any,
+        params: {
+          tokenCount: finalTokenCount.toString(),
+          totalAmount: finalTotalAmount.toFixed(2),
+          transactionFee: finalTotalTransactionFee.toFixed(2),
+          totalInvestment: finalTotalInvestment.toFixed(2),
+          propertyTitle: property?.title || '',
+          propertyId: selectedPropertyId,
+          tokenId: selectedTokenId || '',
+          tokenName: selectedToken?.name || '',
+          tokenSymbol: selectedToken?.tokenSymbol || '',
+          tokenPrice: tokenPrice.toFixed(2),
+          adminAddress: ADMIN_ADDRESS,
+        },
+      } as any);
+      return;
+    }
+
+    // Handle wallet (USD) payment method
     if (!hasSufficientBalance) {
       const shortfall = totalInvestment - balance.usdc;
       router.push({
@@ -424,8 +486,8 @@ export default function BuyTokensScreen() {
 
     const finalTokenCount = tokenCount;
     const finalTotalAmount = finalTokenCount * effectiveTokenPrice;
-    const finalTransactionFee = finalTotalAmount * 0.02;
-    const finalTotalInvestment = finalTotalAmount + finalTransactionFee;
+    const finalTotalTransactionFee = finalTotalAmount * 0.02;
+    const finalTotalInvestment = finalTotalAmount + finalTotalTransactionFee;
 
     const hasFinalSufficientBalance = balance.usdc >= (finalTotalInvestment - BALANCE_EPSILON);
     if (!hasFinalSufficientBalance) {
@@ -445,11 +507,11 @@ export default function BuyTokensScreen() {
 
     router.push({
       pathname: `/invest/${selectedPropertyId}/review` as any,
-      params: {
-        tokenCount: finalTokenCount.toString(),
-        totalAmount: finalTotalAmount.toFixed(2),
-        transactionFee: finalTransactionFee.toFixed(2),
-        totalInvestment: finalTotalInvestment.toFixed(2),
+        params: {
+          tokenCount: finalTokenCount.toString(),
+          totalAmount: finalTotalAmount.toFixed(2),
+          transactionFee: finalTotalTransactionFee.toFixed(2),
+          totalInvestment: finalTotalInvestment.toFixed(2),
         propertyTitle: property.title,
         propertyId: selectedPropertyId,
         tokenId: selectedTokenId || '',
@@ -649,23 +711,51 @@ export default function BuyTokensScreen() {
 
             <View style={styles.divider} />
 
-            {/* Wallet */}
-            <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+            {/* Payment Method */}
+            <TouchableOpacity 
+              style={styles.row} 
+              activeOpacity={0.7}
+              onPress={() => setShowPaymentMethodModal(true)}
+            >
               <View style={styles.rowLeft}>
                 <View style={styles.walletCircle}>
-                  <Text style={styles.walletText}>USD</Text>
+                  <Text style={styles.walletText}>
+                    {paymentMethod === 'crypto' ? 'ETH' : 'USD'}
+                  </Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowLabel}>Pay with</Text>
-                  <Text style={styles.rowValue}>My Wallet</Text>
+                  <Text style={styles.rowValue}>
+                    {paymentMethod === 'crypto' 
+                      ? (isConnected ? 'Crypto Wallet' : 'Connect Wallet')
+                      : 'My Wallet'}
+                  </Text>
                 </View>
               </View>
 
               <View style={{ alignItems: 'flex-end', marginRight: 8 }}>
-                <Text style={styles.balance}>
-                  ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-                <Text style={styles.balanceLabel}>Available</Text>
+                {paymentMethod === 'crypto' ? (
+                  isConnected ? (
+                    <>
+                      <Text style={styles.balance}>
+                        {address?.slice(0, 6)}...{address?.slice(-4)}
+                      </Text>
+                      <Text style={styles.balanceLabel}>Connected</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.balance}>Not Connected</Text>
+                      <Text style={styles.balanceLabel}>Tap to connect</Text>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <Text style={styles.balance}>
+                      ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                    <Text style={styles.balanceLabel}>Available</Text>
+                  </>
+                )}
               </View>
               <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
             </TouchableOpacity>
@@ -697,13 +787,19 @@ export default function BuyTokensScreen() {
           <TouchableOpacity 
             style={[
               styles.cta,
-              ((activeTab === 'buy' && (!hasSufficientBalance || !meetsMinimumTokens || tokenCount > availableTokens || isInvesting)) ||
+              ((activeTab === 'buy' && (
+                (paymentMethod === 'wallet' && (!hasSufficientBalance || !meetsMinimumTokens || tokenCount > availableTokens || isInvesting)) ||
+                (paymentMethod === 'crypto' && (!isConnected || !meetsMinimumTokens || tokenCount > availableTokens || isInvesting))
+              )) ||
                (activeTab === 'sell' && (!meetsMinimumTokens || tokenCount > availableTokens || isInvesting))) && styles.ctaDisabled
             ]}
             onPress={handleConfirm}
             disabled={
               activeTab === 'buy' 
-                ? (!hasSufficientBalance || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens)
+                ? (
+                    (paymentMethod === 'wallet' && (!hasSufficientBalance || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens)) ||
+                    (paymentMethod === 'crypto' && (!isConnected || isInvesting || !meetsMinimumTokens || tokenCount > availableTokens))
+                  )
                 : (isInvesting || !meetsMinimumTokens || tokenCount > availableTokens)
             }
           >
@@ -718,6 +814,10 @@ export default function BuyTokensScreen() {
                   : 'Exceeds Available Tokens'
                 : activeTab === 'sell'
                 ? 'Review order'
+                : paymentMethod === 'crypto' && !isConnected
+                ? 'Connect Wallet'
+                : paymentMethod === 'crypto'
+                ? 'Pay with Crypto'
                 : !hasSufficientBalance
                 ? 'Insufficient Balance'
                 : 'Review order'}
@@ -737,7 +837,7 @@ export default function BuyTokensScreen() {
                     returnPropertyId: propertyId,
                     returnTokenCount: tokenCount.toString(),
                     returnTotalAmount: totalAmount.toFixed(2),
-                    returnTransactionFee: transactionFee.toFixed(2),
+                    returnTransactionFee: totalTransactionFee.toFixed(2),
                     returnTotalInvestment: totalInvestment.toFixed(2),
                   },
                 } as any);
@@ -875,6 +975,102 @@ export default function BuyTokensScreen() {
                     );
                   })
                 )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Method Selection Modal */}
+      <Modal
+        visible={showPaymentMethodModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPaymentMethodModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Payment Method</Text>
+              <TouchableOpacity onPress={() => setShowPaymentMethodModal(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {/* My Wallet Option */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentMethodOption,
+                  paymentMethod === 'wallet' && styles.paymentMethodOptionSelected,
+                ]}
+                onPress={() => {
+                  setPaymentMethod('wallet');
+                  setShowPaymentMethodModal(false);
+                }}
+              >
+                <View style={styles.paymentMethodLeft}>
+                  <View style={[styles.paymentMethodIcon, { backgroundColor: '#10B981' }]}>
+                    <Text style={styles.paymentMethodIconText}>USD</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.paymentMethodTitle}>My Wallet</Text>
+                    <Text style={styles.paymentMethodSubtitle}>
+                      Pay with your USDC balance
+                    </Text>
+                    <Text style={styles.paymentMethodBalance}>
+                      ${balance.usdc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} available
+                    </Text>
+                  </View>
+                </View>
+                {paymentMethod === 'wallet' && (
+                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                )}
+              </TouchableOpacity>
+
+              {/* Crypto Wallet Option */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentMethodOption,
+                  paymentMethod === 'crypto' && styles.paymentMethodOptionSelected,
+                  !isConnected && styles.paymentMethodOptionDisabled,
+                ]}
+                onPress={async () => {
+                  if (!isConnected) {
+                    try {
+                      await connect();
+                    } catch (error) {
+                      Alert.alert('Connection Failed', 'Please try connecting your wallet again');
+                    }
+                    return;
+                  }
+                  setPaymentMethod('crypto');
+                  setShowPaymentMethodModal(false);
+                }}
+                disabled={!isConnected && false}
+              >
+                <View style={styles.paymentMethodLeft}>
+                  <View style={[styles.paymentMethodIcon, { backgroundColor: '#627EEA' }]}>
+                    <Text style={styles.paymentMethodIconText}>ETH</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.paymentMethodTitle}>Crypto Wallet</Text>
+                    <Text style={styles.paymentMethodSubtitle}>
+                      {isConnected 
+                        ? `Pay with ETH from ${address?.slice(0, 6)}...${address?.slice(-4)}`
+                        : 'Connect your wallet to pay with ETH'}
+                    </Text>
+                    {!isConnected && (
+                      <Text style={styles.paymentMethodConnect}>Tap to connect wallet</Text>
+                    )}
+                  </View>
+                </View>
+                {paymentMethod === 'crypto' && isConnected && (
+                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                )}
+                {!isConnected && (
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
+                )}
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -1205,6 +1401,62 @@ const styles = StyleSheet.create({
   },
   propertyOptionTokens: {
     color: '#10B981',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  paymentMethodOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  paymentMethodOptionSelected: {
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  paymentMethodOptionDisabled: {
+    opacity: 0.6,
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  paymentMethodIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentMethodIconText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  paymentMethodTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  paymentMethodSubtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  paymentMethodBalance: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  paymentMethodConnect: {
+    color: '#627EEA',
     fontSize: 12,
     fontWeight: '500',
   },

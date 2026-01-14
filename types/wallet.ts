@@ -4,6 +4,8 @@ export interface WalletBalance {
   totalInvested?: number;
   totalEarnings?: number;
   pendingDeposits?: number;
+  complianceStatus?: 'clear' | 'restricted' | string; // Primary check: 'clear' allows actions, 'restricted' blocks
+  blockedReason?: string | null; // Reason for blocking if complianceStatus is 'restricted'
 }
 
 export interface Transaction {

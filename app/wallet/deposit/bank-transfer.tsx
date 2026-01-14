@@ -77,6 +77,30 @@ export default function BankTransferDepositScreen() {
   const [amountError, setAmountError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [touched, setTouched] = useState(!!suggestedAmount);
+
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = state.wallet?.restrictions;
+    if (restrictions) {
+      if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
+        const message = restrictions.blockDeposits 
+          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
+          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
+        
+        Alert.alert(
+          'Deposit Blocked',
+          message,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [state.wallet?.restrictions]);
   
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<{

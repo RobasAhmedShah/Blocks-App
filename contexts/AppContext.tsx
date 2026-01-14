@@ -978,6 +978,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
 
       const newBalance: WalletBalance = {
+        ...prev.balance,
         usdc: prev.balance.usdc - amount,
         totalValue: (prev.balance.totalValue || prev.balance.usdc) - amount,
         totalInvested: totalInvestedAmount,

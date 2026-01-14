@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 // Constants
 const BALANCE_EPSILON = 0.01;
@@ -54,6 +55,22 @@ export default function BuyTokensScreen() {
   const { isVerified, kycLoading } = useKycCheck();
   
   const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+
+  // Check complianceStatus - show blocking screen if restricted
+  const complianceStatus = balance?.complianceStatus;
+  const isRestricted = complianceStatus === 'restricted';
+
+  if (isRestricted) {
+    const message = balance?.blockedReason || 'Your account is restricted. Trading is not allowed. Please contact Blocks team.';
+    
+    return (
+      <AccountRestrictedScreen
+        title="Trading Blocked"
+        message={message}
+        restrictionType="trading"
+      />
+    );
+  }
   
   // Get initialInvestmentAmount from route params
   const initialInvestmentAmount = routeParams.initialInvestmentAmount ? parseFloat(routeParams.initialInvestmentAmount) : undefined;

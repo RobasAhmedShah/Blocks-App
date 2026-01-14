@@ -62,7 +62,7 @@ export default function BinancePayDepositScreen() {
   const router = useRouter();
   const { amount: suggestedAmount } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { deposit } = useWallet();
+  const { deposit, balance } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [amountError, setAmountError] = useState<string>('');
@@ -71,6 +71,30 @@ export default function BinancePayDepositScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const payId = 'BLOCKS_' + Math.random().toString(36).substring(7).toUpperCase();
+
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = balance.restrictions;
+    if (restrictions) {
+      if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
+        const message = restrictions.blockDeposits 
+          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
+          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
+        
+        Alert.alert(
+          'Deposit Blocked',
+          message,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [balance.restrictions]);
 
   // Validate amount on change
   useEffect(() => {

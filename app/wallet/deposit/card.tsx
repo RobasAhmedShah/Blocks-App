@@ -78,7 +78,7 @@ export default function CardDepositScreen() {
     returnTotalInvestment,
   } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { deposit, loadWallet } = useWallet();
+  const { deposit, loadWallet, balance } = useWallet();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [amountError, setAmountError] = useState<string>('');
@@ -90,6 +90,30 @@ export default function CardDepositScreen() {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
+
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = balance.restrictions;
+    if (restrictions) {
+      if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
+        const message = restrictions.blockDeposits 
+          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
+          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
+        
+        Alert.alert(
+          'Deposit Blocked',
+          message,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [balance.restrictions]);
 
   // Load payment methods on mount
   useEffect(() => {

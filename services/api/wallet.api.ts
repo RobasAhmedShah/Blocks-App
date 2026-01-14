@@ -1,11 +1,22 @@
 import { apiClient } from './apiClient';
 
+export interface AccountRestrictions {
+  blockDeposits: boolean;
+  blockWithdrawals: boolean;
+  blockTokenTransfers: boolean;
+  blockTrading: boolean;
+  isUnderReview: boolean;
+  isRestricted: boolean;
+  restrictionReason?: string | null;
+}
+
 export interface WalletBalance {
   usdc: number;
   totalValue: number;
   totalInvested: number;
   totalEarnings: number;
   pendingDeposits: number;
+  restrictions?: AccountRestrictions | null;
 }
 
 export interface DepositRequest {

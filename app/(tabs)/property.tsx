@@ -16,6 +16,8 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useApp } from '@/contexts/AppContext';
 import { propertyFilters } from '@/data/mockCommon';
 import PropertyFilterModal, { PropertyFilterState, SortOption } from '@/components/property/PropertyFilterModal';
+import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 
 const { width } = Dimensions.get('window');
@@ -33,6 +35,9 @@ export default function HomeScreen() {
     propertiesError,
     refreshProperties 
   } = useApp();
+  
+  // Check account restrictions - if account is restricted, show blocking screen
+  const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [refreshing, setRefreshing] = useState(false);
@@ -434,6 +439,17 @@ export default function HomeScreen() {
       </TouchableOpacity>
     );
   };
+
+  // Show restriction screen if account is restricted
+  if (showRestrictionScreen && restrictionDetails) {
+    return (
+      <AccountRestrictedScreen
+        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+        message={restrictionDetails.message}
+        restrictionType={restrictionDetails.restrictionType}
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: 'rgba(22, 22, 22, 1)' }}>

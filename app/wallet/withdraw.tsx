@@ -86,6 +86,29 @@ export default function WithdrawScreen() {
     type: 'info',
   });
 
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = balance.restrictions;
+    if (restrictions) {
+      if (restrictions.blockWithdrawals || restrictions.isUnderReview || restrictions.isRestricted) {
+        const message = restrictions.blockWithdrawals 
+          ? `Your wallet or withdrawal is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
+          : 'Your account is under review/restricted. Withdrawals are not allowed. Please contact Blocks team.';
+        
+        setAlertState({
+          visible: true,
+          title: 'Withdrawal Blocked',
+          message: message,
+          type: 'warning',
+          onConfirm: () => {
+            setAlertState({ ...alertState, visible: false });
+            router.back();
+          },
+        });
+      }
+    }
+  }, [balance.restrictions]);
+
   // Load linked bank accounts
   useEffect(() => {
     const loadLinkedAccounts = async () => {

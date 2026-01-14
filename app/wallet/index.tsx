@@ -1,15 +1,34 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StatusBar, ScrollView, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { depositMethods } from '@/data/mockWallet';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useWallet } from '@/services/useWallet';
+import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 export default function DepositScreen() {
   const router = useRouter();
   const { amount } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { balance } = useWallet();
+
+  // Check complianceStatus - show blocking screen if restricted
+  const complianceStatus = balance?.complianceStatus;
+  const isDepositBlocked = complianceStatus === 'restricted';
+
+  if (isDepositBlocked) {
+    const message = balance?.blockedReason || 'Your account is restricted. Deposits are not allowed. Please contact Blocks team.';
+
+    return (
+      <AccountRestrictedScreen
+        title="Deposits Blocked"
+        message={message}
+        restrictionType="deposits"
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,39 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useWallet } from '@/services/useWallet';
 import * as Clipboard from 'expo-clipboard';
 import { blockchainNetworks, defaultWalletAddress } from '@/data/mockWallet';
 
 export default function OnChainDepositScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { balance } = useWallet();
   const [selectedNetwork, setSelectedNetwork] = useState('polygon');
+
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = balance.restrictions;
+    if (restrictions) {
+      if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
+        const message = restrictions.blockDeposits 
+          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
+          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
+        
+        Alert.alert(
+          'Deposit Blocked',
+          message,
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    }
+  }, [balance.restrictions]);
 
   const walletAddress = defaultWalletAddress;
   const networks = blockchainNetworks;

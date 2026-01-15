@@ -14,17 +14,16 @@ export default function DepositScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const { balance } = useWallet();
 
-  // Check complianceStatus - show blocking screen if restricted
+  // Check complianceStatus - only show full blocking screen if restricted
+  // Under review allows navigation but blocks actions via modals
   const complianceStatus = balance?.complianceStatus;
-  const isDepositBlocked = complianceStatus === 'restricted';
+  const isFullyRestricted = complianceStatus === 'restricted';
 
-  if (isDepositBlocked) {
-    const message = balance?.blockedReason || 'Your account is restricted. Deposits are not allowed. Please contact Blocks team.';
-
+  if (isFullyRestricted) {
     return (
       <AccountRestrictedScreen
         title="Deposits Blocked"
-        message={message}
+        message="Your deposits have been blocked kindly contact blocks team"
         restrictionType="deposits"
       />
     );

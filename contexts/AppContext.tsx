@@ -537,11 +537,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setState(prev => ({
         ...prev,
         balance: {
+          ...prev.balance, // Preserve all existing balance fields including complianceStatus
           usdc: response.wallet.usdc,
           totalValue: response.wallet.totalValue,
           totalInvested: response.wallet.totalInvested,
           totalEarnings: response.wallet.totalEarnings,
           pendingDeposits: response.wallet.pendingDeposits,
+          complianceStatus: response.wallet.complianceStatus || prev.balance.complianceStatus, // Preserve compliance status
+          blockedReason: response.wallet.blockedReason || prev.balance.blockedReason, // Preserve blocked reason
         },
       }));
 

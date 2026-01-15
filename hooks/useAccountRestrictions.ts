@@ -18,12 +18,24 @@ export function useAccountRestrictions(): RestrictionCheckResult {
   const { balance } = useWallet();
   const complianceStatus = balance?.complianceStatus;
 
-  // If complianceStatus is 'restricted', account is blocked
+  // If complianceStatus is 'restricted', account is fully blocked
   if (complianceStatus === 'restricted') {
     return {
       isRestricted: true,
       restrictionType: 'general',
       message: balance?.blockedReason || 'Your account is restricted. Please contact Blocks team.',
+      complianceStatus,
+      blockedReason: balance?.blockedReason,
+    };
+  }
+
+  // If complianceStatus is 'under_review', account can view but financial actions are blocked
+  // Don't return isRestricted: true here - we want to allow navigation
+  if (complianceStatus === 'under_review') {
+    return {
+      isRestricted: false, // Allow navigation, but block actions via modals
+      restrictionType: 'general',
+      message: balance?.blockedReason || 'Your account is under review. Financial transactions are temporarily disabled. Please contact Blocks team for assistance.',
       complianceStatus,
       blockedReason: balance?.blockedReason,
     };
@@ -50,7 +62,8 @@ export function useRestrictionGuard(restrictionTypes?: ('deposits' | 'withdrawal
   useEffect(() => {
     const complianceStatus = balance?.complianceStatus;
     
-    // If complianceStatus is 'restricted', show blocking screen
+    // Only show full restriction screen for 'restricted' status
+    // 'under_review' allows navigation but blocks actions via modals
     if (complianceStatus === 'restricted') {
       setRestrictionDetails({
         isRestricted: true,
@@ -61,7 +74,8 @@ export function useRestrictionGuard(restrictionTypes?: ('deposits' | 'withdrawal
       });
       setShowRestrictionScreen(true);
     } else {
-      // If complianceStatus is 'clear' or undefined, allow access
+      // If complianceStatus is 'clear', 'under_review', or undefined, allow navigation
+      // (under_review will block actions via modals, not full screen)
       setShowRestrictionScreen(false);
       setRestrictionDetails(null);
     }

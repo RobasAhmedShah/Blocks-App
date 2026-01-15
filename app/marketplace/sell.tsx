@@ -21,12 +21,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppAlert } from '@/components/AppAlert';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
+import { useWallet } from '@/services/useWallet';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 
 export default function SellTokensScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { isAuthenticated, isGuest } = useAuth();
   const { investments, loadInvestments } = usePortfolio();
+  const { balance } = useWallet();
+  const { checkAndBlock, modalProps } = useRestrictionModal();
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [availableTokens, setAvailableTokens] = useState<string>('0');
   const [pricePerToken, setPricePerToken] = useState('');
@@ -244,6 +249,11 @@ export default function SellTokensScreen() {
   };
 
   const handlePublish = async () => {
+    // Check if trading is blocked (creating listing is marketplace trading)
+    if (!checkAndBlock('trading')) {
+      return; // Modal will show, don't proceed
+    }
+
     const validation = validateForm();
     if (!validation.valid) {
       setAlertState({
@@ -292,10 +302,18 @@ export default function SellTokensScreen() {
         },
       });
     } catch (error: any) {
+      // Extract error message from backend response
+      let errorMessage = 'Failed to publish listing';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       setAlertState({
         visible: true,
         title: 'Publish Failed',
-        message: error.message || 'Failed to publish listing',
+        message: errorMessage,
         type: 'error',
         onConfirm: () => {
           setAlertState((prev) => ({ ...prev, visible: false }));
@@ -765,6 +783,8 @@ export default function SellTokensScreen() {
         type={alertState.type}
         onConfirm={alertState.onConfirm || (() => {})}
       />
+
+      <RestrictionModal {...modalProps} />
     </View>
   );
 }

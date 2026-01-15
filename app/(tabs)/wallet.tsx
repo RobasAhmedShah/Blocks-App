@@ -24,6 +24,8 @@ import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { Pressable } from 'react-native';
 import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -38,6 +40,7 @@ export default function WalletScreen() {
   
   // Check account restrictions - if account is restricted, show blocking screen
   const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
+  const { checkAndBlock, modalProps } = useRestrictionModal();
   const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>('usdc');
   
   // WalletConnect
@@ -212,18 +215,6 @@ export default function WalletScreen() {
       }
     }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, loadCryptoBalance])
   );
-
-  // IMPORTANT: All hooks must be called BEFORE any early returns
-  // Show restriction screen if account is restricted
-  if (showRestrictionScreen && restrictionDetails) {
-    return (
-      <AccountRestrictedScreen
-        title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
-        message={restrictionDetails.message}
-        restrictionType={restrictionDetails.restrictionType}
-      />
-    );
-  }
 
   // Convert pending withdrawal requests to transaction-like objects
   const pendingWithdrawalTransactions = React.useMemo(() => {
@@ -437,6 +428,18 @@ export default function WalletScreen() {
 
   return(
     <View style={{ flex: 1 }}>
+      {/* Show restriction screen if account is restricted - render conditionally, not early return */}
+      {showRestrictionScreen && restrictionDetails ? (
+        <>
+          <AccountRestrictedScreen
+            title={restrictionDetails.restrictionType === 'general' ? 'Account Restricted' : undefined}
+            message={restrictionDetails.message}
+            restrictionType={restrictionDetails.restrictionType}
+          />
+          <RestrictionModal {...modalProps} />
+        </>
+      ) : (
+        <>
       {/* Radial Gradient Background */}
       <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
             <Svg width="100%" height="100%">
@@ -872,21 +875,10 @@ export default function WalletScreen() {
             >
               <TouchableOpacity
                 onPress={() => {
-                  // Check complianceStatus before navigating
-                  const complianceStatus = balance?.complianceStatus;
-                  if (complianceStatus === 'restricted') {
-                    const message = balance?.blockedReason || 'Your account is restricted. Deposits are not allowed. Please contact Blocks team.';
-                    
-                    Alert.alert(
-                      'Deposit Blocked',
-                      message,
-                      [{ text: 'OK' }],
-                      { cancelable: true }
-                    );
-                    return; // Don't navigate
-                  }
-                  // If complianceStatus is 'clear', proceed to deposit methods
-                  router.push('../wallet');
+                  console.log('[Wallet] Deposit button pressed, balance:', balance);
+                  checkAndBlock('deposits', () => {
+                    router.push('../wallet');
+                  });
                 }}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(22, 163, 74, 0.15)',
@@ -903,7 +895,11 @@ export default function WalletScreen() {
             {/* Withdraw */}
             <View className="items-center rounded-2xl py-4">
               <TouchableOpacity
-                onPress={() => router.push('/wallet/withdraw' as any)}
+                onPress={() => {
+                  checkAndBlock('withdrawals', () => {
+                    router.push('/wallet/withdraw' as any);
+                  });
+                }}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(239, 68, 68, 0.15)',
                   boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
@@ -919,7 +915,11 @@ export default function WalletScreen() {
             {/* Transfer */}
             <View className="items-center rounded-2xl py-4">
               <TouchableOpacity
-                onPress={() => router.push('/marketplace' as any)}
+                onPress={() => {
+                  checkAndBlock('transfers', () => {
+                    router.push('/marketplace' as any);
+                  });
+                }}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(234, 179, 8, 0.15)',
                   boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
@@ -1264,6 +1264,11 @@ export default function WalletScreen() {
           </View>
         </Animated.View>
       )}
+        </>
+      )}
+      
+      {/* Restriction Modal - Always render (outside conditional) */}
+      <RestrictionModal {...modalProps} />
     </View>
   );
 }

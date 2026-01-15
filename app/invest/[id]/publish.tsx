@@ -8,6 +8,9 @@ import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
+import { useWallet } from '@/services/useWallet';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
@@ -23,6 +26,8 @@ export default function PublishScreen() {
     const router = useRouter();
     const { property } = useProperty(propertyId || id || '');
     const { colors } = useColorScheme();
+    const { balance } = useWallet();
+    const { checkAndBlock, modalProps } = useRestrictionModal();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isPublished, setIsPublished] = useState(false);
 
@@ -112,6 +117,11 @@ export default function PublishScreen() {
     ).current;
 
     const handlePublish = async () => {
+        // Check if trading is blocked (creating listing is marketplace trading)
+        if (!checkAndBlock('trading')) {
+            return; // Modal will show, don't proceed
+        }
+
         if (!propertyId) {
             Alert.alert('Error', 'Property ID not found');
             return;
@@ -310,6 +320,7 @@ export default function PublishScreen() {
                     </View>
                 </View>
             </View>
+            <RestrictionModal {...modalProps} />
         </LinearGradient>
     );
 }

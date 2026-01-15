@@ -15,13 +15,13 @@ import {
   ScrollView,
   TextInput,
   Image,
-  Alert,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { quickAmounts } from '@/data/mockWallet';
 import { useWallet } from '@/services/useWallet';
+import { AppAlert } from '@/components/AppAlert';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -70,6 +70,20 @@ export default function BinancePayDepositScreen() {
   const [showQR, setShowQR] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Alert state for AppAlert
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
   const payId = 'BLOCKS_' + Math.random().toString(36).substring(7).toUpperCase();
 
   // Check account restrictions on mount
@@ -77,21 +91,16 @@ export default function BinancePayDepositScreen() {
     const restrictions = balance.restrictions;
     if (restrictions) {
       if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
-        const message = restrictions.blockDeposits 
-          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
-          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
-        
-        Alert.alert(
-          'Deposit Blocked',
-          message,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ],
-          { cancelable: false }
-        );
+        setAlertState({
+          visible: true,
+          title: 'Deposit Blocked',
+          message: 'Your deposits have been blocked kindly contact blocks team',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            router.back();
+          },
+        });
       }
     }
   }, [balance.restrictions]);
@@ -160,8 +169,16 @@ export default function BinancePayDepositScreen() {
           method: 'Binance Pay',
         },
       } as any);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process deposit');
+    } catch (error: any) {
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: error.message || 'Failed to process deposit',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -173,6 +190,17 @@ export default function BinancePayDepositScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
 
       {/* Header */}
       <View

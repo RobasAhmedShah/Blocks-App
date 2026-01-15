@@ -83,21 +83,16 @@ export default function BankTransferDepositScreen() {
     const restrictions = state.wallet?.restrictions;
     if (restrictions) {
       if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
-        const message = restrictions.blockDeposits 
-          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
-          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
-        
-        Alert.alert(
-          'Deposit Blocked',
-          message,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ],
-          { cancelable: false }
-        );
+        setAlertState({
+          visible: true,
+          title: 'Deposit Blocked',
+          message: 'Your deposits have been blocked kindly contact blocks team',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            router.back();
+          },
+        });
       }
     }
   }, [state.wallet?.restrictions]);

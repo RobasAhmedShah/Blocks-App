@@ -17,6 +17,8 @@ export interface WalletBalance {
   totalEarnings: number;
   pendingDeposits: number;
   restrictions?: AccountRestrictions | null;
+  complianceStatus?: 'clear' | 'restricted' | 'under_review' | 'frozen' | string; // Primary check: 'clear' allows actions, 'restricted' blocks
+  blockedReason?: string | null; // Reason for blocking if complianceStatus is 'restricted'
 }
 
 export interface DepositRequest {

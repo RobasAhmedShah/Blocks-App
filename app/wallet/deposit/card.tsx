@@ -15,7 +15,6 @@ import {
   StatusBar,
   ScrollView,
   TextInput,
-  Alert,
   Modal,
   ActivityIndicator,
 } from 'react-native';
@@ -25,6 +24,9 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { quickAmounts } from '@/data/mockWallet';
 import { useWallet } from '@/services/useWallet';
 import { paymentMethodsApi, PaymentMethod } from '@/services/api/paymentMethods.api';
+import { AppAlert } from '@/components/AppAlert';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -79,6 +81,7 @@ export default function CardDepositScreen() {
   } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { deposit, loadWallet, balance } = useWallet();
+  const { checkAndBlock, modalProps } = useRestrictionModal();
 
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : '');
   const [amountError, setAmountError] = useState<string>('');
@@ -91,26 +94,35 @@ export default function CardDepositScreen() {
   const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [showMethodSelector, setShowMethodSelector] = useState(false);
 
+  // Alert state for AppAlert
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
   // Check account restrictions on mount
   useEffect(() => {
     const restrictions = balance.restrictions;
     if (restrictions) {
       if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
-        const message = restrictions.blockDeposits 
-          ? `Your wallet or deposit is blocked. ${restrictions.restrictionReason || 'Please contact Blocks team.'}`
-          : 'Your account is under review/restricted. Deposits are not allowed. Please contact Blocks team.';
-        
-        Alert.alert(
-          'Deposit Blocked',
-          message,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ],
-          { cancelable: false }
-        );
+        setAlertState({
+          visible: true,
+          title: 'Deposit Blocked',
+          message: 'Your deposits have been blocked kindly contact blocks team',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            router.back();
+          },
+        });
       }
     }
   }, [balance.restrictions]);
@@ -211,12 +223,28 @@ export default function CardDepositScreen() {
     // Validate amount
     const validation = validateAmount(amount);
     if (!validation.isValid) {
-      Alert.alert('Invalid Amount', validation.error || 'Please enter a valid amount');
+      setAlertState({
+        visible: true,
+        title: 'Invalid Amount',
+        message: validation.error || 'Please enter a valid amount',
+        type: 'warning',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       return;
     }
 
     if (!selectedMethod) {
-      Alert.alert('Error', 'Please select a payment method');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Please select a payment method',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
       return;
     }
 
@@ -248,7 +276,24 @@ export default function CardDepositScreen() {
       } as any);
     } catch (error: any) {
       console.error('Deposit error:', error);
-      Alert.alert('Error', error.message || 'Failed to process deposit');
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to process deposit';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setAlertState({
+        visible: true,
+        title: 'Deposit Failed',
+        message: errorMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -268,6 +313,19 @@ export default function CardDepositScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
+
+      <RestrictionModal {...modalProps} />
 
       {/* Header */}
       <View

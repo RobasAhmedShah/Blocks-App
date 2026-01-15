@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 interface AccountRestrictedScreenProps {
   title?: string;
   message?: string;
-  restrictionType?: 'deposits' | 'withdrawals' | 'trading' | 'transfers' | 'general';
+  restrictionType?: 'deposits' | 'withdrawals' | 'trading' | 'transfers' | 'investment' | 'general';
 }
 
 export function AccountRestrictedScreen({
@@ -25,6 +25,8 @@ export function AccountRestrictedScreen({
         return 'Withdrawals Blocked';
       case 'trading':
         return 'Trading Blocked';
+      case 'investment':
+        return 'Investment Blocked';
       case 'transfers':
         return 'Transfers Blocked';
       default:
@@ -35,11 +37,13 @@ export function AccountRestrictedScreen({
   const getDefaultMessage = () => {
     switch (restrictionType) {
       case 'deposits':
-        return 'Your deposits are blocked. Please contact Blocks team for assistance.';
+        return 'Your deposits have been blocked kindly contact blocks team';
       case 'withdrawals':
         return 'Your withdrawals are blocked. Please contact Blocks team for assistance.';
       case 'trading':
         return 'Trading is blocked for your account. Please contact Blocks team for assistance.';
+      case 'investment':
+        return 'Investment is blocked for your account. Please contact Blocks team for assistance.';
       case 'transfers':
         return 'Token transfers are blocked for your account. Please contact Blocks team for assistance.';
       default:
@@ -56,7 +60,7 @@ export function AccountRestrictedScreen({
       style={styles.container}
     >
       <View style={styles.content}>
-        <View style={[styles.iconContainer, { backgroundColor: colors.destructive + '20' }]}>
+        <View style={[styles.iconContainer, { }]}>
           <MaterialIcons 
             name="block" 
             size={64} 

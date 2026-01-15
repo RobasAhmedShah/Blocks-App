@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
   Animated,
   PanResponder,
@@ -19,6 +18,9 @@ import { useWallet } from '@/services/useWallet';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
+import { AppAlert } from '@/components/AppAlert';
 
 const BALANCE_EPSILON = 0.01;
 
@@ -41,9 +43,22 @@ export default function InvestmentReviewScreen() {
   const { property } = useProperty(id || propertyId || '');
   const { invest } = useApp();
   const { balance } = useWallet();
+  const { checkAndBlock, modalProps } = useRestrictionModal();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGestureActive, setIsGestureActive] = useState(false); // NEW: Track gesture state
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
 
   /* ================== VALUES ================== */
   const tokens = parseFloat(tokenCount || '0');
@@ -242,27 +257,32 @@ export default function InvestmentReviewScreen() {
 
   /* ================== INVEST ================== */
   const handleConfirmInvestment = async () => {
+    // Check if investment is blocked
+    if (!checkAndBlock('investment')) {
+      setIsGestureActive(false);
+      resetThumb(true);
+      return; // Modal will show, don't proceed
+    }
+
     // FIX 10: Double-check balance
     if (investment > balance.usdc + BALANCE_EPSILON) {
       const shortfall = investment - balance.usdc;
       setIsGestureActive(false);
       resetThumb(true);
       
-      Alert.alert(
-        'Insufficient Balance',
-        `You need $${shortfall.toFixed(2)} more.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Add Funds',
-            onPress: () =>
-              router.push({
-                pathname: '/wallet/deposit/card',
-                params: { amount: shortfall.toFixed(2) },
-              } as any),
-          },
-        ]
-      );
+      setAlertState({
+        visible: true,
+        title: 'Insufficient Balance',
+        message: `You need $${shortfall.toFixed(2)} more.`,
+        type: 'warning',
+        onConfirm: () => {
+          setAlertState((prev) => ({ ...prev, visible: false }));
+          router.push({
+            pathname: '/wallet/deposit/card',
+            params: { amount: shortfall.toFixed(2) },
+          } as any);
+        },
+      });
       return;
     }
 
@@ -282,12 +302,27 @@ export default function InvestmentReviewScreen() {
           propertyTitle: title,
         },
       } as any);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Investment error:', error);
       setIsProcessing(false);
       setIsGestureActive(false);
       resetThumb(true);
-      Alert.alert('Investment Failed', 'Please try again.');
+      
+      // Extract error message from backend response
+      let errorMessage = 'Please try again.';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setAlertState({
+        visible: true,
+        title: 'Investment Failed',
+        message: errorMessage,
+        type: 'error',
+        onConfirm: () => setAlertState((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -474,6 +509,14 @@ export default function InvestmentReviewScreen() {
           )}
         </View>
       </View>
+      <RestrictionModal {...modalProps} />
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => setAlertState((prev) => ({ ...prev, visible: false })))}
+      />
     </LinearGradient>
   );
 }

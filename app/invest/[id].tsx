@@ -32,6 +32,8 @@ import { usePortfolio } from '@/services/usePortfolio';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
+import { useRestrictionModal } from '@/hooks/useRestrictionModal';
+import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 
 // Constants
 const BALANCE_EPSILON = 0.01;
@@ -65,19 +67,29 @@ export default function BuyTokensScreen() {
   // Admin address for crypto payments
   const ADMIN_ADDRESS = '0x7E92A4257904d19006b669028e2B2C5fa30fc12f';
 
-  // Check complianceStatus - show blocking screen if restricted
+  // Check complianceStatus and granular restrictions
+  // Only show full blocking screen if 'restricted'
+  // 'under_review' allows navigation but blocks actions via modals
+  // Investments are token transfers, not trading
   const complianceStatus = balance?.complianceStatus;
-  const isRestricted = complianceStatus === 'restricted';
+  const restrictions = balance?.restrictions;
+  const isFullyRestricted = complianceStatus === 'restricted' || restrictions?.blockTokenTransfers === true;
+  
+  // Also use modal hook for safety checks in actions
+  const { checkAndBlock, modalProps } = useRestrictionModal();
 
-  if (isRestricted) {
-    const message = balance?.blockedReason || 'Your account is restricted. Trading is not allowed. Please contact Blocks team.';
+  if (isFullyRestricted) {
+    const message = balance?.blockedReason || 'Trading is blocked for your account. Please contact Blocks team for assistance.';
     
     return (
-      <AccountRestrictedScreen
-        title="Trading Blocked"
-        message={message}
-        restrictionType="trading"
-      />
+      <>
+        <AccountRestrictedScreen
+          title="Investment Blocked"
+          message={message}
+          restrictionType="investment"
+        />
+        <RestrictionModal {...modalProps} />
+      </>
     );
   }
   
@@ -373,6 +385,12 @@ export default function BuyTokensScreen() {
   };
 
   const handleConfirm = async () => {
+    // Safety check: If account is restricted, block action
+    // Use 'investment' type for investment-specific blocking
+    if (!checkAndBlock('investment')) {
+      return; // Modal will show, don't proceed
+    }
+    
     if (activeTab === 'sell') {
       // Sell flow validation
       if (!property) {
@@ -1075,6 +1093,9 @@ export default function BuyTokensScreen() {
           </View>
         </View>
       </Modal>
+      
+      {/* Restriction Modal */}
+      <RestrictionModal {...modalProps} />
     </LinearGradient>
   );
 }

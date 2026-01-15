@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -44,6 +45,11 @@ export default function WalletScreen() {
   const [cryptoBalance, setCryptoBalance] = useState<string>('0.00');
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const isLoadingBalanceRef = React.useRef(false);
+
+  // Scroll animation for collapsible sections
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [actualHeaderHeight, setActualHeaderHeight] = useState(120);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
@@ -340,6 +346,95 @@ export default function WalletScreen() {
     }
   };
 
+  // Calculate animated values for collapsible sections
+  const walletCardHeight = 280; // Approximate height of wallet card section
+  const collapseThreshold = 50; // Start collapsing after 50px scroll
+
+  // Animated opacity for wallet card sections (470-906)
+  const walletCardOpacity = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 50],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated translateY for wallet card sections
+  const walletCardTranslateY = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 100],
+    outputRange: [0, 0, -walletCardHeight],
+    extrapolate: 'clamp',
+  });
+
+  // Animated height for wallet card container
+  const walletCardHeightAnimated = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 100],
+    outputRange: [walletCardHeight, walletCardHeight, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated position for sticky categories - moves FASTER than wallet card to eliminate gap
+  // Categories "chase" the wallet card up, completing their movement in 80px instead of 100px
+  // This ensures no visible gap during slow scrolling
+  const categoriesTranslateY = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 60],
+    outputRange: [walletCardHeight, walletCardHeight, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated paddingTop for sticky section - removes gap faster to match categories speed
+  const stickyPaddingTop = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 60],
+    outputRange: [8, 8, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated background opacity for header - appears VERY QUICKLY for strong sticky effect
+  const headerBackgroundOpacity = scrollY.interpolate({
+    inputRange: [0, 10, collapseThreshold + 20],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animated background opacity for sticky section - appears VERY QUICKLY for strong sticky effect
+  const stickyBackgroundOpacity = scrollY.interpolate({
+    inputRange: [0, 10, collapseThreshold + 20],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animated opacity for wallet name - fades out as balance appears
+  const walletNameOpacity = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 50, collapseThreshold + 100],
+    outputRange: [1, 1, 0.3, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated opacity for balance in header - appears as wallet card collapses
+  const headerBalanceOpacity = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 50, collapseThreshold + 100],
+    outputRange: [0, 0, 0.3, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animated translateY for balance in header - slides up smoothly from below
+  const headerBalanceTranslateY = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 50, collapseThreshold + 200],
+    outputRange: [30, 30, 15, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Animated scale for balance in header - subtle zoom in effect
+  const headerBalanceScale = scrollY.interpolate({
+    inputRange: [0, collapseThreshold, collapseThreshold + 50, collapseThreshold + 200],
+    outputRange: [0.8, 0.8, 0.9, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Handle scroll event
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false } // We need to animate height/opacity which requires layout
+  );
+
   return(
     <View style={{ flex: 1 }}>
       {/* Radial Gradient Background */}
@@ -377,43 +472,36 @@ export default function WalletScreen() {
             </Svg>
           </View>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
-      {/* Linear Gradient Background - Same as BlocksHomeScreen */}
-      {/* <LinearGradient
-        colors={
-          isDarkColorScheme
-            ? [
-              '#00C896', // Teal green (top)
-              '#064E3B', // Deep emerald (40% mark)
-              '#032822',
-              '#021917',
-            ]
-            : [
-              '#F5F5F5', // Smoky light gray
-              '#EDEDED', // Soft ash
-              '#E0E0E0', // Gentle gray
-              '#FFFFFF', // Pure white
-            ]
-        }
-        locations={[0, 0.4, 0.7, 1]} // 40% green, then transition to black
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+      
+      {/* Sticky Header - Always visible */}
+      <Animated.View
+        onLayout={(event) => {
+          const { height } = event.nativeEvent.layout;
+          setActualHeaderHeight(height);
+        }}
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0,
-        }}
-      /> */}
-      {/* Header */}
-      <View
-        style={{
-          backgroundColor: 'transparent', // Transparent to show gradient
+          zIndex: 10,
           paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 48,
         }}
-        className="px-4 pb-4">
-        <View className="mb-4 flex-row items-center justify-between">
-          <View style={{ flex: 1 }}>
+        className="px-4">
+        {/* Animated Background for Header */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+            opacity: headerBackgroundOpacity,
+          }}
+        />
+        <View className="flex-row items-center justify-between" style={{ zIndex: 1 }}>
+          <Animated.View style={{ flex: 1, opacity: walletNameOpacity }}>
             <Text
               style={{
                 color: colors.textPrimary,
@@ -432,7 +520,90 @@ export default function WalletScreen() {
               }}>
               {firstName}'s Wallet
             </Text>
-          </View>
+          </Animated.View>
+          
+          {/* Animated Balance in Header - Centered, appears as wallet card collapses */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: headerBalanceOpacity,
+              transform: [
+                { translateY: headerBalanceTranslateY },
+                { scale: headerBalanceScale },
+              ],
+              zIndex: 2,
+            }}>
+            {walletTab === 'usdc' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: 'sans-serif-light',
+                    fontSize: 18,
+                    fontWeight: '600',
+                    marginRight: 2,
+                  }}>
+                  $
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: 'sans-serif-light',
+                    fontSize: 24,
+                    fontWeight: '700',
+                  }}>
+                  {balance.usdc.toFixed(0)}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: 'sans-serif-light',
+                    fontSize: 20,
+                    fontWeight: '600',
+                  }}>
+                  .{balance.usdc.toFixed(2).slice(-2)}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 14,
+                    fontFamily: 'sans-serif-light',
+                    fontWeight: 'bold',
+                    marginLeft: 6,
+                    marginTop: 2,
+                  }}>
+                  USDC
+                </Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontFamily: 'sans-serif-light',
+                    fontSize: 24,
+                    fontWeight: '700',
+                  }}>
+                  {cryptoBalance}
+                </Text>
+                <Text
+                  style={{
+                    color: '#3b82f6',
+                    fontSize: 14,
+                    fontFamily: 'sans-serif-light',
+                    fontWeight: 'bold',
+                    marginLeft: 6,
+                    marginTop: 2,
+                  }}>
+                  ETH
+                </Text>
+              </View>
+            )}
+          </Animated.View>
           <TouchableOpacity
             onPress={() => {
               router.push({
@@ -466,44 +637,66 @@ export default function WalletScreen() {
             )}
           </TouchableOpacity>
         </View>
-        
-        {/* Navigation Tabs - Above the Card */}
-        <View className="mb-4 flex-row gap-2">
-          <TouchableOpacity
-            onPress={() => setWalletTab('usdc')}
-            style={{
-              flex: 1,
-              backgroundColor: walletTab === 'usdc' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-              borderRadius: 12,
-              padding: 12,
-            }}>
-            <Text style={{ color: walletTab === 'usdc' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
-              Custody
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setWalletTab('crypto')}
-            style={{
-              flex: 1,
-              backgroundColor: walletTab === 'crypto' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-              borderRadius: 12,
-              padding: 12,
-            }}>
-            <Text style={{ color: walletTab === 'crypto' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
-              Crypto
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Wallet Card - Shows based on selected tab */}
-        {walletTab === 'usdc' ? (
+      </Animated.View>
+
+      {/* Scrollable Content */}
+      <ScrollView
+        ref={scrollViewRef}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: actualHeaderHeight }}
+      >
+        {/* Collapsible Wallet Card Sections (470-906) */}
+        <Animated.View
+          style={{
+            opacity: walletCardOpacity,
+            transform: [{ translateY: walletCardTranslateY }],
+            height: walletCardHeightAnimated,
+            overflow: 'hidden',
+          }}
+        >
+          <View className="px-4 pb-4">
+            {/* Navigation Tabs - Above the Card */}
+            <View className="mb-4 flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => setWalletTab('usdc')}
+                style={{
+                  flex: 1,
+                  backgroundColor: walletTab === 'usdc' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                  borderRadius: 12,
+                  padding: 12,
+                }}>
+                <Text style={{ color: walletTab === 'usdc' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+                  Custody
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setWalletTab('crypto')}
+                style={{
+                  flex: 1,
+                  backgroundColor: walletTab === 'crypto' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                  borderRadius: 12,
+                  padding: 12,
+                }}>
+                <Text style={{ color: walletTab === 'crypto' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+                  Crypto
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* Wallet Card - Shows based on selected tab */}
+            {walletTab === 'usdc' ? (
         <View
           style={{
             backgroundColor: isDarkColorScheme ? colors.background : 'rgba(255, 255, 255, 0.8)',
             borderRadius: 30,
+            height: 220,
+            // height: '45%',
+            // borderWidth: 1, borderColor: 'red',
             overflow: 'hidden',
           }}
-          className="p-4 pb-2">
+          className="p-2">
           {/* Radial Gradient Background */}
           <View style={{ position: 'absolute', inset: 0 }}>
             <Svg width="100%" height="100%">
@@ -557,8 +750,8 @@ export default function WalletScreen() {
             style={{
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 6,
-              marginBottom: 4,
+              marginTop: 2,
+              // marginBottom: 4,
             }}>
             <View
               style={{
@@ -566,7 +759,7 @@ export default function WalletScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 20,
-                paddingHorizontal: 10,
+                paddingHorizontal: 5,
                 paddingVertical: 5,
               }}>
               <View
@@ -596,15 +789,15 @@ export default function WalletScreen() {
               alignItems: 'baseline',
               justifyContent: 'center',
               flexDirection: 'row',
-              marginTop: 4,
-              marginBottom: 4,
+              marginTop: 2,
+              marginBottom: 2,
             }}>
             <Text
               style={{
                 color: colors.textPrimary,
                 fontFamily: 'sans-serif-light',
                 paddingRight: 2,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: '600',
               }}>
               $
@@ -613,7 +806,7 @@ export default function WalletScreen() {
               style={{
                 color: colors.textPrimary,
                 fontFamily: 'sans-serif-light',
-                fontSize: 42,
+                fontSize: 34,
                 fontWeight: '700',
               }}>
               {balance.usdc.toFixed(0)}
@@ -641,7 +834,9 @@ export default function WalletScreen() {
           </View>
 
           {/* Actions */}
-          <View className="mt-4 flex-row justify-between rounded-2xl px-8 pt-2">
+          <View className="mt-4 flex-row justify-around rounded-2xl px-4 "
+          style={{ height: '50%', width: '100%'}}
+          >
             <LinearGradient
               colors={
                 isDarkColorScheme
@@ -672,7 +867,9 @@ export default function WalletScreen() {
             />
 
             {/* Deposit */}
-            <View className="items-center rounded-2xl py-4">
+            <View className="items-center rounded-2xl py-4"
+            style={{ height: '100%', width: '20%' }}
+            >
               <TouchableOpacity
                 onPress={() => {
                   // Check complianceStatus before navigating
@@ -693,7 +890,7 @@ export default function WalletScreen() {
                 }}
                 style={{
                   backgroundColor: isDarkColorScheme ? colors.card : 'rgba(22, 163, 74, 0.15)',
-                  boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)',
+                  boxShadow: ' 0px 0px 20px rgba(0, 0, 0, 0.5)'
                 }}
                 className="mb-2 h-14 w-14 items-center justify-center rounded-full">
                 <MaterialIcons name="arrow-upward" size={28} color={colors.primary} />
@@ -895,155 +1092,178 @@ export default function WalletScreen() {
               </View>
             </>
           )}
-        </View>
-        )}
-      </View>
-
-      {/* Only show transactions for USDC wallet */}
-      {walletTab === 'usdc' && (
-        <>
-      {/* Quick Actions */}
-      {/* Transaction Filters */}
-      <View className="mx-4 mb-4">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8 }}>
-          {[
-            { value: 'all', label: 'All' },
-            { value: 'deposit', label: 'Deposit' },
-            { value: 'withdraw', label: 'Withdraw' },
-            { value: 'investment', label: 'Investment' },
-            { value: 'rental_income', label: 'Rental' },
-          ].map((filter) => (
-            <TouchableOpacity
-              key={filter.value}
-              onPress={() => setActiveTab(filter.value)}
-              style={{
-                backgroundColor:
-                  activeTab === filter.value
-                    ? colors.primary
-                    : isDarkColorScheme
-                      ? 'rgba(0, 0, 0, 0.3)'
-                      : 'rgba(255, 255, 255, 0.8)',
-                borderWidth: activeTab === filter.value ? 0 : 0,
-                borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
-              }}
-              className="rounded-full px-4 py-2">
-              <Text
-                style={{
-                  color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
-                  fontWeight: activeTab === filter.value ? '600' : '400',
-                }}
-                className="text-sm">
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      {/* Transactions */}
-      <ScrollView
-        className="mb-20 rounded-2xl px-4 pb-20"
-        // className="mb-2 rounded-2xl pt-4"
-        style={
-          {
-            // backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-            // backgroundColor: colors.background,
-            // borderWidth: 1,
-            // borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.1)',
-            // maxHeight: '52%',
-          }
-        }>
-        <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
-          Recent Transactions
-        </Text>
-        {filteredTransactions.length === 0 ? (
-          <View style={{ padding: 24, alignItems: 'center' }}>
-            <Text style={{ color: colors.textSecondary }} className="text-sm">
-              No transactions found
-            </Text>
+            </View>
+            )}
           </View>
-        ) : (
-          filteredTransactions.map((transaction) => (
-            <View
-              key={transaction.id}
-              style={{
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(0, 0, 0, 0.5)'
-                  : 'rgba(255, 255, 255, 0.8)',
-              }}
-              className="mb-2 flex-row items-center rounded-2xl p-4">
-              <View className="h-12 w-12 items-center justify-center rounded-full">
-                <MaterialIcons
-                  name={getTransactionIcon(transaction.type)}
-                  size={28}
-                  color={getTransactionColor(transaction.type)}
-                />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text style={{ color: colors.textPrimary }} className="mb-0.5 font-semibold">
-                  {transaction.description}
+        </Animated.View>
+
+        {/* Spacer for categories and heading - ensures transactions don't get hidden */}
+        {walletTab === 'usdc' && (
+          <View style={{ height: 100 }} />
+        )}
+
+        {/* Transactions Section - Scrollable */}
+        {walletTab === 'usdc' && (
+          <View className="px-4 pb-20">
+            {filteredTransactions.length === 0 ? (
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary }} className="text-sm">
+                  No transactions found
                 </Text>
-                {transaction.propertyTitle && (
-                  <Text style={{ color: colors.textSecondary }} className="text-xs">
-                    {transaction.propertyTitle}
-                  </Text>
-                )}
-                {/* Show bank details for pending withdrawals */}
-                {transaction.type === 'withdraw' &&
-                  transaction.status === 'pending' &&
-                  transaction.metadata?.bankName && (
-                    <View style={{ marginTop: 4 }}>
+              </View>
+            ) : (
+              filteredTransactions.map((transaction) => (
+                <View
+                  key={transaction.id}
+                  style={{
+                    backgroundColor: isDarkColorScheme
+                      ? 'rgba(0, 0, 0, 0.5)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                  }}
+                  className="mb-2 flex-row items-center rounded-2xl p-4">
+                  <View className="h-12 w-12 items-center justify-center rounded-full">
+                    <MaterialIcons
+                      name={getTransactionIcon(transaction.type)}
+                      size={28}
+                      color={getTransactionColor(transaction.type)}
+                    />
+                  </View>
+                  <View className="ml-3 flex-1">
+                    <Text style={{ color: colors.textPrimary }} className="mb-0.5 font-semibold">
+                      {transaction.description}
+                    </Text>
+                    {transaction.propertyTitle && (
                       <Text style={{ color: colors.textSecondary }} className="text-xs">
-                        {transaction.metadata.bankName}
+                        {transaction.propertyTitle}
                       </Text>
-                      {transaction.metadata.displayCode && (
-                        <Text style={{ color: colors.textMuted }} className="text-xs">
-                          Request: {transaction.metadata.displayCode}
+                    )}
+                    {/* Show bank details for pending withdrawals */}
+                    {transaction.type === 'withdraw' &&
+                      transaction.status === 'pending' &&
+                      transaction.metadata?.bankName && (
+                        <View style={{ marginTop: 4 }}>
+                          <Text style={{ color: colors.textSecondary }} className="text-xs">
+                            {transaction.metadata.bankName}
+                          </Text>
+                          {transaction.metadata.displayCode && (
+                            <Text style={{ color: colors.textMuted }} className="text-xs">
+                              Request: {transaction.metadata.displayCode}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    {/* Show bank transaction ID for completed withdrawals (hide BWR- codes) */}
+                    {transaction.type === 'withdraw' &&
+                      transaction.status === 'completed' &&
+                      transaction.metadata?.bankTransactionId && (
+                        <Text style={{ color: colors.textSecondary }} className="mt-1 text-xs">
+                          Transaction ID: {transaction.metadata.bankTransactionId}
                         </Text>
                       )}
-                    </View>
-                  )}
-                {/* Show bank transaction ID for completed withdrawals (hide BWR- codes) */}
-                {transaction.type === 'withdraw' &&
-                  transaction.status === 'completed' &&
-                  transaction.metadata?.bankTransactionId && (
-                    <Text style={{ color: colors.textSecondary }} className="mt-1 text-xs">
-                      Transaction ID: {transaction.metadata.bankTransactionId}
+                    <Text style={{ color: transaction.status === 'completed' ? colors.primary : colors.warning }} className="text-xs">
+                      {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
                     </Text>
-                  )}
-                <Text style={{ color: transaction.status === 'completed' ? colors.primary : colors.warning }} className="text-xs">
-                  {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
-                </Text>
-              </View>
-              <View className="items-end">
-                <Text
-                  className="text-lg "
-                  style={{
-                    color:
-                      transaction.type === 'deposit' ||
-                      transaction.type === 'rental' ||
-                      transaction.type === 'reward' ||
-                      transaction.type === 'rental_income'
-                        ? colors.primary
-                        : transaction.type === 'withdraw' || transaction.type === 'investment'
-                          ? colors.destructive
-                          : colors.textPrimary,
-                  }}>
-                  {transaction.amount >= 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
-                </Text>
-                <Text style={{ color: colors.textSecondary }} className="text-xs">
-                  {transaction.currency || 'USDC'}
-                </Text>
-              </View>
-            </View>
-          ))
+                  </View>
+                  <View className="items-end">
+                    <Text
+                      className="text-lg "
+                      style={{
+                        color:
+                          transaction.type === 'deposit' ||
+                          transaction.type === 'rental' ||
+                          transaction.type === 'reward' ||
+                          transaction.type === 'rental_income'
+                            ? colors.primary
+                            : transaction.type === 'withdraw' || transaction.type === 'investment'
+                              ? colors.destructive
+                              : colors.textPrimary,
+                      }}>
+                      {transaction.amount >= 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary }} className="text-xs">
+                      {transaction.currency || 'USDC'}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         )}
       </ScrollView>
-        </>
+
+      {/* Sticky Categories and Recent Transactions Heading - Absolutely positioned, moves up as wallet card collapses */}
+      {walletTab === 'usdc' && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: actualHeaderHeight,
+            left: 0,
+            right: 0,
+            zIndex: 9,
+            paddingTop: stickyPaddingTop,
+            transform: [{ translateY: categoriesTranslateY }],
+          }}>
+          {/* Animated Background for Sticky Section */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              opacity: stickyBackgroundOpacity,
+            }}
+          />
+          
+          {/* Categories Chips */}
+          <View className="mx-4 mb-3" style={{ zIndex: 1 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}>
+              {[
+                { value: 'all', label: 'All' },
+                { value: 'deposit', label: 'Deposit' },
+                { value: 'withdraw', label: 'Withdraw' },
+                { value: 'investment', label: 'Investment' },
+                { value: 'rental_income', label: 'Rental' },
+              ].map((filter) => (
+                <TouchableOpacity
+                  key={filter.value}
+                  onPress={() => setActiveTab(filter.value)}
+                  style={{
+                    backgroundColor:
+                      activeTab === filter.value
+                        ? colors.primary
+                        : isDarkColorScheme
+                          ? 'rgba(0, 0, 0, 0.3)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    borderWidth: activeTab === filter.value ? 0 : 0,
+                    borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
+                  }}
+                  className="rounded-full px-4 py-2">
+                  <Text
+                    style={{
+                      color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
+                      fontWeight: activeTab === filter.value ? '600' : '400',
+                    }}
+                    className="text-sm">
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          
+          {/* Recent Transactions Heading */}
+          <View className="px-4" style={{ zIndex: 1 }}>
+            <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
+              Recent Transactions
+            </Text>
+          </View>
+        </Animated.View>
       )}
-      {/* </ScrollView> */}
     </View>
   );
 }

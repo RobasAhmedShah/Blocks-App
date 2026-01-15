@@ -181,7 +181,7 @@ export default function PropertyFilterModal({
       backgroundColor="rgba(22, 22, 22, 1)"
       borderTopRadius={24}
       isDarkColorScheme={true}
-    >
+        >
       <View style={{ flex: 1 }}>
         {/* Header */}
         <View
@@ -507,56 +507,56 @@ export default function PropertyFilterModal({
         </View>
       </View>
 
-      {/* Sticky Footer */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: 'rgba(22, 22, 22, 1)',
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(255, 255, 255, 0.1)',
-          paddingHorizontal: 20,
-          paddingVertical: 16,
-          paddingBottom: 32,
-          flexDirection: 'row',
-          gap: 12,
-        }}
-      >
-        <TouchableOpacity
-          onPress={handleClearFilters}
+        {/* Sticky Footer */}
+        <View
           style={{
-            flex: 1,
-            paddingVertical: 14,
-            borderRadius: 12,
-            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-            borderWidth: 1,
-            borderColor: 'rgba(255, 255, 255, 0.1)',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: 'rgba(22, 22, 22, 1)',
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.1)',
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            paddingBottom: 32,
+            flexDirection: 'row',
+            gap: 12,
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>
-            Clear filters
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onClose}
-          style={{
-            flex: 1,
-            paddingVertical: 14,
-            borderRadius: 12,
-            backgroundColor: '#9EDC5A',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 16, fontWeight: '600', color: '#0B1A12' }}>
-            Show results
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={handleClearFilters}
+            style={{
+              flex: 1,
+              paddingVertical: 14,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600', color: 'rgba(255, 255, 255, 0.7)' }}>
+              Clear filters
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={{
+              flex: 1,
+              paddingVertical: 14,
+              borderRadius: 12,
+              backgroundColor: '#9EDC5A',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#0B1A12' }}>
+              Show results
+            </Text>
+          </TouchableOpacity>
+        </View>
     </CustomModal>
   );
 }

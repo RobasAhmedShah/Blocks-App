@@ -29,9 +29,9 @@ export default function TabsLayout() {
 
   const screenWidth = Dimensions.get('window').width;
   const tabBarWidth = screenWidth * 0.7;
-  const tabBarLeftOffset = 0.1 * screenWidth * 0.8;
+  const tabBarLeftOffset = 0.1 * screenWidth * 0.5;
   const tabBarRightEdge = tabBarLeftOffset + tabBarWidth;
-  const walletButtonLeft = tabBarRightEdge + -5; // 12px spacing from tab bar
+  const walletButtonLeft = tabBarRightEdge + 10; // 12px spacing from tab bar
   const tabBarHeight = 80;
   const tabBarBottom = 10;
   const walletButtonBottom = tabBarBottom + (tabBarHeight - 64) / 2; // Center vertically with tab bar
@@ -65,19 +65,21 @@ export default function TabsLayout() {
           tabBarItemStyle: {
             justifyContent: 'center',
             alignItems: 'center',
+            width: '100%',
           },
           tabBarIconStyle: {
-            height: '100%',
-            width: '100%',
+            height: 60,
+            width: 60,
             justifyContent:'center',
             alignItems:'center',
+            padding: 10,
           },
 
           tabBarStyle: {
             position: 'absolute',
             bottom: 20,
             height: isFilterModalVisible ? 0 : 70,
-            width: '65%',
+            width: '70%',
             transform: [{ translateX: tabBarLeftOffset }],
             borderRadius: 50,
             backgroundColor: colors.card,
@@ -113,15 +115,17 @@ export default function TabsLayout() {
                   width:60,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  marginVertical: 0,
+                  marginVertical: 0,marginHorizontal: 10,
+                  
                 }}>
                   <Ionicons
+              
                     name={
                       focused
                         ? (tab.icon.replace('-outline', '') as any)
                         : (tab.icon as any)
                     }
-                    size={30}
+                    size={25}
                     color={focused ? colors.primary : colors.textMuted}
                   />
                 </View>

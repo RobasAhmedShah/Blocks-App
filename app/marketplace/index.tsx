@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -151,6 +151,40 @@ export default function MarketplaceScreen() {
       listing.displayCode.toLowerCase().includes(query)
     );
   });
+
+  // Group listings by property and find lowest price for each group
+  const groupedListings = useMemo(() => {
+    const groups = new Map<string, {
+      property: MarketplaceListing['property'];
+      listings: MarketplaceListing[];
+      lowestPrice: number;
+      listingCount: number;
+    }>();
+
+    filteredListings.forEach((listing) => {
+      const propertyId = listing.propertyId;
+      
+      if (!groups.has(propertyId)) {
+        groups.set(propertyId, {
+          property: listing.property,
+          listings: [listing],
+          lowestPrice: listing.pricePerToken,
+          listingCount: 1,
+        });
+      } else {
+        const group = groups.get(propertyId)!;
+        group.listings.push(listing);
+        group.listingCount = group.listings.length;
+        // Update lowest price if this listing has a lower price
+        if (listing.pricePerToken < group.lowestPrice) {
+          group.lowestPrice = listing.pricePerToken;
+        }
+      }
+    });
+
+    // Convert map to array and sort by lowest price
+    return Array.from(groups.values()).sort((a, b) => a.lowestPrice - b.lowestPrice);
+  }, [filteredListings]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -658,8 +692,8 @@ export default function MarketplaceScreen() {
                 })()}
               </>
             ) : (
-              // All Listings Tab - Grid Layout
-              filteredListings.length === 0 ? (
+              // All Listings Tab - Grid Layout (Grouped by Property)
+              groupedListings.length === 0 ? (
                 <View className="items-center justify-center py-12">
                   <MaterialIcons name="store" size={64} color={colors.textMuted} />
                   <Text style={{ color: colors.textSecondary }} className="text-lg font-semibold mt-4">
@@ -673,13 +707,20 @@ export default function MarketplaceScreen() {
                 </View>
               ) : (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                  {filteredListings.map((listing) => {
-                    const propertyImage = getPropertyImageUrl(listing.property.images);
+                  {groupedListings.map((group) => {
+                    const propertyImage = getPropertyImageUrl(group.property.images);
+                    // Find the listing with the lowest price for navigation
+                    const lowestPriceListing = group.listings.find(l => l.pricePerToken === group.lowestPrice) || group.listings[0];
 
                     return (
                       <TouchableOpacity
-                        key={listing.id}
-                        onPress={() => router.push(`/marketplace/${listing.id}`)}
+                        key={group.property.id}
+                        onPress={() => router.push({
+                          pathname: `/marketplace/${lowestPriceListing.id}`,
+                          params: {
+                            propertyListings: JSON.stringify(group.listings),
+                          },
+                        } as any)}
                         style={{
                           width: '48%',
                           borderRadius: 14,
@@ -745,7 +786,7 @@ export default function MarketplaceScreen() {
                               style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700', flex: 1, marginRight: 4 }}
                               numberOfLines={1}
                             >
-                              {listing.property.title}
+                              {group.property.title}
                             </Text>
                             <Text
                               style={{ 
@@ -754,9 +795,9 @@ export default function MarketplaceScreen() {
                                 fontWeight: '700' 
                               }}
                             >
-                              {typeof listing.property.expectedROI === 'number' 
-                                ? listing.property.expectedROI.toFixed(0) 
-                                : (listing.property.expectedROI || 0)}% ROI
+                              {typeof group.property.expectedROI === 'number' 
+                                ? group.property.expectedROI.toFixed(0) 
+                                : (group.property.expectedROI || 0)}% ROI
                             </Text>
                           </View>
 
@@ -771,7 +812,7 @@ export default function MarketplaceScreen() {
                               style={{ color: colors.textMuted, fontSize: 10, marginLeft: 3 }}
                               numberOfLines={1}
                             >
-                              {listing.property.city || 'Location'}
+                              {group.property.city || 'Location'}
                             </Text>
                             <View
                               style={{
@@ -786,20 +827,20 @@ export default function MarketplaceScreen() {
                             <Text
                               style={{ color: colors.primary, fontSize: 9, fontWeight: '600' }}
                             >
-                              Active
+                              {group.listingCount} {group.listingCount === 1 ? 'listing' : 'listings'}
                             </Text>
                           </View>
 
-                          {/* Price - Primary Focus */}
+                          {/* Price - Primary Focus (Lowest Price) */}
                           <Text
                             style={{ color: colors.primary, fontSize: 18, fontWeight: '700', marginBottom: 2 }}
                           >
-                            {formatPrice(listing.pricePerToken)}
+                            {formatPrice(group.lowestPrice)}
                           </Text>
                           <Text
                             style={{ color: colors.textMuted, fontSize: 9, marginBottom: 6 }}
                           >
-                            per token
+                            from per token
                           </Text>
 
                           {/* Action Buttons */}
@@ -807,7 +848,7 @@ export default function MarketplaceScreen() {
                             <TouchableOpacity
                               onPress={(e) => {
                                 e.stopPropagation();
-                                setSelectedListing(listing);
+                                setSelectedListing(lowestPriceListing);
                                 setShowBuyModal(true);
                               }}
                               style={{
@@ -825,7 +866,7 @@ export default function MarketplaceScreen() {
                             <TouchableOpacity
                               onPress={(e) => {
                                 e.stopPropagation();
-                                router.push(`/marketplace/${listing.id}`);
+                                router.push(`/marketplace/${lowestPriceListing.id}`);
                               }}
                               style={{
                                 flex: 1,
@@ -857,6 +898,7 @@ export default function MarketplaceScreen() {
       <BuyTokenModal
         visible={showBuyModal}
         listing={selectedListing}
+        allPropertyListings={selectedListing ? groupedListings.find(g => g.property.id === selectedListing.propertyId)?.listings || [] : []}
         onClose={() => {
           setShowBuyModal(false);
           setSelectedListing(null);

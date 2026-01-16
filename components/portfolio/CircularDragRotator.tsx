@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, StyleSheet, LayoutChangeEvent, PanResponder } from "react-native";
+import { View, StyleSheet, LayoutChangeEvent, PanResponder, TouchableOpacity } from "react-native";
 import Svg, { Path, Text as SvgText } from "react-native-svg";
 import { useColorScheme } from '@/lib/useColorScheme';
+import { router } from "expo-router";
 
 type Investment = {
   id: string;
@@ -296,6 +297,9 @@ export function CircularDragRotator({
 
           return (
             <React.Fragment key={i}>
+              <TouchableOpacity onPress={() => {
+                router.push(`/property/${knob.propertyId}`);
+              }}>
               <Path
                 d={knobArcPath}
                 stroke={colors.primary}
@@ -325,6 +329,7 @@ export function CircularDragRotator({
               >
                 {`${knob.percent.toFixed(1)}%`}
               </SvgText>
+              </TouchableOpacity>
             </React.Fragment>
           );
         })}

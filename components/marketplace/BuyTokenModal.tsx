@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -20,6 +21,7 @@ import { useRouter } from 'expo-router';
 interface BuyTokenModalProps {
   visible: boolean;
   listing: MarketplaceListing | null;
+  allPropertyListings?: MarketplaceListing[]; // All listings for the same property
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -27,6 +29,7 @@ interface BuyTokenModalProps {
 export function BuyTokenModal({
   visible,
   listing,
+  allPropertyListings,
   onClose,
   onSuccess,
 }: BuyTokenModalProps) {
@@ -56,15 +59,82 @@ export function BuyTokenModal({
 
   const handleMaxTokens = () => {
     if (listing) {
-      setTokensToBuy(listing.remainingTokens.toString());
+      // Calculate max tokens from all available listings
+      const availableListings = (allPropertyListings || [listing])
+        .filter(l => l.propertyId === listing.propertyId && l.status === 'active');
+      const totalAvailable = availableListings.reduce((sum, l) => sum + l.remainingTokens, 0);
+      setTokensToBuy(totalAvailable.toString());
     }
   };
 
-  const calculateTotal = () => {
-    if (!listing || !tokensToBuy) return 0;
+  // Calculate purchase breakdown across multiple listings
+  const calculatePurchaseBreakdown = useMemo(() => {
+    if (!listing || !tokensToBuy) {
+      return { breakdown: [], total: 0, totalTokens: 0 };
+    }
+
     const tokens = parseFloat(tokensToBuy);
-    if (isNaN(tokens)) return 0;
-    return tokens * listing.pricePerToken;
+    if (isNaN(tokens) || tokens <= 0) {
+      return { breakdown: [], total: 0, totalTokens: 0 };
+    }
+
+    // Get all available listings for this property, sorted by price (low to high)
+    const availableListings = (allPropertyListings || [listing])
+      .filter(l => l.propertyId === listing.propertyId && l.status === 'active')
+      .sort((a, b) => a.pricePerToken - b.pricePerToken);
+
+    const breakdown: Array<{
+      price: number;
+      tokens: number;
+      listings: MarketplaceListing[];
+      total: number;
+    }> = [];
+
+    let remainingTokens = tokens;
+    let totalAmount = 0;
+
+    // Group listings by price
+    const priceGroups = new Map<number, MarketplaceListing[]>();
+    availableListings.forEach((l) => {
+      const price = l.pricePerToken;
+      if (!priceGroups.has(price)) {
+        priceGroups.set(price, []);
+      }
+      priceGroups.get(price)!.push(l);
+    });
+
+    // Process each price tier from lowest to highest
+    const sortedPrices = Array.from(priceGroups.keys()).sort((a, b) => a - b);
+
+    for (const price of sortedPrices) {
+      if (remainingTokens <= 0) break;
+
+      const listingsAtPrice = priceGroups.get(price)!;
+      const availableAtPrice = listingsAtPrice.reduce((sum, l) => sum + l.remainingTokens, 0);
+
+      if (availableAtPrice > 0) {
+        const tokensToTake = Math.min(remainingTokens, availableAtPrice);
+        breakdown.push({
+          price,
+          tokens: tokensToTake,
+          listings: listingsAtPrice,
+          total: tokensToTake * price,
+        });
+        totalAmount += tokensToTake * price;
+        remainingTokens -= tokensToTake;
+      }
+    }
+
+    return {
+      breakdown,
+      total: totalAmount,
+      totalTokens: tokens - remainingTokens, // Actual tokens that can be purchased
+      insufficientTokens: remainingTokens > 0,
+    };
+  }, [listing, tokensToBuy, allPropertyListings]);
+
+  const calculateTotal = () => {
+    return calculatePurchaseBreakdown.total;
   };
 
   const validatePurchase = () => {
@@ -75,27 +145,33 @@ export function BuyTokenModal({
       return { valid: false, error: 'Please enter a valid token amount' };
     }
 
-    if (tokens > listing.remainingTokens) {
+    const { totalTokens, insufficientTokens } = calculatePurchaseBreakdown;
+
+    // Check if we can fulfill the requested amount
+    if (insufficientTokens || totalTokens < tokens) {
+      const availableListings = (allPropertyListings || [listing])
+        .filter(l => l.propertyId === listing.propertyId && l.status === 'active');
+      const totalAvailable = availableListings.reduce((sum, l) => sum + l.remainingTokens, 0);
       return {
         valid: false,
-        error: `Only ${listing.remainingTokens.toFixed(2)} tokens available`,
+        error: `Only ${totalAvailable.toFixed(2)} tokens available across all listings`,
       };
     }
 
     const total = calculateTotal();
-    if (total < listing.minOrderUSDT) {
-      return {
-        valid: false,
-        error: `Minimum order is ${listing.minOrderUSDT.toFixed(2)} USDT`,
-      };
-    }
+    // if (total < listing.minOrderUSDT) {
+    //   return {
+    //     valid: false,
+    //     error: `Minimum order is ${listing.minOrderUSDT.toFixed(2)} USDT`,
+    //   };
+    // }
 
-    if (total > listing.maxOrderUSDT) {
-      return {
-        valid: false,
-        error: `Maximum order is ${listing.maxOrderUSDT.toFixed(2)} USDT`,
-      };
-    }
+    // if (total > listing.maxOrderUSDT) {
+    //   return {
+    //     valid: false,
+    //     error: `Maximum order is ${listing.maxOrderUSDT.toFixed(2)} USDT`,
+    //   };
+    // }
 
     if (total > balance.usdc) {
       return {
@@ -124,27 +200,75 @@ export function BuyTokenModal({
 
     setIsProcessing(true);
     try {
-      await marketplaceAPI.buyTokens(listing.id, {
-        listingId: listing.id,
-        tokensToBuy: parseFloat(tokensToBuy),
-      });
+      const { breakdown } = calculatePurchaseBreakdown;
+      let totalTokensPurchased = 0;
+      const errors: string[] = [];
 
-      setAlertState({
-        visible: true,
-        title: 'Purchase Successful!',
-        message: `You successfully purchased ${tokensToBuy} tokens`,
-        type: 'success',
-        onConfirm: () => {
-          setAlertState((prev) => ({ ...prev, visible: false }));
-          setTokensToBuy('');
-          onClose();
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.back();
+      // Process each price tier
+      for (const item of breakdown) {
+        let remainingTokensForPrice = item.tokens;
+
+        // Distribute tokens across listings at this price
+        for (const listingAtPrice of item.listings) {
+          if (remainingTokensForPrice <= 0) break;
+
+          const tokensFromThisListing = Math.min(
+            remainingTokensForPrice,
+            listingAtPrice.remainingTokens
+          );
+
+          if (tokensFromThisListing > 0) {
+            try {
+              await marketplaceAPI.buyTokens(listingAtPrice.id, {
+                listingId: listingAtPrice.id,
+                tokensToBuy: tokensFromThisListing,
+              });
+              totalTokensPurchased += tokensFromThisListing;
+              remainingTokensForPrice -= tokensFromThisListing;
+            } catch (error: any) {
+              errors.push(
+                `Failed to buy ${tokensFromThisListing} tokens at $${item.price.toFixed(2)}: ${error.message || 'Unknown error'}`
+              );
+            }
           }
-        },
-      });
+        }
+      }
+
+      if (errors.length > 0) {
+        setAlertState({
+          visible: true,
+          title: 'Partial Purchase',
+          message: `Purchased ${totalTokensPurchased.toFixed(2)} tokens. Some errors occurred:\n${errors.join('\n')}`,
+          type: totalTokensPurchased > 0 ? 'warning' : 'error',
+          onConfirm: () => {
+            setAlertState((prev) => ({ ...prev, visible: false }));
+            if (totalTokensPurchased > 0) {
+              setTokensToBuy('');
+              onClose();
+              if (onSuccess) {
+                onSuccess();
+              }
+            }
+          },
+        });
+      } else {
+        setAlertState({
+          visible: true,
+          title: 'Purchase Successful!',
+          message: `You successfully purchased ${totalTokensPurchased.toFixed(2)} tokens`,
+          type: 'success',
+          onConfirm: () => {
+            setAlertState((prev) => ({ ...prev, visible: false }));
+            setTokensToBuy('');
+            onClose();
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              router.back();
+            }
+          },
+        });
+      }
     } catch (error: any) {
       setAlertState({
         visible: true,
@@ -201,7 +325,8 @@ export function BuyTokenModal({
                   <Ionicons name="close" size={28} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
-
+              
+              <ScrollView>
               {/* Property Info */}
               <View
                 style={{
@@ -274,10 +399,86 @@ export function BuyTokenModal({
                     </View>
                   </View>
                   <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
-                    Max: {listing.remainingTokens.toFixed(2)} tokens
+                    Max: {(() => {
+                      const availableListings = (allPropertyListings || [listing])
+                        .filter(l => l.propertyId === listing.propertyId && l.status === 'active');
+                      const totalAvailable = availableListings.reduce((sum, l) => sum + l.remainingTokens, 0);
+                      return totalAvailable.toFixed(2);
+                    })()} tokens
                   </Text>
                 </View>
               </View>
+
+              {/* Purchase Breakdown */}
+              {tokensToBuy && calculatePurchaseBreakdown.breakdown.length > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.background,
+                    borderRadius: 16,
+                    padding: 16,
+                    marginBottom: 16,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold mb-3">
+                    Purchase Breakdown
+                  </Text>
+                  {calculatePurchaseBreakdown.breakdown.map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingVertical: 8,
+                        borderBottomWidth: index < calculatePurchaseBreakdown.breakdown.length - 1 ? 1 : 0,
+                        borderBottomColor: colors.border,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.textMuted }} className="text-xs">
+                          {item.tokens.toFixed(2)} tokens @ ${item.price.toFixed(2)}
+                        </Text>
+                        <Text style={{ color: colors.textMuted }} className="text-xs mt-1">
+                          {item.listings.length} {item.listings.length === 1 ? 'listing' : 'listings'}
+                        </Text>
+                      </View>
+                      <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                        ${item.total.toFixed(2)}
+                      </Text>
+                    </View>
+                  ))}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingTop: 12,
+                      marginTop: 8,
+                      borderTopWidth: 1,
+                      borderTopColor: colors.border,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Total Tokens
+                      </Text>
+                      <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
+                        {calculatePurchaseBreakdown.totalTokens.toFixed(2)} tokens
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Total Amount
+                      </Text>
+                      <Text style={{ color: colors.primary }} className="text-base font-bold">
+                        ${total.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Total Cost */}
               <View
@@ -294,7 +495,7 @@ export function BuyTokenModal({
                 <Text style={{ color: colors.primary }} className="text-3xl font-bold">
                   ${total.toFixed(2)} USDT
                 </Text>
-                {tokensToBuy && (
+                {tokensToBuy && calculatePurchaseBreakdown.breakdown.length === 0 && (
                   <Text style={{ color: colors.textMuted }} className="text-xs mt-2">
                     ≈ {tokensToBuy} tokens × ${listing.pricePerToken.toFixed(2)}
                   </Text>
@@ -350,6 +551,7 @@ export function BuyTokenModal({
                   {validation.error}
                 </Text>
               )}
+              </ScrollView>
             </View>
           </View>
         </KeyboardAvoidingView>

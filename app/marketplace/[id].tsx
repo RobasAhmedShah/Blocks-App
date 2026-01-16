@@ -27,7 +27,7 @@ import { useFocusEffect } from 'expo-router';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, propertyListings } = useLocalSearchParams<{ id: string; propertyListings?: string }>();
   const { colors, isDarkColorScheme } = useColorScheme();
   const [listing, setListing] = useState<MarketplaceListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +36,20 @@ export default function ListingDetailScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [candlesData, setCandlesData] = useState<LineGraphDataPoint[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
+  const [allPropertyListings, setAllPropertyListings] = useState<MarketplaceListing[]>([]);
+  
+  // Parse property listings from params
+  React.useEffect(() => {
+    if (propertyListings) {
+      try {
+        const parsed = JSON.parse(propertyListings) as MarketplaceListing[];
+        setAllPropertyListings(parsed);
+      } catch (error) {
+        console.error('Failed to parse property listings:', error);
+        setAllPropertyListings([]);
+      }
+    }
+  }, [propertyListings]);
 
   // WebSocket connection for real-time price updates
   // Temporarily disabled to prevent socket.io-client crash
@@ -136,6 +150,20 @@ export default function ListingDetailScreen() {
       setLoading(true);
       const data = await marketplaceAPI.getListing(id as string);
       setListing(data);
+      
+      // If property listings weren't passed via params, fetch all listings for this property
+      if (!propertyListings && data.propertyId) {
+        try {
+          const response = await marketplaceAPI.getListings({
+            propertyId: data.propertyId,
+            sortBy: 'price_asc',
+            limit: 100,
+          });
+          setAllPropertyListings(response.listings);
+        } catch (err) {
+          console.error('Failed to load property listings:', err);
+        }
+      }
     } catch (error: any) {
       setAlertState({
         visible: true,
@@ -551,6 +579,119 @@ export default function ListingDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Price Tiers Component */}
+          {allPropertyListings.length > 0 && (() => {
+            // Group listings by price and sort
+            const priceGroups = new Map<number, MarketplaceListing[]>();
+            allPropertyListings.forEach((listing) => {
+              const price = listing.pricePerToken;
+              if (!priceGroups.has(price)) {
+                priceGroups.set(price, []);
+              }
+              priceGroups.get(price)!.push(listing);
+            });
+
+            // Sort prices from low to high
+            const sortedPrices = Array.from(priceGroups.keys()).sort((a, b) => a - b);
+            
+            // Get top 5 prices
+            const top5Prices = sortedPrices.slice(0, 5);
+            const sixthAndAbove = sortedPrices.slice(5);
+
+            // Calculate combined tokens for 6th+ prices
+            const combinedTokens = sixthAndAbove.reduce((sum, price) => {
+              const listingsAtPrice = priceGroups.get(price) || [];
+              return sum + listingsAtPrice.reduce((s, l) => s + l.remainingTokens, 0);
+            }, 0);
+
+            // Get the 6th lowest price (or null if less than 6 prices)
+            const sixthLowestPrice = sortedPrices[5] || null;
+
+            return (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary }} className="text-lg font-bold mb-4">
+                  Available Prices
+                </Text>
+                
+                {/* Top 5 Prices */}
+                {top5Prices.map((price, index) => {
+                  const listingsAtPrice = priceGroups.get(price) || [];
+                  const totalTokens = listingsAtPrice.reduce((sum, l) => sum + l.remainingTokens, 0);
+                  
+                  return (
+                    <View
+                      key={price}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingVertical: 12,
+                        borderBottomWidth: index < top5Prices.length - 1 || sixthLowestPrice ? 1 : 0,
+                        borderBottomColor: colors.border,
+                      }}
+                    >
+                      <View>
+                        <Text style={{ color: colors.textMuted }} className="text-xs">
+                          Price Tier {index + 1}
+                        </Text>
+                        <Text style={{ color: colors.primary }} className="text-base font-bold">
+                          ${price.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: colors.textMuted }} className="text-xs">
+                          Available
+                        </Text>
+                        <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                          {totalTokens.toFixed(2)} tokens
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {/* 6th+ Combined Entry */}
+                {sixthLowestPrice && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingTop: 16,
+                    }}
+                  >
+                    <View>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Price Tier 6+
+                      </Text>
+                      <Text style={{ color: colors.primary }} className="text-base font-bold">
+                        ${sixthLowestPrice.toFixed(2)}+
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: colors.textMuted }} className="text-xs">
+                        Available
+                      </Text>
+                      <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+                        {combinedTokens.toFixed(2)} tokens
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
 
           {/* Expected Returns Card */}
           {(() => {
@@ -1057,6 +1198,7 @@ export default function ListingDetailScreen() {
       <BuyTokenModal
         visible={showBuyModal && !isOwnListing}
         listing={listing}
+        allPropertyListings={allPropertyListings}
         onClose={() => setShowBuyModal(false)}
         onSuccess={() => {
           setShowBuyModal(false);

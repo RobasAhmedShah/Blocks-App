@@ -44,10 +44,38 @@ export default function WalletScreen() {
   const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>('usdc');
 
   // WalletConnect
-  const { connect, disconnect, isConnected, address, provider } = useWalletConnect();
+  const { connect, disconnect, isConnected, address, provider, chainId } = useWalletConnect();
   const [cryptoBalance, setCryptoBalance] = useState<string>('0.00');
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const isLoadingBalanceRef = React.useRef(false);
+
+  // Get RPC URL based on detected chain
+  const getRpcUrl = (detectedChainId: number | null | undefined): string => {
+    if (!detectedChainId) {
+      // Default to local testnet if chain not detected
+      return 'http://192.168.1.142:7545';
+    }
+
+    switch (detectedChainId) {
+      case 1:
+        // Ethereum Mainnet
+        return 'https://eth.llamarpc.com'; // Public RPC endpoint
+      case 11155111:
+        // Sepolia Testnet
+        return 'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'; // Public Sepolia RPC
+      case 80002:
+        // Polygon Amoy Testnet
+        return 'https://rpc-amoy.polygon.technology'; // Polygon Amoy RPC
+      case 5777:
+      case 1337:
+        // Local testnet (Ganache/Geth)
+        return 'http://192.168.1.142:7545';
+      default:
+        // Default to local testnet for unknown chains
+        console.warn(`[Crypto Balance] Unknown chain ID ${detectedChainId}, using local testnet RPC`);
+        return 'http://192.168.1.142:7545';
+    }
+  };
 
   // Scroll animation for collapsible sections
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -93,16 +121,26 @@ export default function WalletScreen() {
         setRefreshingBalance(true);
       }
 
-      console.log('[Crypto Balance] Fetching balance from Geth Testnet RPC...', { address });
-
-      // Always query from Geth Testnet RPC (bypassing WalletConnect provider)
-      const testnetRpcUrl = 'http://192.168.1.142:7545';
-      console.log('[Crypto Balance] Querying testnet RPC:', testnetRpcUrl);
+      // Detect chain and use appropriate RPC endpoint
+      const rpcUrl = getRpcUrl(chainId);
+      const networkName = chainId 
+        ? (chainId === 1 ? 'Ethereum Mainnet' 
+          : chainId === 11155111 ? 'Sepolia Testnet'
+          : chainId === 80002 ? 'Polygon Amoy Testnet'
+          : `Chain ${chainId}`)
+        : 'Local Testnet';
+      
+      console.log('[Crypto Balance] Fetching balance...', { 
+        address, 
+        chainId, 
+        network: networkName,
+        rpcUrl 
+      });
 
       let balance: string;
 
       try {
-        const rpcResponse = await fetch(testnetRpcUrl, {
+        const rpcResponse = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -124,13 +162,13 @@ export default function WalletScreen() {
         }
 
         if (rpcData.result) {
-          console.log('[Crypto Balance] Testnet RPC balance response:', rpcData.result);
+          console.log(`[Crypto Balance] ${networkName} balance response:`, rpcData.result);
           balance = rpcData.result;
         } else {
           throw new Error('No result from RPC');
         }
       } catch (rpcError) {
-        console.error('[Crypto Balance] Testnet RPC query failed:', rpcError);
+        console.error(`[Crypto Balance] ${networkName} RPC query failed:`, rpcError);
         throw rpcError;
       }
 
@@ -198,7 +236,8 @@ export default function WalletScreen() {
       setCryptoBalance('0.00');
       isLoadingBalanceRef.current = false;
     }
-  }, [isConnected, address, provider, loadCryptoBalance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, provider, chainId]); // Added chainId to detect chain changes
 
 
   // Refresh wallet balance and transactions when screen comes into focus
@@ -209,11 +248,12 @@ export default function WalletScreen() {
         loadTransactions();
         loadPendingWithdrawals();
       }
-      // Refresh crypto balance if connected
-      if (isConnected && address && provider) {
-        loadCryptoBalance();
+      // Refresh crypto balance if connected (only if not already loading)
+      if (isConnected && address && provider && !isLoadingBalanceRef.current) {
+        loadCryptoBalance(false); // Don't show loading spinner on focus refresh
       }
-    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, loadCryptoBalance])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, chainId]) // Added chainId to refresh when chain changes
   );
 
   // Convert pending withdrawal requests to transaction-like objects
@@ -988,7 +1028,20 @@ export default function WalletScreen() {
                           Connect MetaMask or other wallets to view your crypto balance
                         </Text>
                         <Pressable
-                          onPress={connect}
+                          onPress={async () => {
+                            try {
+                              console.log('[Wallet] Connect button pressed, calling connect()...');
+                              await connect();
+                              console.log('[Wallet] Connect function completed');
+                            } catch (error) {
+                              console.error('[Wallet] Error connecting wallet:', error);
+                              Alert.alert(
+                                'Connection Error',
+                                error instanceof Error ? error.message : 'Failed to open wallet connection. Please try again.',
+                                [{ text: 'OK' }]
+                              );
+                            }
+                          }}
                           style={{
                             backgroundColor: colors.primary,
                             paddingHorizontal: 32,

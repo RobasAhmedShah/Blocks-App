@@ -12,6 +12,7 @@ export interface SavedPlan {
     location?: string;
     image?: string;
   };
+  selectedPropertyTokenId?: string; // ID of the selected property token
   expectedMonthlyReturn?: number;
   estimatedROI?: number;
   isGoalBased?: boolean;

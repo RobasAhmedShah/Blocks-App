@@ -55,12 +55,13 @@ export default function GuidedInvestmentScreen() {
   const [earnAmount, setEarnAmount] = useState(
     investmentPlan.monthlyIncomeGoal?.toString() || ""
   );
-  // Initialize selectedPropertyId from context if available, otherwise null
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
-    investmentPlan.selectedProperty?.id || null
+  // Initialize selectedTokenId from context if available, otherwise null
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(
+    investmentPlan.selectedPropertyTokenId || null
   );
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPropertyForModal, setSelectedPropertyForModal] = useState<{
+    token: any;
     property: any;
     expectedMonthlyReturn: string;
     breakEven: string;
@@ -72,42 +73,100 @@ export default function GuidedInvestmentScreen() {
   const modalTranslateY = useSharedValue(SCREEN_HEIGHT);
   const modalOpacity = useSharedValue(0);
 
-  // Get top properties that match the investment amount or monthly goal
+  // Get top property tokens that match the investment amount or monthly goal
   const recommendedProperties = useMemo(() => {
     const isGoalBased = investmentPlan.isGoalBased || false;
     const monthlyGoal = investmentPlan.monthlyIncomeGoal || 0;
     const fixedAmount = parseFloat(investAmount.replace(/,/g, ''));
 
+    // Use state.properties directly - virtual tokens will be created for properties without tokens
+    const propertiesToUse = state.properties;
+
+    // Flatten all property tokens from all properties
+    // Logic: If property has tokens array with items, show all those tokens
+    //        If property has empty tokens array or no tokens, show main property as virtual token
+    const allTokens = propertiesToUse
+      .filter(p => {
+        // Filter properties that have available tokens
+        const hasAvailableTokens = p.totalTokens > 0 && (p.soldTokens || 0) < p.totalTokens;
+        return hasAvailableTokens;
+      })
+      .flatMap(p => {
+        // Check if property has tokens array with actual tokens
+        const hasTokens = p.tokens && Array.isArray(p.tokens) && p.tokens.length > 0;
+        
+        if (hasTokens && p.tokens) {
+          // Property has tokens - show all active tokens with available tokens > 0
+          return p.tokens
+            .filter(token => token.isActive && token.availableTokens > 0)
+            .map(token => ({
+              token,
+              property: p,
+            }));
+        } else {
+          // Property has NO tokens (empty array or undefined) - create virtual token from property data
+          const availableTokens = p.totalTokens - (p.soldTokens || 0);
+          if (availableTokens > 0 && p.tokenPrice > 0) {
+            return [{
+              token: {
+                id: `${p.id}_virtual`,
+                displayCode: p.displayCode || p.id,
+                propertyId: p.id,
+                name: p.title, // Use property title as token name for virtual tokens
+                color: '#10B981',
+                tokenSymbol: p.tokenSymbol || p.displayCode?.split('-')[0] || 'PROP',
+                pricePerTokenUSDT: p.tokenPrice,
+                totalTokens: p.totalTokens,
+                availableTokens: availableTokens,
+                expectedROI: p.estimatedROI || p.estimatedYield || 0,
+                apartmentType: null,
+                apartmentFeatures: null,
+                description: null,
+                displayOrder: 0,
+                isActive: true,
+                createdAt: new Date(p.createdAt || Date.now()),
+                updatedAt: new Date(p.createdAt || Date.now()),
+              },
+              property: p,
+            }];
+          }
+        }
+        return [];
+      });
+
     if (isGoalBased && monthlyGoal > 0) {
-      // GOAL-BASED MODE: Calculate investment per property to achieve monthly goal
-      return state.properties
-        .map(p => {
-          // Calculate investment needed for this property to achieve monthly goal
-          // Formula: investment = (monthlyGoal * 12) / (estimatedYield / 100)
-          const investmentNeeded = (monthlyGoal * 12 * 100) / p.estimatedYield;
-          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+      // GOAL-BASED MODE: Calculate investment per token to achieve monthly goal
+      return allTokens
+        .map(({ token, property }) => {
+          // Calculate investment needed for this token to achieve monthly goal
+          // Formula: investment = (monthlyGoal * 12 * 100) / expectedROI
+          // Note: expectedROI is already a percentage (e.g., 10 for 10%)
+          const investmentNeeded = (monthlyGoal * 12 * 100) / token.expectedROI;
+          const effectivePrice = getEffectiveTokenPrice(token.pricePerTokenUSDT);
           const tokens = investmentNeeded / effectivePrice;
           
           return {
-            property: p,
-            investmentNeeded, // Per-property investment amount
+            token,
+            property,
+            investmentNeeded, // Per-token investment amount
             tokens,
             expectedMonthlyReturn: monthlyGoal.toFixed(2), // Always the goal amount
-            breakEven: (100 / p.estimatedROI).toFixed(1),
+            breakEven: (100 / token.expectedROI).toFixed(1),
           };
         })
         .filter(rp => {
           // Filter: must be able to buy at least minimum tokens
           return rp.tokens >= MINIMUM_TOKENS && 
-                 rp.property.totalTokens > 0 && 
-                 rp.property.soldTokens < rp.property.totalTokens;
+                 rp.token.totalTokens > 0 && 
+                 rp.token.availableTokens > 0;
         })
         .sort((a, b) => {
-          // Sort by lowest investment needed (most efficient properties first)
+          // Sort by lowest investment needed (most efficient tokens first)
           return a.investmentNeeded - b.investmentNeeded;
         })
         .slice(0, 10)
         .map(rp => ({
+          token: rp.token,
           property: rp.property,
           expectedMonthlyReturn: rp.expectedMonthlyReturn,
           breakEven: rp.breakEven,
@@ -115,86 +174,93 @@ export default function GuidedInvestmentScreen() {
           investmentNeeded: rp.investmentNeeded, // Store this for display
         }));
     } else {
-      // AMOUNT-BASED MODE: Existing logic
+      // AMOUNT-BASED MODE: Filter tokens by investment amount
       if (fixedAmount <= 0) {
         return [];
       }
       
-      return state.properties
-        .filter(p => {
-          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+      return allTokens
+        .filter(({ token }) => {
+          const effectivePrice = getEffectiveTokenPrice(token.pricePerTokenUSDT);
           const tokens = fixedAmount / effectivePrice;
-          return tokens >= MINIMUM_TOKENS && p.totalTokens > 0 && p.soldTokens < p.totalTokens;
+          return tokens >= MINIMUM_TOKENS && token.totalTokens > 0 && token.availableTokens > 0;
         })
-        .sort((a, b) => b.estimatedROI - a.estimatedROI)
+        .sort((a, b) => b.token.expectedROI - a.token.expectedROI)
         .slice(0, 10)
-        .map(p => {
-          const effectivePrice = getEffectiveTokenPrice(p.tokenPrice);
+        .map(({ token, property }) => {
+          const effectivePrice = getEffectiveTokenPrice(token.pricePerTokenUSDT);
+          // Calculate monthly return: (investment * expectedROI / 100) / 12
+          const monthlyReturn = (fixedAmount * token.expectedROI / 100) / 12;
           return {
-            property: p,
-            expectedMonthlyReturn: ((fixedAmount * p.estimatedYield) / 100 / 12).toFixed(2),
-            breakEven: (100 / p.estimatedROI).toFixed(1),
+            token,
+            property,
+            expectedMonthlyReturn: monthlyReturn.toFixed(2),
+            breakEven: (100 / token.expectedROI).toFixed(1),
             tokensCount: fixedAmount / effectivePrice,
-            investmentNeeded: fixedAmount, // Same for all properties
+            investmentNeeded: fixedAmount, // Same for all tokens
           };
         });
     }
   }, [investAmount, investmentPlan.isGoalBased, investmentPlan.monthlyIncomeGoal, state.properties]);
 
-  // Clear selection if the selected property is no longer in recommended list
+  // Clear selection if the selected token is no longer in recommended list
   useEffect(() => {
-    if (selectedPropertyId) {
+    if (selectedTokenId) {
       const isStillValid = recommendedProperties.some(
-        rp => rp.property.id === selectedPropertyId
+        rp => rp.token.id === selectedTokenId
       );
       if (!isStillValid) {
-        setSelectedPropertyId(null);
+        setSelectedTokenId(null);
       }
     }
-  }, [recommendedProperties, selectedPropertyId]);
+  }, [recommendedProperties, selectedTokenId]);
 
   const handleInvestNow = () => {
     const isGoalBased = investmentPlan.isGoalBased || false;
     
-    // First check if user has explicitly selected a property
-    let selectedProp = selectedPropertyId 
-      ? state.properties.find(p => p.id === selectedPropertyId)
+    // First check if user has explicitly selected a token
+    let selectedTokenData = selectedTokenId 
+      ? recommendedProperties.find(rp => rp.token.id === selectedTokenId)
       : null;
     
-    // If no explicit selection, use first recommended property
-    if (!selectedProp && recommendedProperties.length > 0) {
-      selectedProp = recommendedProperties[0].property;
-      setSelectedPropertyId(selectedProp.id); // Set it for visual feedback
+    // If no explicit selection, use first recommended token
+    if (!selectedTokenData && recommendedProperties.length > 0) {
+      selectedTokenData = recommendedProperties[0];
+      setSelectedTokenId(selectedTokenData.token.id); // Set it for visual feedback
     }
 
-    if (!selectedProp) {
-      console.error("No property available for this investment amount");
-      alert("No properties available for this investment amount. Please adjust your investment amount.");
+    if (!selectedTokenData) {
+      console.error("No property token available for this investment amount");
+      alert("No property tokens available for this investment amount. Please adjust your investment amount.");
       return;
     }
 
-    // Get the investment amount for this specific property
-    const selectedPropertyData = recommendedProperties.find(rp => rp.property.id === selectedProp.id);
+    const { token, property } = selectedTokenData;
     const amountToInvest = isGoalBased 
-      ? (selectedPropertyData?.investmentNeeded || 0)
+      ? (selectedTokenData.investmentNeeded || 0)
       : parseFloat(investAmount.replace(/,/g, '')) || 1000;
 
     const monthlyReturn = isGoalBased
       ? (investmentPlan.monthlyIncomeGoal || 0)
-      : (amountToInvest * selectedProp.estimatedYield) / 100 / 12;
+      : (amountToInvest * token.expectedROI / 100) / 12;
 
     updateInvestmentPlan({
       investmentAmount: amountToInvest,
-      selectedProperty: selectedProp,
+      selectedProperty: property,
+      selectedPropertyTokenId: token.id,
       expectedMonthlyReturn: monthlyReturn,
-      estimatedROI: selectedProp.estimatedROI,
+      estimatedROI: token.expectedROI,
     });
 
-    console.log("Invest Now clicked - Amount:", amountToInvest, "Property:", selectedProp.title, "Monthly Return:", monthlyReturn);
+    console.log("Invest Now clicked - Amount:", amountToInvest, "Token:", token.name, "Property:", property.title, "Monthly Return:", monthlyReturn);
     handleInvestPress(() => {
       router.push({
         pathname: "/invest/[id]",
-        params: { id: selectedProp.id , tokenCount: (amountToInvest / getEffectiveTokenPrice(selectedProp.tokenPrice)).toFixed(2) },
+        params: { 
+          id: property.id,
+          propertyTokenId: token.id,
+          tokenCount: (amountToInvest / getEffectiveTokenPrice(token.pricePerTokenUSDT)).toFixed(2) 
+        },
       });
     });
   };
@@ -203,44 +269,44 @@ export default function GuidedInvestmentScreen() {
     try {
       const isGoalBased = investmentPlan.isGoalBased || false;
       let amount: number;
-      let selectedProp = selectedPropertyId 
-        ? state.properties.find(p => p.id === selectedPropertyId)
+      let selectedTokenData = selectedTokenId 
+        ? recommendedProperties.find(rp => rp.token.id === selectedTokenId)
         : null;
       
-      // If no property selected, use first recommended property
-      if (!selectedProp && recommendedProperties.length > 0) {
-        selectedProp = recommendedProperties[0].property;
+      // If no token selected, use first recommended token
+      if (!selectedTokenData && recommendedProperties.length > 0) {
+        selectedTokenData = recommendedProperties[0];
       }
       
       if (isGoalBased && recommendedProperties.length > 0) {
-        // In goal-based mode, use the selected property's investment amount or first one
-        const selectedPropertyData = selectedProp 
-          ? recommendedProperties.find(rp => rp.property.id === selectedProp.id)
-          : recommendedProperties[0];
-        amount = selectedPropertyData?.investmentNeeded || 0;
+        // In goal-based mode, use the selected token's investment amount or first one
+        amount = selectedTokenData?.investmentNeeded || 0;
       } else {
         amount = parseFloat(investAmount.replace(/,/g, '')) || 1000;
       }
 
-      if (!selectedProp) {
-        Alert.alert('Error', 'Please select a property before saving the plan.');
+      if (!selectedTokenData) {
+        Alert.alert('Error', 'Please select a property token before saving the plan.');
         return;
       }
+
+      const { token, property } = selectedTokenData;
 
       // Save the plan
       await savedPlansService.savePlan({
         investmentAmount: amount,
         monthlyIncomeGoal: investmentPlan.monthlyIncomeGoal,
-        selectedProperty: selectedProp ? {
-          id: selectedProp.id,
-          title: selectedProp.title,
-          location: selectedProp.location || selectedProp.city,
-          image: selectedProp.images?.[0] || selectedProp.image,
+        selectedProperty: property ? {
+          id: property.id,
+          title: property.title,
+          location: property.location || property.city,
+          image: property.images?.[0] || property.image,
         } : undefined,
+        selectedPropertyTokenId: token.id,
         expectedMonthlyReturn: isGoalBased
           ? (investmentPlan.monthlyIncomeGoal || 0)
-          : (amount * selectedProp.estimatedYield) / 100 / 12,
-        estimatedROI: selectedProp.estimatedROI,
+          : (amount * token.expectedROI / 100) / 12,
+        estimatedROI: token.expectedROI,
         isGoalBased: isGoalBased,
       });
 
@@ -256,12 +322,13 @@ export default function GuidedInvestmentScreen() {
     }
   };
 
-  const handlePropertySelect = (propertyId: string) => {
-    setSelectedPropertyId(propertyId);
-    console.log("Property selected:", propertyId);
+  const handlePropertySelect = (tokenId: string) => {
+    setSelectedTokenId(tokenId);
+    console.log("Property token selected:", tokenId);
   };
 
   const handleInfoPress = (propertyData: {
+    token: any;
     property: any;
     expectedMonthlyReturn: string;
     breakEven: string;
@@ -436,8 +503,8 @@ export default function GuidedInvestmentScreen() {
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
               {isGoalBased 
-                ? `Tap a property to select it. Properties are ranked by lowest investment needed to achieve your $${investmentPlan.monthlyIncomeGoal?.toFixed(2) || '0.00'}/month goal.`
-                : 'Tap a property to select it. Properties are ranked by highest ROI that match your investment amount.'}
+                ? `Tap a property token to select it. Tokens are ranked by lowest investment needed to achieve your $${investmentPlan.monthlyIncomeGoal?.toFixed(2) || '0.00'}/month goal.`
+                : 'Tap a property token to select it. Tokens are ranked by highest ROI that match your investment amount.'}
             </Text>
 
             {/* Property Cards */}
@@ -455,13 +522,13 @@ export default function GuidedInvestmentScreen() {
                   showsVerticalScrollIndicator={false} 
                   contentContainerStyle={{ gap: 16 }} >
                   {recommendedProperties.length > 0 ? (
-                    recommendedProperties.map(({ property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded }) => {
-                      const isSelected = selectedPropertyId === property.id;
+                    recommendedProperties.map(({ token, property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded }) => {
+                      const isSelected = selectedTokenId === token.id;
                       const isGoalBased = investmentPlan.isGoalBased || false;
                       return (
                         <TouchableOpacity
-                          key={property.id}
-                          onPress={() => handlePropertySelect(property.id)}
+                          key={token.id}
+                          onPress={() => handlePropertySelect(token.id)}
                           style={{
                             flexDirection: 'row',
                             gap: 16,
@@ -489,7 +556,10 @@ export default function GuidedInvestmentScreen() {
                             <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
                               {property.title}
                             </Text>
-                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                              {token.name} • {token.tokenSymbol}
+                            </Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
                               {property.location || property.city || 'Location not available'}
                             </Text>
                           </View>
@@ -498,7 +568,7 @@ export default function GuidedInvestmentScreen() {
                             <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                               <Text style={{ color: colors.textMuted, fontSize: 12 }}>ROI</Text>
                               <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
-                                {property.estimatedROI.toFixed(1)}%
+                                {token.expectedROI.toFixed(1)}%
                               </Text>
                             </View>
 
@@ -535,7 +605,7 @@ export default function GuidedInvestmentScreen() {
                               <TouchableOpacity
                                 onPress={(e) => {
                                   e.stopPropagation();
-                                  handleInfoPress({ property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded });
+                                  handleInfoPress({ token, property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded });
                                 }}
                                 style={{
                                   width: 32,
@@ -765,6 +835,16 @@ export default function GuidedInvestmentScreen() {
                   </Text>
                   <Text
                     style={{
+                      color: colors.primary,
+                      fontSize: 16,
+                      fontWeight: '600',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {selectedPropertyForModal.token.name} • {selectedPropertyForModal.token.tokenSymbol}
+                  </Text>
+                  <Text
+                    style={{
                       color: colors.textSecondary,
                       fontSize: 14,
                       marginBottom: 24,
@@ -944,10 +1024,54 @@ export default function GuidedInvestmentScreen() {
                         marginBottom: 16,
                       }}
                     >
-                      Property Details
+                      Token Details
                     </Text>
 
                     <View style={{ gap: 12 }}>
+                      {/* Token Name */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Token Name
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {selectedPropertyForModal.token.name}
+                        </Text>
+                      </View>
+
+                      {/* Token Symbol */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Token Symbol
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {selectedPropertyForModal.token.tokenSymbol}
+                        </Text>
+                      </View>
+
                       {/* ROI */}
                       <View
                         style={{
@@ -957,7 +1081,7 @@ export default function GuidedInvestmentScreen() {
                         }}
                       >
                         <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                          Estimated ROI
+                          Expected ROI
                         </Text>
                         <Text
                           style={{
@@ -966,29 +1090,7 @@ export default function GuidedInvestmentScreen() {
                             fontWeight: 'bold',
                           }}
                         >
-                          {selectedPropertyForModal.property.estimatedROI.toFixed(1)}%
-                        </Text>
-                      </View>
-
-                      {/* Yield */}
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                          Annual Yield
-                        </Text>
-                        <Text
-                          style={{
-                            color: colors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: '600',
-                          }}
-                        >
-                          {selectedPropertyForModal.property.estimatedYield.toFixed(1)}%
+                          {selectedPropertyForModal.token.expectedROI.toFixed(1)}%
                         </Text>
                       </View>
 
@@ -1010,7 +1112,29 @@ export default function GuidedInvestmentScreen() {
                             fontWeight: '600',
                           }}
                         >
-                          ${getEffectiveTokenPrice(selectedPropertyForModal.property.tokenPrice).toFixed(2)}
+                          ${getEffectiveTokenPrice(selectedPropertyForModal.token.pricePerTokenUSDT).toFixed(2)}
+                        </Text>
+                      </View>
+
+                      {/* Available Tokens */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                          Available Tokens
+                        </Text>
+                        <Text
+                          style={{
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: '600',
+                          }}
+                        >
+                          {selectedPropertyForModal.token.availableTokens.toFixed(2)}
                         </Text>
                       </View>
 
@@ -1244,7 +1368,7 @@ export default function GuidedInvestmentScreen() {
                   onPress={() => {
                     if (selectedPropertyForModal) {
                       handleCloseModal();
-                      handlePropertySelect(selectedPropertyForModal.property.id);
+                      handlePropertySelect(selectedPropertyForModal.token.id);
                     }
                   }}
                   style={{
@@ -1263,7 +1387,7 @@ export default function GuidedInvestmentScreen() {
                       fontWeight: 'bold',
                     }}
                   >
-                    Select This Property
+                    Select This Token
                   </Text>
                 </TouchableOpacity>
               </View>

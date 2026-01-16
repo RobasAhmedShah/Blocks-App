@@ -201,6 +201,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updates: prop.updates || [],
         // Ensure rentalIncome exists for generating-income properties
         rentalIncome: prop.rentalIncome || (prop.status === 'generating-income' ? undefined : undefined),
+        // Preserve tokens if they exist in the API response (though list endpoint doesn't include them)
+        tokens: prop.tokens || undefined,
       }));
       
       setState(prev => ({

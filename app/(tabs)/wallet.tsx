@@ -81,6 +81,7 @@ export default function WalletScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const [actualHeaderHeight, setActualHeaderHeight] = useState(120);
+  const [isStickyVisible, setIsStickyVisible] = useState(false);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
@@ -377,56 +378,13 @@ export default function WalletScreen() {
     }
   };
 
-  // Calculate animated values for collapsible sections
-  const walletCardHeight = 280; // Approximate height of wallet card section
+  // Calculate animated values for header only
   const collapseThreshold = 50; // Start collapsing after 50px scroll
-
-  // Animated opacity for wallet card sections (470-906)
-  const walletCardOpacity = scrollY.interpolate({
-    inputRange: [0, collapseThreshold, collapseThreshold + 50],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-
-  // Animated translateY for wallet card sections
-  const walletCardTranslateY = scrollY.interpolate({
-    inputRange: [0, collapseThreshold, collapseThreshold + 100],
-    outputRange: [0, 0, -walletCardHeight],
-    extrapolate: 'clamp',
-  });
-
-  // Animated height for wallet card container
-  const walletCardHeightAnimated = scrollY.interpolate({
-    inputRange: [0, collapseThreshold, collapseThreshold + 100],
-    outputRange: [walletCardHeight, walletCardHeight, 0],
-    extrapolate: 'clamp',
-  });
-
-  // Animated position for sticky categories - moves FASTER than wallet card to eliminate gap
-  // Categories "chase" the wallet card up, completing their movement in 80px instead of 100px
-  // This ensures no visible gap during slow scrolling
-  const categoriesTranslateY = scrollY.interpolate({
-    inputRange: [0, collapseThreshold, collapseThreshold + 60],
-    outputRange: [walletCardHeight, walletCardHeight, 0],
-    extrapolate: 'clamp',
-  });
-
-  // Animated paddingTop for sticky section - removes gap faster to match categories speed
-  const stickyPaddingTop = scrollY.interpolate({
-    inputRange: [0, collapseThreshold, collapseThreshold + 60],
-    outputRange: [8, 8, 0],
-    extrapolate: 'clamp',
-  });
+  const walletCardHeight = 320; // Approximate height of wallet card section
+  const stickySectionHeight = 100; // Height of categories + heading section
 
   // Animated background opacity for header - appears VERY QUICKLY for strong sticky effect
   const headerBackgroundOpacity = scrollY.interpolate({
-    inputRange: [0, 10, collapseThreshold + 20],
-    outputRange: [0, 0.8, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Animated background opacity for sticky section - appears VERY QUICKLY for strong sticky effect
-  const stickyBackgroundOpacity = scrollY.interpolate({
     inputRange: [0, 10, collapseThreshold + 20],
     outputRange: [0, 0.8, 1],
     extrapolate: 'clamp',
@@ -439,7 +397,7 @@ export default function WalletScreen() {
     extrapolate: 'clamp',
   });
 
-  // Animated opacity for balance in header - appears as wallet card collapses
+  // Animated opacity for balance in header - appears as user scrolls
   const headerBalanceOpacity = scrollY.interpolate({
     inputRange: [0, collapseThreshold, collapseThreshold + 50, collapseThreshold + 100],
     outputRange: [0, 0, 0.3, 1],
@@ -460,10 +418,42 @@ export default function WalletScreen() {
     extrapolate: 'clamp',
   });
 
+  // Sticky section animations - appears when categories would scroll past header
+  // Categories are at position: walletCardHeight in normal flow
+  // When scrollY reaches walletCardHeight, categories reach header position
+  const stickyThreshold = walletCardHeight;
+  
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold - 20, stickyThreshold, stickyThreshold + 10],
+    outputRange: [0, 0.5, 1],
+    extrapolate: 'clamp',
+  });
+
+  const stickyBackgroundOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold - 20, stickyThreshold, stickyThreshold + 10],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Hide normal categories when sticky version is visible
+  const normalCategoriesOpacity = scrollY.interpolate({
+    inputRange: [0, stickyThreshold - 20, stickyThreshold],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
   // Handle scroll event
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false } // We need to animate height/opacity which requires layout
+    { 
+      useNativeDriver: false, // We need to animate height/opacity which requires layout
+      listener: (event: any) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        const stickyThreshold = walletCardHeight;
+        // Enable pointer events when sticky section is visible (opacity > 0.1)
+        setIsStickyVisible(offsetY >= stickyThreshold - 20);
+      }
+    }
   );
 
   return (
@@ -539,7 +529,7 @@ export default function WalletScreen() {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 1)' : 'rgba(255, 255, 255, 1)',
                 opacity: headerBackgroundOpacity,
               }}
             />
@@ -690,18 +680,11 @@ export default function WalletScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingTop: actualHeaderHeight }}
           >
-            {/* Collapsible Wallet Card Sections (470-906) */}
-            <Animated.View
-              style={{
-                opacity: walletCardOpacity,
-                transform: [{ translateY: walletCardTranslateY }],
-                // height: walletCardHeightAnimated,
-                overflow: 'hidden',
-              }}
-            >
+            {/* Wallet Card Sections */}
+            <View>
               <View className="px-4 pb-4">
                 {/* Navigation Tabs - Above the Card */}
-                <View className="mb-4 flex-row gap-2">
+                <View className="mb-4 mt-4 flex-row gap-2">
                   <TouchableOpacity
                     onPress={() => setWalletTab('usdc')}
                     style={{
@@ -1149,11 +1132,58 @@ export default function WalletScreen() {
                   </View>
                 )}
               </View>
-            </Animated.View>
+            </View>
 
-            {/* Spacer for categories and heading - ensures transactions don't get hidden */}
+            {/* Categories and Recent Transactions Heading - Normal flow */}
             {walletTab === 'usdc' && (
-              <View style={{ height: 100 }} />
+              <Animated.View style={{ opacity: normalCategoriesOpacity }}>
+                {/* Categories Chips */}
+                <View className="mx-4 mb-3 mt-4">
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8 }}>
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'deposit', label: 'Deposit' },
+                      { value: 'withdraw', label: 'Withdraw' },
+                      { value: 'investment', label: 'Investment' },
+                      { value: 'rental_income', label: 'Rental' },
+                    ].map((filter) => (
+                      <TouchableOpacity
+                        key={filter.value}
+                        onPress={() => setActiveTab(filter.value)}
+                        style={{
+                          backgroundColor:
+                            activeTab === filter.value
+                              ? colors.primary
+                              : isDarkColorScheme
+                                ? 'rgba(0, 0, 0, 0.3)'
+                                : 'rgba(255, 255, 255, 0.8)',
+                          borderWidth: activeTab === filter.value ? 0 : 0,
+                          borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
+                        }}
+                        className="rounded-full px-4 py-2">
+                        <Text
+                          style={{
+                            color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
+                            fontWeight: activeTab === filter.value ? '600' : '400',
+                          }}
+                          className="text-sm">
+                          {filter.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Recent Transactions Heading */}
+                <View className="px-4">
+                  <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
+                    Recent Transactions
+                  </Text>
+                </View>
+              </Animated.View>
             )}
 
             {/* Transactions Section - Scrollable */}
@@ -1245,7 +1275,7 @@ export default function WalletScreen() {
             )}
           </ScrollView>
 
-          {/* Sticky Categories and Recent Transactions Heading - Absolutely positioned, moves up as wallet card collapses */}
+          {/* Sticky Categories and Recent Transactions Heading */}
           {walletTab === 'usdc' && (
             <Animated.View
               style={{
@@ -1254,9 +1284,9 @@ export default function WalletScreen() {
                 left: 0,
                 right: 0,
                 zIndex: 9,
-                paddingTop: stickyPaddingTop,
-                transform: [{ translateY: categoriesTranslateY }],
-              }}>
+                opacity: stickyOpacity,
+              }}
+              pointerEvents={isStickyVisible ? 'auto' : 'none'}>
               {/* Animated Background for Sticky Section */}
               <Animated.View
                 style={{
@@ -1265,13 +1295,13 @@ export default function WalletScreen() {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                  backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 1)' : 'rgba(255, 255, 255, 1)',
                   opacity: stickyBackgroundOpacity,
                 }}
               />
 
               {/* Categories Chips */}
-              <View className="mx-4 mb-3" style={{ zIndex: 1 }}>
+              <View className="mx-4 mb-3 pt-2" style={{ zIndex: 1 }}>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}

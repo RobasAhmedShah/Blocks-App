@@ -942,6 +942,7 @@ export default function WalletScreen() {
             overflow: 'hidden',
           }}
           className="p-4 pb-2">
+
           {/* Radial Gradient Background */}
           <View style={{ position: 'absolute', inset: 0 }}>
             <Svg width="100%" height="100%">
@@ -975,6 +976,19 @@ export default function WalletScreen() {
               <Rect width="100%" height="100%" fill="url(#grad4)" />
             </Svg>
           </View>
+
+          <Pressable
+            onPress={connect}
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 32,
+              paddingVertical: 12,
+              borderRadius: 12,
+            }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+              Connect Wallet
+            </Text>
+          </Pressable>
 
           {!isConnected ? (
             /* Not Connected State */

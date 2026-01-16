@@ -93,6 +93,12 @@ export default function GuidedInvestmentScreen() {
       })
       .flatMap(p => {
         // Check if property has tokens array with actual tokens
+        console.log("+===============+")
+        console.log("Property:", p.title, "Tokens:", p.tokens?.length);
+        console.log("+===============+")
+        p.tokens?.forEach(token => {
+          console.log('Token:', token.name, 'Expected ROI:', token.expectedROI);
+        });
         const hasTokens = p.tokens && Array.isArray(p.tokens) && p.tokens.length > 0;
         
         if (hasTokens && p.tokens) {
@@ -133,6 +139,11 @@ export default function GuidedInvestmentScreen() {
         }
         return [];
       });
+
+    console.log("==============")
+    allTokens.forEach(token => {
+      console.log('Token:', token.token.name, 'Property:', token.property.title, 'Expected ROI:', token.token.expectedROI);
+    });
 
     if (isGoalBased && monthlyGoal > 0) {
       // GOAL-BASED MODE: Calculate investment per token to achieve monthly goal
@@ -403,12 +414,12 @@ export default function GuidedInvestmentScreen() {
           {/* Toggle Section - Only show if not in goal-based mode */}
           {!isGoalBased && (
             <View style={{ paddingVertical: 8, marginBottom: 6 }}>
-              <View style={{
+              {/* <View style={{
                 flexDirection: 'row',
-                height: 48,
+                height: 20,
                 backgroundColor: colors.card,
                 borderRadius: 12,
-              }}>
+              }}> */}
                 <View
                   style={{
                     flex: 1,
@@ -430,7 +441,7 @@ export default function GuidedInvestmentScreen() {
                     Invest Amount
                   </Text>
                 </View>
-              </View>
+              {/* </View> */}
             </View>
           )}
 
@@ -497,7 +508,7 @@ export default function GuidedInvestmentScreen() {
           )}
 
           {/* Recommended Properties Section */}
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: 2 }}>
             <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
               Recommended For You
             </Text>
@@ -518,9 +529,9 @@ export default function GuidedInvestmentScreen() {
                 </View>
               ) : (
                 <ScrollView 
-                  style={{ flex: 1, height: 430 }}
+                  style={{ flex: 1, height: 420 }}
                   showsVerticalScrollIndicator={false} 
-                  contentContainerStyle={{ gap: 16 }} >
+                  contentContainerStyle={{ gap: 12,paddingBottom: 10 }} >
                   {recommendedProperties.length > 0 ? (
                     recommendedProperties.map(({ token, property, expectedMonthlyReturn, breakEven, tokensCount, investmentNeeded }) => {
                       const isSelected = selectedTokenId === token.id;

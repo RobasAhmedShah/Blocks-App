@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Modal,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useWallet } from '@/services/useWallet';
@@ -26,6 +27,7 @@ import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -85,6 +87,85 @@ export default function WalletScreen() {
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
+
+  // Deposit success detection (for bank transfers)
+  const PENDING_DEPOSIT_KEY = 'pending_bank_deposit_info';
+  const [depositSuccessState, setDepositSuccessState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+  const initialBalanceRef = useRef<number>(0);
+  const depositAmountRef = useRef<number>(0);
+  const pendingDepositRef = useRef<boolean>(false);
+  const currentBalanceRef = useRef<number>(0);
+
+  // Load pending deposit info and check for success
+  useFocusEffect(
+    useCallback(() => {
+      const checkPendingDeposit = async () => {
+        try {
+          const stored = await AsyncStorage.getItem(PENDING_DEPOSIT_KEY);
+          if (stored) {
+            const pendingInfo = JSON.parse(stored);
+            initialBalanceRef.current = pendingInfo.initialBalance || 0;
+            depositAmountRef.current = pendingInfo.expectedAmount || 0;
+            pendingDepositRef.current = true;
+            currentBalanceRef.current = state.balance?.usdc || 0;
+            console.log('📦 Wallet: Loaded pending deposit from storage');
+          }
+        } catch (error) {
+          console.error('Error loading pending deposit in wallet:', error);
+        }
+      };
+      checkPendingDeposit();
+    }, [state.balance?.usdc])
+  );
+
+  // Watch for balance changes to detect deposit success
+  useEffect(() => {
+    if (!pendingDepositRef.current || depositSuccessState.visible) {
+      return;
+    }
+
+    const currentBalance = state.balance?.usdc || 0;
+    const previousBalance = currentBalanceRef.current;
+    
+    const balanceIncrease = currentBalance - initialBalanceRef.current;
+    const expectedAmount = depositAmountRef.current;
+    const tolerance = 0.01;
+    
+    console.log('🔍 Wallet: Checking deposit success', {
+      currentBalance,
+      previousBalance,
+      initialBalance: initialBalanceRef.current,
+      balanceIncrease,
+      expectedAmount,
+    });
+    
+    if (balanceIncrease >= expectedAmount - tolerance && balanceIncrease > 0.01) {
+      console.log('✅ Wallet: Deposit detected! Balance increased by:', balanceIncrease);
+      
+      // Clear pending deposit
+      pendingDepositRef.current = false;
+      AsyncStorage.removeItem(PENDING_DEPOSIT_KEY).catch(console.error);
+      
+      // Show success dialog
+      setDepositSuccessState({
+        visible: true,
+        title: 'Deposit Successful',
+        message: `Your deposit of $${balanceIncrease.toFixed(2)} has been processed successfully!`,
+      });
+    }
+    
+    if (currentBalance !== previousBalance) {
+      currentBalanceRef.current = currentBalance;
+    }
+  }, [state.balance?.usdc, depositSuccessState.visible]);
 
   // Load pending withdrawal requests
   const loadPendingWithdrawals = React.useCallback(async () => {
@@ -1288,6 +1369,89 @@ export default function WalletScreen() {
             </View>
             )}
           </ScrollView>
+
+          {/* Deposit Success Modal */}
+          <Modal
+            visible={depositSuccessState.visible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setDepositSuccessState(prev => ({ ...prev, visible: false }))}
+          >
+            <View style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 24,
+            }}>
+              <View style={{
+                backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.9)' : '#FFFFFF',
+                borderRadius: 20,
+                padding: 24,
+                width: '100%',
+                maxWidth: 320,
+                alignItems: 'center',
+                borderWidth: 1.5,
+                borderColor: colors.primary,
+                position: 'relative',
+              }}>
+                {/* Close Button */}
+                <TouchableOpacity
+                  onPress={() => setDepositSuccessState(prev => ({ ...prev, visible: false }))}
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons 
+                    name="close" 
+                    size={20} 
+                    color={isDarkColorScheme ? colors.textSecondary : colors.textPrimary} 
+                  />
+                </TouchableOpacity>
+
+                <View style={{ alignItems: 'center', width: '100%' }}>
+                  <View style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: isDarkColorScheme ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}>
+                    <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+                  </View>
+                  <Text style={{
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                    color: colors.textPrimary,
+                    marginBottom: 8,
+                    textAlign: 'center',
+                  }}>
+                    {depositSuccessState.title}
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    color: colors.textSecondary,
+                    textAlign: 'center',
+                    lineHeight: 20,
+                  }}>
+                    {depositSuccessState.message}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Modal>
 
           {/* Sticky Categories and Recent Transactions Heading */}
           {walletTab === 'usdc' && (

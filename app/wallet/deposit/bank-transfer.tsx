@@ -22,6 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '@/contexts/AppContext';
 import { bankTransfersAPI } from '@/services/api/bank-transfers.api';
 import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-bank-accounts.api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDepositSuccess } from '@/contexts/DepositSuccessContext';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -147,6 +149,11 @@ export default function BankTransferDepositScreen() {
   const initialBalanceRef = useRef<number>(0);
   const currentBalanceRef = useRef<number>(0);
   const depositAmountRef = useRef<number>(0);
+  // Track if we're waiting for a deposit (even when dialog is closed)
+  const pendingDepositRef = useRef<boolean>(false);
+  
+  // AsyncStorage key for pending deposit info
+  const PENDING_DEPOSIT_KEY = 'pending_bank_deposit_info';
 
   // Fetch bank details from backend (Blocks' bank account)
   useEffect(() => {
@@ -254,15 +261,74 @@ export default function BankTransferDepositScreen() {
     }
   }, [amount, touched]);
 
-  // Watch for balance changes to detect deposit success
+  // Helper function to close dialog (but keep polling active)
+  const handleCloseDialog = useCallback(() => {
+    // Don't clear polling - keep checking for deposit success even when dialog is closed
+    // Only close the dialog, but keep tracking the deposit
+    setDepositLoadingState(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  // Helper function to cleanup polling completely (when deposit succeeds or times out)
+  const cleanupPolling = useCallback(async () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    pendingDepositRef.current = false;
+    // Clear AsyncStorage
+    try {
+      await AsyncStorage.removeItem(PENDING_DEPOSIT_KEY);
+    } catch (error) {
+      console.error('Error clearing pending deposit from storage:', error);
+    }
+  }, []);
+
+  // Load pending deposit info from AsyncStorage on mount and when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const loadPendingDeposit = async () => {
+        try {
+          const stored = await AsyncStorage.getItem(PENDING_DEPOSIT_KEY);
+          if (stored) {
+            const pendingInfo = JSON.parse(stored);
+            initialBalanceRef.current = pendingInfo.initialBalance || 0;
+            depositAmountRef.current = pendingInfo.expectedAmount || 0;
+            pendingDepositRef.current = true;
+            console.log('📦 Loaded pending deposit from storage:', pendingInfo);
+            
+            // Also reload wallet to check for balance changes
+            if (loadWallet) {
+              await loadWallet();
+            }
+          }
+        } catch (error) {
+          console.error('Error loading pending deposit:', error);
+        }
+      };
+      loadPendingDeposit();
+    }, [loadWallet])
+  );
+
+  // Watch for balance changes to detect deposit success (works even when dialog is closed)
   useEffect(() => {
-    if (!depositLoadingState.visible || depositLoadingState.isSuccess) {
+    // Only check if we have a pending deposit (not if already successful)
+    if (!pendingDepositRef.current) {
+      return;
+    }
+
+    // Don't check if already showing success
+    if (depositLoadingState.isSuccess) {
       return;
     }
 
     const currentBalance = state.balance?.usdc || 0;
-    currentBalanceRef.current = currentBalance;
+    const previousBalance = currentBalanceRef.current;
     
+    // Calculate balance increase from initial balance (when deposit was initiated)
     const balanceIncrease = currentBalance - initialBalanceRef.current;
     
     // Check if balance increased by the expected amount (from rounded PKR) with small tolerance
@@ -270,49 +336,52 @@ export default function BankTransferDepositScreen() {
     const expectedAmount = depositAmountRef.current;
     const tolerance = 0.01; // Allow $0.01 tolerance for rounding differences
     
+    // Debug logging
+    console.log('🔍 Checking deposit success:', {
+      pendingDeposit: pendingDepositRef.current,
+      currentBalance,
+      previousBalance,
+      initialBalance: initialBalanceRef.current,
+      balanceIncrease,
+      expectedAmount,
+      isSuccess: depositLoadingState.isSuccess,
+    });
+    
     // If balance increased by approximately the expected amount (from rounded PKR conversion)
+    // Check if balance increased significantly (more than just a small fluctuation)
     if (balanceIncrease >= expectedAmount - tolerance && balanceIncrease > 0.01) {
-      // Clear polling interval
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+      console.log('✅ Deposit detected! Balance increased by:', balanceIncrease);
       
-      // Clear timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      // Cleanup polling
+      cleanupPolling();
       
-      // Update dialog to show success with actual deposited amount
+      // Show success dialog using global context (works from any screen)
+      showDepositSuccess(
+        'Deposit Successful',
+        `Your deposit of $${balanceIncrease.toFixed(2)} has been processed successfully!`
+      );
+      
+      // Also update local dialog state for this screen
       setDepositLoadingState({
         visible: true,
         title: 'Deposit Successful',
         message: `Your deposit of $${balanceIncrease.toFixed(2)} has been processed successfully!`,
         isSuccess: true,
       });
-      
-      // Close dialog and navigate after 2 seconds
-      setTimeout(() => {
-        setDepositLoadingState(prev => ({ ...prev, visible: false }));
-        router.replace('/(tabs)/wallet' as any);
-      }, 2000);
     }
-  }, [state.balance?.usdc, depositLoadingState.visible, depositLoadingState.isSuccess, router]);
+    
+    // Update the stored balance for next comparison (only if balance actually changed)
+    if (currentBalance !== previousBalance) {
+      currentBalanceRef.current = currentBalance;
+    }
+  }, [state.balance?.usdc, cleanupPolling]);
 
   // Cleanup polling intervals on unmount
   useEffect(() => {
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      cleanupPolling();
     };
-  }, []);
+  }, [cleanupPolling]);
 
   const handleContinue = () => {
     setTouched(true);
@@ -375,6 +444,20 @@ export default function BankTransferDepositScreen() {
       depositAmountRef.current = expectedUsdAmount;
       currentBalanceRef.current = state.balance?.usdc || 0;
       
+      // Mark that we have a pending deposit (even if dialog is closed later)
+      pendingDepositRef.current = true;
+      
+      // Store pending deposit info in AsyncStorage for global detection
+      try {
+        await AsyncStorage.setItem(PENDING_DEPOSIT_KEY, JSON.stringify({
+          initialBalance: initialBalanceRef.current,
+          expectedAmount: expectedUsdAmount,
+          timestamp: Date.now(),
+        }));
+      } catch (error) {
+        console.error('Error storing pending deposit info:', error);
+      }
+      
       // Show loading dialog
       setDepositLoadingState({
         visible: true,
@@ -383,7 +466,7 @@ export default function BankTransferDepositScreen() {
         isSuccess: false,
       });
       
-      // Start polling for deposit approval
+      // Start polling for deposit approval (continues even if dialog is closed)
       pollingIntervalRef.current = setInterval(async () => {
         try {
           // Reload wallet balance
@@ -397,25 +480,20 @@ export default function BankTransferDepositScreen() {
       
       // Stop polling after 5 minutes (300000ms) to prevent infinite polling
       timeoutRef.current = setTimeout(() => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
+        // Cleanup polling
+        cleanupPolling();
         
+        // If dialog is still visible, update message
         setDepositLoadingState(prev => {
           if (prev.visible && !prev.isSuccess) {
             // If still waiting, show message that it may take longer
-            setDepositLoadingState({
+            // User can close it manually with the X button
+            return {
               visible: true,
               title: 'Deposit Pending',
               message: 'Your deposit is being processed. You will be notified once it\'s completed.',
               isSuccess: false,
-            });
-            
-            setTimeout(() => {
-              setDepositLoadingState(prevState => ({ ...prevState, visible: false }));
-              router.replace('/(tabs)/wallet' as any);
-            }, 3000);
+            };
           }
           return prev;
         });
@@ -492,12 +570,7 @@ export default function BankTransferDepositScreen() {
         visible={depositLoadingState.visible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {
-          // Prevent closing during loading, only allow after success
-          if (depositLoadingState.isSuccess) {
-            setDepositLoadingState(prev => ({ ...prev, visible: false }));
-          }
-        }}
+        onRequestClose={handleCloseDialog}
       >
         <View style={{
           flex: 1,
@@ -517,9 +590,34 @@ export default function BankTransferDepositScreen() {
             borderColor: depositLoadingState.isSuccess 
               ? colors.primary 
               : isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
+            position: 'relative',
           }}>
+            {/* Close Button - Top Right */}
+            <TouchableOpacity
+              onPress={handleCloseDialog}
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons 
+                name="close" 
+                size={20} 
+                color={isDarkColorScheme ? colors.textSecondary : colors.textPrimary} 
+              />
+            </TouchableOpacity>
+
             {depositLoadingState.isSuccess ? (
-              <View style={{ alignItems: 'center' }}>
+              <View style={{ alignItems: 'center', width: '100%' }}>
                 <View style={{
                   width: 64,
                   height: 64,
@@ -550,7 +648,7 @@ export default function BankTransferDepositScreen() {
                 </Text>
               </View>
             ) : (
-              <View style={{ alignItems: 'center' }}>
+              <View style={{ alignItems: 'center', width: '100%' }}>
                 <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 16 }} />
                 <Text style={{
                   fontSize: 20,

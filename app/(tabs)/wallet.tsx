@@ -251,6 +251,11 @@ export default function WalletScreen() {
   // Refresh wallet balance and transactions when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      // Reset scroll position to top when screen comes into focus
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      scrollY.setValue(0);
+      setIsStickyVisible(false);
+      
       if (loadWallet && loadTransactions && !isGuest && isAuthenticated) {
         loadWallet();
         loadTransactions();
@@ -1054,126 +1059,94 @@ export default function WalletScreen() {
                             </Text>
                           </View>
                         </View>
-          {!isConnected ? (
-            /* Not Connected State */
-            <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-              <MaterialIcons name="account-balance-wallet" size={64} color={colors.textMuted} />
-              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8 }}>
-                Connect Your Crypto Wallet
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 24, textAlign: 'center', paddingHorizontal: 32 }}>
-                Connect MetaMask or other wallets to view your crypto balance
-              </Text>
-              <Pressable
-                onPress={connect}
-                style={{
-                  backgroundColor: colors.primary,
-                  paddingHorizontal: 32,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-                  Connect Wallet
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            /* Connected State */
-            <>
-              <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 6, marginBottom: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#3b82f6', marginRight: 6 }} />
-                  <Text style={{ color: isDarkColorScheme ? '#FFFFFF' : '#1e40af', fontSize: 11, fontWeight: '500', opacity: 0.9 }}>
-                    Crypto Balance
-                  </Text>
-                </View>
-              </View>
 
-              <View style={{ alignItems: 'baseline', justifyContent: 'center', flexDirection: 'row', marginTop: 4, marginBottom: 4 }}>
-                <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
-                  {cryptoBalance}
-                </Text>
-                <Text style={{ color: '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
-                  ETH
-                </Text>
-              </View>
+                        <View style={{ alignItems: 'baseline', justifyContent: 'center', flexDirection: 'row', marginTop: 4, marginBottom: 4 }}>
+                          <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
+                            {cryptoBalance}
+                          </Text>
+                          <Text style={{ color: '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
+                            ETH
+                          </Text>
+                        </View>
 
-              <View style={{ marginTop: 8, alignItems: 'center' }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-                  Connected Wallet
-                </Text>
-                <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: 'monospace' }}>
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </Text>
-              </View>
+                        <View style={{ marginTop: 8, alignItems: 'center' }}>
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                            Connected Wallet
+                          </Text>
+                          <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: 'monospace' }}>
+                            {address?.slice(0, 6)}...{address?.slice(-4)}
+                          </Text>
+                        </View>
 
-              <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <Pressable
-                  onPress={() => router.push('/wallet/send' as any)}
-                  style={{ 
-                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(16, 185, 129, 0.15)', 
-                    paddingHorizontal: 16, 
-                    paddingVertical: 8, 
-                    borderRadius: 8,
-                  }}>
-                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
-                    Send
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push('/wallet/receive' as any)}
-                  style={{ 
-                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
-                    paddingHorizontal: 16, 
-                    paddingVertical: 8, 
-                    borderRadius: 8,
-                  }}>
-                  <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
-                    Receive
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={async () => {
-                    await loadCryptoBalance(true);
-                  }}
-                  disabled={refreshingBalance}
-                  style={{ 
-                    backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
-                    paddingHorizontal: 16, 
-                    paddingVertical: 8, 
-                    borderRadius: 8,
-                    opacity: refreshingBalance ? 0.6 : 1,
-                  }}>
-                  {refreshingBalance ? (
-                    <ActivityIndicator size="small" color="#3b82f6" />
-                  ) : (
-                    <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
-                      Refresh
-                    </Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  onPress={async () => {
-                    try {
-                      await disconnect();
-                      // Reset crypto balance after disconnecting
-                      setCryptoBalance('0.00');
-                    } catch (error) {
-                      console.error('Error disconnecting wallet:', error);
-                    }
-                  }}
-                  style={{ backgroundColor: isDarkColorScheme ? colors.card : 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
-                  <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '600' }}>
-                    Disconnect
-                  </Text>
-                </Pressable>
-              </View>
-            </>
-          )}
+                        <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <Pressable
+                            onPress={() => router.push('/wallet/send' as any)}
+                            style={{ 
+                              backgroundColor: isDarkColorScheme ? colors.card : 'rgba(16, 185, 129, 0.15)', 
+                              paddingHorizontal: 16, 
+                              paddingVertical: 8, 
+                              borderRadius: 8,
+                            }}>
+                            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                              Send
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => router.push('/wallet/receive' as any)}
+                            style={{ 
+                              backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
+                              paddingHorizontal: 16, 
+                              paddingVertical: 8, 
+                              borderRadius: 8,
+                            }}>
+                            <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
+                              Receive
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={async () => {
+                              await loadCryptoBalance(true);
+                            }}
+                            disabled={refreshingBalance}
+                            style={{ 
+                              backgroundColor: isDarkColorScheme ? colors.card : 'rgba(59, 130, 246, 0.15)', 
+                              paddingHorizontal: 16, 
+                              paddingVertical: 8, 
+                              borderRadius: 8,
+                              opacity: refreshingBalance ? 0.6 : 1,
+                            }}>
+                            {refreshingBalance ? (
+                              <ActivityIndicator size="small" color="#3b82f6" />
+                            ) : (
+                              <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
+                                Refresh
+                              </Text>
+                            )}
+                          </Pressable>
+                          <Pressable
+                            onPress={async () => {
+                              try {
+                                await disconnect();
+                                // Reset crypto balance after disconnecting
+                                setCryptoBalance('0.00');
+                              } catch (error) {
+                                console.error('Error disconnecting wallet:', error);
+                              }
+                            }}
+                            style={{ backgroundColor: isDarkColorScheme ? colors.card : 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '600' }}>
+                              Disconnect
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </>
+                    )}
                   </View>
         )}
               </View>
+            
             </View>
+            
 
             {/* Categories and Recent Transactions Heading - Normal flow */}
         {walletTab === 'usdc' && (

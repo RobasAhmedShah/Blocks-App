@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.1.26",
+    "version": "1.1.31",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -37,7 +37,14 @@
           "photosPermission": "The app needs access to your photos so you can upload images.",
           "cameraPermission": "The app needs access to your camera so you can take photos."
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1016447845766-24stah4d5r1j3q6rd17hgh7gnppfifvl"
+        }
       ]
+      
     ],
     "experiments": {
       "typedRoutes": true,
@@ -72,7 +79,7 @@
       },
       "package": "com.intelik.Blocks",
       "googleServicesFile": "./google-services.json", 
-      "versionCode": 137,
+      "versionCode": 142,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"

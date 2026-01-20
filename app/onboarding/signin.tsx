@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,6 +25,7 @@ import Animated, {
   withTiming,
   withSpring,
 } from "react-native-reanimated";
+import { signInWithGoogle } from "@/src/lib/googleSignin";
 
 // Validation Rules & Regex
 const VALIDATION_RULES = {
@@ -156,6 +158,8 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
   
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -314,6 +318,88 @@ export default function SignInScreen() {
         },
       });
       // Also set apiError for inline display (optional, can be removed if using only alerts)
+      setApiError(friendlyMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setApiError(null);
+    
+    try {
+      // Use native Google Sign-In (Android only)
+      const userInfo = await signInWithGoogle();
+      
+      // Extract idToken from the response
+      const idToken = userInfo.idToken;
+      
+      if (!idToken) {
+        throw new Error('No ID token received from Google');
+      }
+
+      console.log('✅ Google Sign-In userInfo:', {
+        email: userInfo.user.email,
+        name: userInfo.user.name,
+        id: userInfo.user.id,
+      });
+  
+      // Send ID token to backend for verification and session creation
+      const response = await authApi.googleLogin({
+        idToken: idToken,
+        expoToken: expoPushToken || undefined,
+      });
+  
+      await signIn(response.token, response.refreshToken);
+    } catch (error: any) {
+      console.error('❌ Google login error:', error);
+      
+      // Handle user cancellation gracefully (not an error)
+      if (error.message === 'Sign-in was cancelled') {
+        setIsGoogleLoading(false);
+        return;
+      }
+      
+      // Check for Expo Go / native module errors
+      if (
+        error.message?.includes('TurboModuleRegistry') ||
+        error.message?.includes('RNGoogleSignin') ||
+        error.message?.includes('requires a dev build') ||
+        error.message?.includes('Expo Go does not support')
+      ) {
+        setAlertState({
+          visible: true,
+          title: 'Dev Build Required',
+          message:
+            'Google Sign-In requires a dev build and cannot run in Expo Go.\n\n' +
+            'To use this feature:\n' +
+            '1. Build a dev client:\n   eas build --profile development --platform android\n' +
+            '2. Install the APK on your device\n' +
+            '3. Run: expo start --dev-client\n\n' +
+            'Native modules like Google Sign-In are not available in Expo Go.',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            setApiError(null);
+          },
+        });
+        setApiError('Google Sign-In requires a dev build');
+        setIsGoogleLoading(false);
+        return;
+      }
+      
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Google Sign-In Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+          setApiError(null);
+        },
+      });
       setApiError(friendlyMessage);
     } finally {
       setIsLoading(false);
@@ -683,6 +769,44 @@ export default function SignInScreen() {
                 </TouchableOpacity>
               </Animated.View>
 
+              {/* Continue witg google Button */}
+              <TouchableOpacity
+                onPress={handleGoogleLogin}
+                disabled={isGoogleLoading}
+                style={{
+                  backgroundColor: 'transparent',
+                  height: 56,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  marginTop: 12,
+                  flexDirection: "row",
+                  gap: 12,
+                  opacity: isGoogleLoading ? 0.6 : 1,
+                }}
+                activeOpacity={0.8}
+              >
+                {isGoogleLoading ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={24} color={colors.textSecondary} />
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 16,
+                        fontWeight: "600",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Continue with Google
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
               {/* Continue as Guest Button */}
               <TouchableOpacity
                 onPress={() => {
@@ -697,7 +821,7 @@ export default function SignInScreen() {
                   justifyContent: "center",
                   borderWidth: 1,
                   borderColor: colors.border,
-                  marginTop: 12,
+                  marginTop: 4,
                 }}
                 activeOpacity={0.8}
               >

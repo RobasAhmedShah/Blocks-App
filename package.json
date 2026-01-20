@@ -1,6 +1,6 @@
 {
   "name": "Blocks",
-  "version": "1.1.26",
+  "version": "1.1.31",
   "main": "bootstrap.ts",
   "scripts": {
     "android": "expo run:android",
@@ -19,6 +19,7 @@
     "@react-native-community/datetimepicker": "^8.5.1",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-community/slider": "^5.1.1",
+    "@react-native-google-signin/google-signin": "^16.1.1",
     "@react-navigation/native": "^7.1.6",
     "@rn-primitives/slot": "^1.2.0",
     "@shopify/flash-list": "2.0.2",
@@ -29,9 +30,11 @@
     "clsx": "^2.1.0",
     "expo": "^54.0.0",
     "expo-application": "~7.0.8",
+    "expo-auth-session": "~7.0.10",
     "expo-blur": "~15.0.7",
     "expo-clipboard": "^8.0.7",
     "expo-constants": "~18.0.9",
+    "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.13",
     "expo-device": "~8.0.9",
     "expo-file-system": "~19.0.19",

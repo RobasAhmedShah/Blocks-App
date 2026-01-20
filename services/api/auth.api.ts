@@ -9,6 +9,18 @@ export interface LoginDto {
   webPushSubscription?: any;
 }
 
+export interface GoogleLoginDto {
+  idToken: string;
+  expoToken?: string;
+  webPushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+}
+
 export interface RegisterDto {
   email: string;
   password: string;
@@ -78,6 +90,13 @@ async function publicRequest<T>(endpoint: string, options: RequestInit = {}): Pr
 export const authApi = {
   login: async (dto: LoginDto): Promise<AuthResponse> => {
     return publicRequest<AuthResponse>('/api/mobile/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  googleLogin: async (dto: GoogleLoginDto): Promise<AuthResponse> => {
+    return publicRequest<AuthResponse>('/api/mobile/auth/google', {
       method: 'POST',
       body: JSON.stringify(dto),
     });

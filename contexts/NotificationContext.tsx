@@ -119,7 +119,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // Replace all notifications with backend data (backend is source of truth)
       setNotifications(convertedNotifications);
     } catch (error) {
-      console.error('❌ Error loading notifications:', error);
+      // console.error('❌ Error loading notifications:', error);
       // Don't throw - allow app to continue with existing notifications
     }
   }, []);

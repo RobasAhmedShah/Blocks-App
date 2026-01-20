@@ -93,7 +93,7 @@ export default function PortfolioScreen() {
   const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
 
 
-
+console.log('portfolio investments', investments);
 
   // WebSocket connection for real-time portfolio updates
   // Temporarily disabled to prevent socket.io-client crash

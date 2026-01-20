@@ -86,7 +86,7 @@ export const WalletConnectProvider = ({ children }: WalletConnectProviderProps) 
           // Chain ID comes as hex string (e.g., "0x1" for mainnet)
           const chainIdDecimal = typeof chainIdHex === 'string' && chainIdHex.startsWith('0x')
             ? parseInt(chainIdHex, 16)
-            : parseInt(chainIdHex.toString(), 10);
+            : parseInt(chainIdHex as string, 10);
           
           console.log('[WalletConnect] Detected chain:', {
             hex: chainIdHex,

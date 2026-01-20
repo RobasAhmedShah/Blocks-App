@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter, useSegments } from 'expo-router';
 import { authApi } from '@/services/api/auth.api';
+import { signOutFromGoogle } from '@/src/lib/googleSignin';
 
 // --- Define Storage Keys ---
 const TOKEN_KEY = 'auth_token';
@@ -322,6 +323,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Ignore logout API errors, still clear local tokens
           console.error('Logout API error:', error);
         }
+      }
+      
+      // Sign out from Google to clear cached account selection
+      // This ensures the account picker shows next time user signs in
+      try {
+        await signOutFromGoogle();
+      } catch (error) {
+        // Ignore Google sign-out errors (e.g., if not signed in with Google)
+        console.log('Google sign-out (non-critical):', error);
       }
       
       // Clear ALL tokens and flags on sign out

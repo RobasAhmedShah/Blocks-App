@@ -92,7 +92,7 @@ export function CircularDragRotator({
   const lastTimeRef = useRef(Date.now());
   const animationFrameRef = useRef<number | null>(null);
   
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number; angle?: number } | null>(null);
   const hasDraggedRef = useRef(false);
 
   const [, forceUpdate] = useState(0);
@@ -175,7 +175,7 @@ export function CircularDragRotator({
         percent:(arcs[i]/FULL)*100
       };
     });
-  }, [investments, totalValue]);
+  }, [investments, totalValue, colors.card]);
   
 
   const applyMomentum = () => {
@@ -209,8 +209,14 @@ export function CircularDragRotator({
           if (!layout) return;
           const cx = layout.x + layout.w / 2;
           const cy = layout.y + layout.h / 2;
-          lastAngleRef.current = Math.atan2(pageY - cy, pageX - cx);
+          const initialAngle = Math.atan2(pageY - cy, pageX - cx);
+          lastAngleRef.current = initialAngle;
           lastTimeRef.current = Date.now();
+          
+          // Store initial angle for tap detection
+          if (touchStartRef.current) {
+            touchStartRef.current.angle = normalizeAngle(initialAngle - offsetAngleRef.current);
+          }
         },
         onPanResponderMove: (e) => {
           if (!layout) return;
@@ -248,8 +254,22 @@ export function CircularDragRotator({
         onPanResponderRelease: () => {
           if (!hasDraggedRef.current && touchStartRef.current) {
             const timeDiff = Date.now() - touchStartRef.current.time;
-            if (timeDiff < 300) {
-              // Handle tap if needed
+            if (timeDiff < 300 && touchStartRef.current.angle !== undefined) {
+              // Handle tap - find which knob was tapped
+              const tappedAngle = touchStartRef.current.angle;
+              const tappedKnob = actualKnobs.find(knob => {
+                const start = normalizeAngle(knob.startAngle);
+                const end = normalizeAngle(knob.endAngle);
+                // Handle wrap-around case
+                if (end < start) {
+                  return tappedAngle >= start || tappedAngle <= end;
+                }
+                return tappedAngle >= start && tappedAngle <= end;
+              });
+              
+              if (tappedKnob) {
+                router.push(`/property/${tappedKnob.propertyId}`);
+              }
             }
           }
           
@@ -279,14 +299,17 @@ export function CircularDragRotator({
       {...panResponder.panHandlers}
     >
       <Svg width={size} height={size}>
+        {/* Background ring - rendered first so it's behind knobs */}
         <Path
           d={fullRingPath}
           stroke={colors.card}
-          strokeWidth={ringWidth + 10}
+          strokeWidth={ringWidth + 8}
           fill="none"
           strokeLinecap="round"
+          opacity={1}
         />
 
+        {/* Property knobs - rendered on top with brighter colors */}
         {actualKnobs.map((knob,i) => {
           const scrolledStartAngle = normalizeAngle(knob.startAngle + offsetAngleRef.current);
           const scrolledEndAngle = normalizeAngle(knob.endAngle + offsetAngleRef.current);
@@ -297,15 +320,13 @@ export function CircularDragRotator({
 
           return (
             <React.Fragment key={i}>
-              <TouchableOpacity onPress={() => {
-                router.push(`/property/${knob.propertyId}`);
-              }}>
               <Path
                 d={knobArcPath}
                 stroke={colors.primary}
-                strokeWidth={ringWidth}
+                strokeWidth={ringWidth + 2}
                 fill="none"
                 strokeLinecap="round"
+                opacity={1}
               />
               {/* First letter on top line */}
               <SvgText
@@ -329,7 +350,6 @@ export function CircularDragRotator({
               >
                 {`${knob.percent.toFixed(1)}%`}
               </SvgText>
-              </TouchableOpacity>
             </React.Fragment>
           );
         })}

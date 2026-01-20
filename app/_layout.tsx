@@ -19,6 +19,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useNotifications } from '@/services/useNotifications';
 import * as NavigationBar from 'expo-navigation-bar';
 import { WalletConnectProvider } from '@/src/wallet/WalletConnectProvider';
+import { initGoogleSignin } from '@/src/lib/googleSignin';
 
 const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
 
@@ -31,6 +32,13 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   // Use an empty object to maintain structure without loading specific fonts
   const [fontsLoaded, fontError] = useFonts({});
+
+  // Initialize Google Sign-In once at app startup (Android only)
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      initGoogleSignin();
+    }
+  }, []);
 
   // Hide system navigation bar on Android for full-screen experience
   useEffect(() => {

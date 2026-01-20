@@ -10,6 +10,8 @@ import { GuidanceProvider } from '@/contexts/GuidanceContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ThemeProvider } from '@/lib/useColorScheme';
 import { TourProvider } from '@/contexts/TourContext';
+import { DepositSuccessProvider } from '@/contexts/DepositSuccessContext';
+import { DepositSuccessDetector } from '@/components/DepositSuccessDetector';
 // @ts-ignore - react-native-copilot types may not be available
 import { CopilotProvider } from 'react-native-copilot';
 import { CustomTooltip } from '@/components/tour/CustomTooltip';
@@ -67,7 +69,8 @@ export default function RootLayout() {
           <GuidanceProvider>
             <NotificationProvider>
               <ThemeProvider>
-                <TourProvider>
+                <DepositSuccessProvider>
+                  <TourProvider>
                   <CopilotProvider
                     tooltipComponent={CustomTooltip}
                     stepNumberComponent={() => null}
@@ -79,10 +82,12 @@ export default function RootLayout() {
                     androidStatusBarVisible={true}>
                     <GestureHandlerRootView style={{ flex: 1 }}>
                       <RootNavigation />
+                      <DepositSuccessDetector />
                       <StatusBar style="auto" />
                     </GestureHandlerRootView>
                   </CopilotProvider>
-                </TourProvider>
+                  </TourProvider>
+                </DepositSuccessProvider>
               </ThemeProvider>
             </NotificationProvider>
           </GuidanceProvider>

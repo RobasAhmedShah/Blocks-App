@@ -383,7 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     //   ...prev,
     //   isGuest: false,
     // }));
-    router.replace('/onboarding/signin');
+    router.replace('/onboarding/auth');
   };
 
   const loginWithBiometrics = async (): Promise<boolean> => {

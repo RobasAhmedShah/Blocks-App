@@ -97,7 +97,7 @@ export default function WelcomeScreen() {
         {/* Bottom Buttons */}
         <View style={{ paddingBottom: 40, gap: 16 }}>
           <TouchableOpacity
-            onPress={() => router.push("/onboarding/signin" as any)}
+            onPress={() => router.push("/onboarding/auth" as any)}
             style={{
               backgroundColor: colors.primary,
               height: 56,

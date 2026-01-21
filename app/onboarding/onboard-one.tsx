@@ -6,165 +6,188 @@ import {
   StatusBar,
   StyleSheet,
   Pressable,
+  ColorValue,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
-import { MotiView } from "moti";
+import { MotiView, AnimatePresence } from "moti";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
+/* =========================
+   ONBOARDING DATA MODEL
+========================= */
 
 const slides = [
   {
-    lines: [
-      { text: "But every person has their own", opacity: 1 },
-      { text: "unique ⚡ energy rhythm", opacity: 1 }
+    key: "home",
+    gradient: ["#000000", "#0E1A00", "#305701"],
+    sentences: [
+      "Welcome to Blocks",
+      "Your gateway to real estate investing",
+      "Build wealth through fractional ownership",
     ],
   },
   {
-    lines: [
-      { text: "But every person has their own", opacity: 0.8 },
-      { text: "unique ⚡ energy rhythm", opacity: 0.8 },
-      { text: "and it's not random it's a", opacity: 1, italic: true },
-      { text: "predictable biology", opacity: 1 }
+    key: "portfolio",
+    gradient: ["#020617", "#020617", "#1E293B"],
+    sentences: [
+      "Your portfolio lives here",
+      "Track growth, returns, and performance",
+      "All updated in real time",
+    ],
+  },
+  {
+    key: "properties",
+    gradient: ["#020617", "#022C22", "#064E3B"],
+    sentences: [
+      "Explore premium properties",
+      "Invest fractionally with confidence",
+      "Starting from as low as $100",
+    ],
+  },
+  {
+    key: "marketplace",
+    gradient: ["#020617", "#1E1B4B", "#312E81"],
+    sentences: [
+      "The marketplace gives you flexibility",
+      "Buy and sell property tokens",
+      "Anytime, at transparent prices",
+    ],
+  },
+  {
+    key: "wallet",
+    gradient: ["#020617", "#052E16", "#14532D"],
+    sentences: [
+      "Your wallet connects everything",
+      "Manage funds, earnings, and withdrawals",
+      "Secure, simple, and always in control",
     ],
   },
 ];
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { colors, isDarkColorScheme } = useColorScheme();
-  const [step, setStep] = useState(0);
+  const { colors } = useColorScheme();
+
+  const [sectionIndex, setSectionIndex] = useState(0);
+  const [sentenceIndex, setSentenceIndex] = useState(0);
+  const BASE_HEIGHT = 120;
+const LINE_HEIGHT = 44;
+
+const dynamicHeight =
+  BASE_HEIGHT + (sentenceIndex + 1) * LINE_HEIGHT;
+
+  const currentSlide = slides[sectionIndex];
 
   const handleNext = () => {
-    if (step < slides.length - 1) {
-      setStep((s) => s + 1);
+    if (sentenceIndex < currentSlide.sentences.length - 1) {
+      setSentenceIndex((s) => s + 1);
+    } else if (sectionIndex < slides.length - 1) {
+      setSectionIndex((s) => s + 1);
+      setSentenceIndex(0);
     } else {
-      router.replace("/(tabs)" as any);
+      router.replace("/onboarding/auth" as any);
     }
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: isDarkColorScheme ? "rgb(0, 0, 0)" : colors.background },
-      ]}
-    >
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
 
-      {/* Dark Olive/Green Gradient Background */}
+      {/* BACKGROUND GRADIENT PER SECTION */}
       <LinearGradient
-        colors={['rgba(0, 0, 0, 0.7)','rgba(14, 26, 0, 0.7)','rgba(48, 87, 1, 0.7)', 'rgba(78, 126, 2, 0.7)', 'rgba(108, 167, 1, 0.7)']}
+        colors={currentSlide.gradient as [ColorValue, ColorValue, ...ColorValue[] ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={{
-          position: 'absolute',
-          top: 400,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
+        style={StyleSheet.absoluteFill}
       />
 
-        {/* Radial Gradient Overlay */}
-      {/* <View style={{ position: 'absolute', top: 500, left: 0, right: 0,
-         bottom: 0, zIndex: 10}}>
-        <Svg width="100%" height="50%" >
-          <Defs>
-            <RadialGradient id="backgroundRadial" cx="50%" cy="50%" r="90%">
-              <Stop offset="50%" stopColor="rgb(226, 34, 34)" stopOpacity="1" />
-              <Stop offset="100%" stopColor="rgb(226, 34, 34)" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill="url(#backgroundRadial)" />
-        </Svg>
-      </View> */}
-
-      <StatusBar
-        barStyle={isDarkColorScheme ? "light-content" : "dark-content"}
-      />
-
-      {/* Skip */}
-      {step < slides.length - 1 && (
+      {/* SKIP */}
+      {sectionIndex < slides.length - 1 && (
         <TouchableOpacity
           style={styles.skip}
-          onPress={() => router.replace("/(tabs)" as any)}
+          onPress={() => router.replace("/onboarding/auth" as any)}
         >
-          <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>
-            Skip
-          </Text>
+          <Text style={{ color: "#d0e8d0", fontWeight: "600" }}>Skip</Text>
         </TouchableOpacity>
       )}
 
-      {/* Content */}
+      {/* CONTENT */}
       <View style={styles.content}>
-        <View style={styles.textContainer}>
-          {slides[step].lines.map((line, index) => (
-            <View style={{ display: "flex",flexDirection:"row" }}>
-            {line.text.split(" ").map((word, wordIndex) => (
-            <MotiView
-              key={`${step}-${index}`}
-              from={{ opacity: 0, translateY: 12 }}
-              animate={{ opacity: line.opacity, translateY: 0 }}
-              transition={{
-                type: "timing",
-                duration: 200,
-                delay: (wordIndex * 120)+ index * 500,
-              }}
-            >
-              <Text
-                style={[
-                  styles.text,
-                  line.italic && styles.italic,
-                  { opacity: line.opacity },
-                ]}
-              >
-                {`${ word} `}
-              </Text>
-            </MotiView>))}
-            </View>
-          ))}
-        </View>
-
+        {/* <View style={styles.textContainer}> */}
         <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 500 }}
+          animate={{ height: dynamicHeight }}
+          transition={{ type: "timing", duration: 300, delay: sentenceIndex === 0 ? 2000 : 0}}
+          style={styles.textContainer}
         >
-          <Pressable style={[styles.button,{backgroundColor:"rgba(0,0,0,0.8)"}]} onPress={handleNext}>
-            <Text style={styles.buttonText}>
-              {step === slides.length - 1 ? "Get Started" : "Next"}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              color="#d0e8d0"
-              style={{ marginLeft: 6 }}
-            />
-          </Pressable>
-        </MotiView>
-      </View>
+          <AnimatePresence>
+            {currentSlide.sentences
+              .slice(0, sentenceIndex + 1)
+              .map((sentence, i) => {
+                const isActive = i === sentenceIndex;
 
-      {/* Pagination Dots */}
-      {/* <View style={styles.dots}>
-        {slides.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              {
-                width: i === step ? 24 : 8,
-                opacity: i === step ? 1 : 0.3,
-                backgroundColor: colors.primary,
-              },
-            ]}
+                return (
+                  <View key={`${sectionIndex}-${i}`} style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  {sentence.split(" ").map((word, wordIndex) => (
+                    <MotiView
+                      key={`${wordIndex}-${i}`}
+                      from={{ opacity: 0, translateY: 20 }}
+                      animate={{
+                        opacity: isActive ? 1 : 0.5,
+                        translateY: 0,
+                      }}
+                      exit={{ opacity: 0, translateY: -20 }}
+                      transition={{ 
+                        type: "timing",
+                        duration: 300,
+                        delay: (i===0 && isActive && sectionIndex!==0) ? wordIndex * 100 + i * 500 + 2000 : wordIndex * 100 + i * 500
+                      }}
+                      style={{ marginBottom: 8 }}
+                    >
+                      
+                      <Text
+                        style={[
+                          styles.text,
+                          isActive && styles.activeText,
+                        ]}
+                      >
+                        {' ' + word}
+                      </Text>
+                    </MotiView>
+                  ))}
+                  </View>
+                );
+              })}
+          </AnimatePresence>
+          </MotiView>
+
+        {/* BUTTON */}
+        <Pressable
+          style={[styles.button, { backgroundColor: "rgba(0,0,0,0.8)" }]}
+          onPress={handleNext}
+        >
+          <Text style={styles.buttonText}>
+            {sectionIndex === slides.length - 1 &&
+            sentenceIndex === currentSlide.sentences.length - 1
+              ? "Get Started"
+              : "Next"}
+          </Text>
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color="#d0e8d0"
+            style={{ marginLeft: 6 }}
           />
-        ))}
-      </View> */}
+        </Pressable>
+      </View>
     </View>
   );
 }
+
+/* =========================
+   STYLES
+========================= */
 
 const styles = StyleSheet.create({
   container: {
@@ -184,19 +207,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     paddingHorizontal: 24,
-    paddingBottom: 30,
+    paddingBottom: 60,
   },
   textContainer: {
-    marginBottom: 40,
+    // minHeight: 150,
+    // marginBottom: 40,
   },
   text: {
-    color: "#a8b5a8",
-    fontSize: 24,
+    color: "#94a3b8",
+    fontSize: 22,
     fontWeight: "600",
-    marginBottom: 6,
   },
-  italic: {
-    fontStyle: "italic",
+  activeText: {
+    color: "#d0e8d0",
+    
   },
   button: {
     paddingVertical: 18,
@@ -209,15 +233,5 @@ const styles = StyleSheet.create({
     color: "#d0e8d0",
     fontSize: 18,
     fontWeight: "600",
-  },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 32,
-    gap: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
   },
 });

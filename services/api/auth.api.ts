@@ -154,5 +154,11 @@ export const authApi = {
 
     return response.json();
   },
+
+  checkEmail: async (email: string): Promise<{ exists: boolean }> => {
+    return publicRequest<{ exists: boolean }>(`/api/mobile/auth/check-email?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+    });
+  },
 };
 

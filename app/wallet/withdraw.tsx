@@ -20,6 +20,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useWallet } from '@/services/useWallet';
 import { bankWithdrawalsAPI } from '@/services/api/bank-withdrawals.api';
 import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-bank-accounts.api';
+import LottieView from 'lottie-react-native';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -363,6 +364,21 @@ export default function WithdrawScreen() {
           setAlertState(prev => ({ ...prev, visible: false }));
         })}
       />
+
+      {isProcessing ? (
+        <View style={{ justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)',
+         alignItems: 'center',position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,zIndex: 1000 }}>
+            <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/withdraw.json")}
+            autoPlay
+            loop={true}
+            style={{ width: 300, height: 300,marginBottom: -20 }}
+          />
+        </View>
+        </View>
+      ) : (null)}
 
       {/* Bank Account Selector Modal */}
       <Modal
@@ -843,9 +859,7 @@ export default function WithdrawScreen() {
                 padding: 16,
                 borderRadius: 16,
                 marginBottom: 20,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(0, 0, 0, 0.5)'
-                  : 'rgba(255, 255, 255, 0.9)',
+                backgroundColor: colors.card,
                 borderWidth: 1.5,
                 borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
               }}>
@@ -905,9 +919,7 @@ export default function WithdrawScreen() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: isDarkColorScheme
-                    ? 'rgba(0, 0, 0, 0.5)'
-                    : 'rgba(255, 255, 255, 0.9)',
+                    backgroundColor: colors.card,
                   borderRadius: 16,
                   borderWidth: 2,
                   borderColor: amountError ? colors.destructive : isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(0, 0, 0, 0.1)',
@@ -964,12 +976,8 @@ export default function WithdrawScreen() {
                     paddingVertical: 12,
                     borderRadius: 12,
                     backgroundColor: selectedQuickAmount === 25
-                      ? isDarkColorScheme
-                        ? 'rgba(34, 197, 94, 0.25)'
-                        : 'rgba(34, 197, 94, 0.15)'
-                      : isDarkColorScheme
-                        ? 'rgba(0, 0, 0, 0.5)'
-                        : 'rgba(255, 255, 255, 0.9)',
+                      ? colors.primarySoft
+                        : 'rgba(21, 85, 44, 0.26)',
                     borderWidth: 1.5,
                     borderColor: selectedQuickAmount === 25
                       ? colors.primary
@@ -980,7 +988,7 @@ export default function WithdrawScreen() {
                   }}>
                   <Text
                     style={{
-                      color: selectedQuickAmount === 25 ? colors.primary : colors.textPrimary,
+                      color: selectedQuickAmount === 25 ? colors.textPrimary : colors.textPrimary,
                       fontSize: 15,
                       fontWeight: '600',
                     }}>
@@ -994,12 +1002,8 @@ export default function WithdrawScreen() {
                     paddingVertical: 12,
                     borderRadius: 12,
                     backgroundColor: selectedQuickAmount === 50
-                      ? isDarkColorScheme
-                        ? 'rgba(34, 197, 94, 0.25)'
-                        : 'rgba(34, 197, 94, 0.15)'
-                      : isDarkColorScheme
-                        ? 'rgba(0, 0, 0, 0.5)'
-                        : 'rgba(255, 255, 255, 0.9)',
+                    ? colors.primarySoft
+                      : 'rgba(21, 85, 44, 0.26)',                    
                     borderWidth: 1.5,
                     borderColor: selectedQuickAmount === 50
                       ? colors.primary
@@ -1010,7 +1014,7 @@ export default function WithdrawScreen() {
                   }}>
                   <Text
                     style={{
-                      color: selectedQuickAmount === 50 ? colors.primary : colors.textPrimary,
+                      color: selectedQuickAmount === 50 ? colors.textPrimary: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: '600',
                     }}>
@@ -1024,12 +1028,8 @@ export default function WithdrawScreen() {
                     paddingVertical: 12,
                     borderRadius: 12,
                     backgroundColor: selectedQuickAmount === 100
-                      ? isDarkColorScheme
-                        ? 'rgba(34, 197, 94, 0.25)'
-                        : 'rgba(34, 197, 94, 0.15)'
-                      : isDarkColorScheme
-                        ? 'rgba(0, 0, 0, 0.5)'
-                        : 'rgba(255, 255, 255, 0.9)',
+                    ? colors.primarySoft
+                      : 'rgba(21, 85, 44, 0.26)',
                     borderWidth: 1.5,
                     borderColor: selectedQuickAmount === 100
                       ? colors.primary
@@ -1040,7 +1040,7 @@ export default function WithdrawScreen() {
                   }}>
                   <Text
                     style={{
-                      color: selectedQuickAmount === 100 ? colors.primary : colors.textPrimary,
+                      color: selectedQuickAmount === 100 ? colors.textPrimary : colors.textPrimary,
                       fontSize: 15,
                       fontWeight: '600',
                     }}>
@@ -1076,12 +1076,9 @@ export default function WithdrawScreen() {
                   borderRadius: 16,
                   marginBottom: 5,
                   backgroundColor: selectedMethod === 'bank'
-                    ? isDarkColorScheme
-                      ? 'rgba(34, 197, 94, 0.15)'
-                      : 'rgba(34, 197, 94, 0.1)'
-                    : isDarkColorScheme
-                      ? 'rgba(0, 0, 0, 0.5)'
-                      : 'rgba(255, 255, 255, 0.9)',
+                    ?  'rgba(34, 197, 94, 0.15)'
+                      : 'rgba(34, 197, 94, 0.1)',
+                 
                   borderWidth: 2,
                   borderColor: selectedMethod === 'bank'
                     ? colors.primary
@@ -1239,12 +1236,8 @@ export default function WithdrawScreen() {
                   padding: 16,
                   borderRadius: 16,
                   backgroundColor: selectedMethod === 'onchain'
-                    ? isDarkColorScheme
-                      ? 'rgba(34, 197, 94, 0.15)'
-                      : 'rgba(34, 197, 94, 0.1)'
-                    : isDarkColorScheme
-                      ? 'rgba(0, 0, 0, 0.5)'
-                      : 'rgba(255, 255, 255, 0.9)',
+                  ?  'rgba(34, 197, 94, 0.15)'
+                    : 'rgba(34, 197, 94, 0.1)',
                   borderWidth: 2,
                   borderColor: selectedMethod === 'onchain'
                     ? colors.primary
@@ -1303,9 +1296,7 @@ export default function WithdrawScreen() {
                 padding: 16,
                 borderRadius: 16,
                 marginBottom: 2,
-                backgroundColor: isDarkColorScheme
-                  ? 'rgba(0, 0, 0, 0.5)'
-                  : 'rgba(255, 255, 255, 0.9)',
+                  backgroundColor: colors.card,
                 borderWidth: 1.5,
                 borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.2)',
               }}>

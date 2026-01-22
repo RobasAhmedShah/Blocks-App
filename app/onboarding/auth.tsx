@@ -26,6 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { signInWithGoogle } from "@/src/lib/googleSignin";
 import { authApi } from "@/services/api/auth.api";
+import LottieView from "lottie-react-native";
 
 const { width, height } = Dimensions.get("window");
 
@@ -399,7 +400,7 @@ export default function AuthScreen() {
       />
 
       {/* Full-Screen Background Image */}
-      <ImageBackground
+      {/* <ImageBackground
         source={require("@/assets/house.jpg")}
         style={{
           width: width,
@@ -409,10 +410,10 @@ export default function AuthScreen() {
           left: 0,
         }}
         resizeMode="cover"
-      >
+      > */}
         {/* Dark Gradient Overlay */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
+        {/* <LinearGradient
+          colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
           locations={[0, 0.5, 1]}
           style={{
             position: 'absolute',
@@ -421,7 +422,36 @@ export default function AuthScreen() {
             right: 0,
             bottom: 0,
           }}
-        />
+        /> */}
+
+         {/* <LinearGradient
+          colors={['rgb(0, 0, 0)', 'rgb(0, 0, 0)', 'rgba(32, 134, 29, 0.78)', 'rgba(115, 194, 24, 0.92)']}
+          locations={[0, 0.5, 0.8, 1]}
+          style={{
+            position: 'absolute',
+            top: '0%',
+            left: '0%',
+            right: '0%',
+            bottom: '0%',
+          }}
+        /> */}
+
+          <LottieView
+            source={require("@/assets/Gradient-Animation.json")}
+            autoPlay
+            loop={true}
+            style={{
+              position: 'absolute',
+              width: height,
+              height: width,
+              top: (width - height),
+              left: (height - width) / 2,
+              transform: [
+                { rotate: '90deg' },
+                { scale: Math.max(width/100 , height/1000) }
+              ]
+            }}
+          />
 
         {/* Content Container */}
         <Animated.View
@@ -457,6 +487,14 @@ export default function AuthScreen() {
                   height: 80,
                   borderRadius: 20,
                   marginBottom: 16,
+                  borderWidth: 2,
+                  padding: 10,
+                  borderColor: 'rgb(62, 255, 24)',
+                  shadowColor: 'rgb(62, 255, 24)',
+                  shadowOffset: { width: 20, height: 20 },
+                  shadowOpacity: 1,
+                  shadowRadius: 4,
+   
                 }}
                 resizeMode="contain"
               />
@@ -694,7 +732,7 @@ export default function AuthScreen() {
             </Animated.View>
 
             {/* Tertiary Button - Create an account */}
-            <TouchableOpacity
+          {/*  <TouchableOpacity
             //   onPress={() => {
             //     setAuthMode('signup');
             //     setEmail('');
@@ -726,6 +764,7 @@ export default function AuthScreen() {
                 Create an account
               </Text>
             </TouchableOpacity>
+            */}
 
             {/* Optional - Continue as Guest */}
             <TouchableOpacity
@@ -769,7 +808,7 @@ export default function AuthScreen() {
             </Text>
           </Animated.View>
         </Animated.View>
-      </ImageBackground>
+      {/* </ImageBackground> */}
     </View>
   );
 }

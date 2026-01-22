@@ -27,6 +27,7 @@ import { paymentMethodsApi, PaymentMethod } from '@/services/api/paymentMethods.
 import { AppAlert } from '@/components/AppAlert';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
+import LottieView from 'lottie-react-native';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -110,7 +111,7 @@ export default function CardDepositScreen() {
 
   // Check account restrictions on mount
   useEffect(() => {
-    const restrictions = balance.restrictions;
+    const restrictions = balance?.restrictions;
     if (restrictions) {
       if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
         setAlertState({
@@ -324,6 +325,21 @@ export default function CardDepositScreen() {
           setAlertState(prev => ({ ...prev, visible: false }));
         })}
       />
+
+      {isProcessing ? (
+        <View style={{ justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)',
+         alignItems: 'center',position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,zIndex: 1000 }}>
+            <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/Deposit.json")}
+            autoPlay
+            loop={true}
+            style={{ width: 220, height: 220,marginBottom: -20 }}
+          />
+        </View>
+        </View>
+      ) : (null)}
 
       <RestrictionModal {...modalProps} />
 

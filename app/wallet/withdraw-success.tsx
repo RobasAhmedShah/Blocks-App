@@ -11,6 +11,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { LinearGradient } from 'expo-linear-gradient';
+import LottieView from 'lottie-react-native';
 
 export default function WithdrawSuccessScreen() {
   const router = useRouter();
@@ -39,9 +40,11 @@ export default function WithdrawSuccessScreen() {
   return (
     <View style={{ flex: 1 }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+     
       
       {/* Linear Gradient Background */}
-      <LinearGradient
+      {/* <LinearGradient
         colors={isDarkColorScheme 
           ? [
             '#00C896',
@@ -66,7 +69,7 @@ export default function WithdrawSuccessScreen() {
           right: 0,
           bottom: 0,
         }}
-      />
+      /> */}
 
       {/* Header */}
       <View
@@ -104,29 +107,15 @@ export default function WithdrawSuccessScreen() {
           paddingBottom: 40,
         }}
       >
-        {/* Success Icon */}
-        <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <View style={{ position: 'relative' }}>
-            <View style={{
-              height: 100,
-              width: 100,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 9999,
-              backgroundColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.15)',
-            }}>
-              <View style={{
-                height: 72,
-                width: 72,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 9999,
-                backgroundColor: colors.primary,
-              }}>
-                <Ionicons name="checkmark" size={40} color="#FFFFFF" />
-              </View>
-            </View>
-          </View>
+         {/* Check Icon */}
+         <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/Checked.json")}
+            autoPlay
+            loop={false}
+            style={{ width: 220, height: 220,marginBottom: -20 }}
+          />
         </View>
 
         {/* Title & Description */}

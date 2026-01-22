@@ -263,7 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Use InteractionManager to defer navigation until all interactions complete
       // This prevents hooks errors during render by ensuring navigation happens after render cycle
       const interaction = InteractionManager.runAfterInteractions(() => {
-        router.replace('/onboarding/signin');
+        router.replace('/onboarding/auth');
       });
       
       // Cleanup function to cancel navigation if component unmounts

@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useWallet } from "@/services/useWallet";
+import LottieView from 'lottie-react-native';
 
 const { width } = Dimensions.get("window");
 
@@ -122,28 +123,14 @@ export default function DepositConfirmationLight() {
         }}
       >
         {/* Check Icon */}
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <View style={{ position: 'relative' }}>
-            <View style={{
-              height: 80,
-              width: 80,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 9999,
-              backgroundColor: `${colors.primary}33`,
-            }}>
-              <View style={{
-                height: 56,
-                width: 56,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 9999,
-                backgroundColor: colors.primary,
-              }}>
-                <Ionicons name="checkmark" size={32} color={colors.primaryForeground} />
-              </View>
-            </View>
-          </View>
+        <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/Checked.json")}
+            autoPlay
+            loop={false}
+            style={{ width: 220, height: 220,marginBottom: -20 }}
+          />
         </View>
 
         {/* Title & Description */}

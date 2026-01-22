@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Keyboard,
   Image,
   Dimensions,
+  SafeAreaView,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,12 +23,20 @@ import { useNotifications } from "@/services/useNotifications";
 import { AppAlert } from "@/components/AppAlert";
 import * as Notifications from "expo-notifications";
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withSpring,
 } from "react-native-reanimated";
+import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
+import { MotiView } from "moti";
+
+// Create animated RadialGradient component
+const AnimatedRadialGradient = Animated.createAnimatedComponent(RadialGradient);
 
 const { width } = Dimensions.get('window');
 
@@ -252,10 +261,19 @@ export default function SignUpScreen() {
   const { colors, isDarkColorScheme } = useColorScheme();
   const { signIn, enableBiometrics, isBiometricSupported } = useAuth();
   const { requestPermissions: requestNotificationPermissions, checkPermissions: checkNotificationPermissions, expoPushToken } = useNotifications();
+  const insets = useSafeAreaInsets();
+  
+  // Refs for keyboard handling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3;
+  const totalSteps = 4;
   
   // Form fields
   const [firstName, setFirstName] = useState("");
@@ -291,6 +309,14 @@ export default function SignUpScreen() {
   const step1TranslateX = useSharedValue(0);
   const step2TranslateX = useSharedValue(width);
   const step3TranslateX = useSharedValue(width);
+  const step4TranslateX = useSharedValue(width);
+  
+  // Progress bar animation
+  const progressValue = useSharedValue(0);
+  
+  // Gradient horizontal position (0 = left, 1 = right)
+  // Step 1 → 10%, Step 2 → 35%, Step 3 → 60%, Step 4 → 90%
+  const gradientX = useSharedValue(0.1);
   
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -325,14 +351,30 @@ export default function SignUpScreen() {
       step1TranslateX.value = withTiming(0, { duration: 300 });
       step2TranslateX.value = withTiming(width, { duration: 300 });
       step3TranslateX.value = withTiming(width, { duration: 300 });
+      step4TranslateX.value = withTiming(width, { duration: 300 });
+      progressValue.value = withTiming(25, { duration: 300 });
+      gradientX.value = withTiming(0.1, { duration: 300 }); // 10%
     } else if (currentStep === 2) {
       step1TranslateX.value = withTiming(-width, { duration: 300 });
       step2TranslateX.value = withTiming(0, { duration: 300 });
       step3TranslateX.value = withTiming(width, { duration: 300 });
+      step4TranslateX.value = withTiming(width, { duration: 300 });
+      progressValue.value = withTiming(50, { duration: 300 });
+      gradientX.value = withTiming(0.35, { duration: 300 }); // 35%
     } else if (currentStep === 3) {
       step1TranslateX.value = withTiming(-width, { duration: 300 });
       step2TranslateX.value = withTiming(-width, { duration: 300 });
       step3TranslateX.value = withTiming(0, { duration: 300 });
+      step4TranslateX.value = withTiming(width, { duration: 300 });
+      progressValue.value = withTiming(75, { duration: 300 });
+      gradientX.value = withTiming(0.6, { duration: 300 }); // 60%
+    } else if (currentStep === 4) {
+      step1TranslateX.value = withTiming(-width, { duration: 300 });
+      step2TranslateX.value = withTiming(-width, { duration: 300 });
+      step3TranslateX.value = withTiming(-width, { duration: 300 });
+      step4TranslateX.value = withTiming(0, { duration: 300 });
+      progressValue.value = withTiming(100, { duration: 300 });
+      gradientX.value = withTiming(0.9, { duration: 300 }); // 90%
     }
   }, [currentStep]);
 
@@ -385,9 +427,29 @@ export default function SignUpScreen() {
     transform: [{ translateX: step3TranslateX.value }],
   }));
 
+  const step4AnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: step4TranslateX.value }],
+  }));
+
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
+
+  const progressAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value}%`,
+  }));
+
+  // Animated props for RadialGradient
+  const animatedGradientProps = useAnimatedProps(() => {
+    // Convert gradientX (0-1) to percentage string for cx and fx
+    const cxPercent = `${gradientX.value * 100}%`;
+    const fxPercent = `${Math.min(100, (gradientX.value * 100) + 10)}%`; // fx slightly ahead of cx for better effect
+    
+    return {
+      cx: cxPercent,
+      fx: fxPercent,
+    };
+  });
 
   const handleFirstNameChange = (text: string) => {
     const cleanText = text.replace(/[^a-zA-Z\s'-]/g, '');
@@ -424,20 +486,15 @@ export default function SignUpScreen() {
   };
 
   const validateStep1 = () => {
-    const firstNameValidation = validateFirstName(firstName);
-    const lastNameValidation = validateLastName(lastName);
+    // Step 1: Email only
     const emailValidation = validateEmail(email);
 
     const newErrors: typeof errors = {};
-    if (!firstNameValidation.isValid) newErrors.firstName = firstNameValidation.error;
-    if (!lastNameValidation.isValid) newErrors.lastName = lastNameValidation.error;
     if (!emailValidation.isValid) newErrors.email = emailValidation.error;
 
     setErrors(newErrors);
     setTouched({
       ...touched,
-      firstName: true,
-      lastName: true,
       email: true,
     });
 
@@ -445,6 +502,26 @@ export default function SignUpScreen() {
   };
 
   const validateStep2 = () => {
+    // Step 2: First Name and Last Name
+    const firstNameValidation = validateFirstName(firstName);
+    const lastNameValidation = validateLastName(lastName);
+
+    const newErrors: typeof errors = {};
+    if (!firstNameValidation.isValid) newErrors.firstName = firstNameValidation.error;
+    if (!lastNameValidation.isValid) newErrors.lastName = lastNameValidation.error;
+
+    setErrors(newErrors);
+    setTouched({
+      ...touched,
+      firstName: true,
+      lastName: true,
+    });
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateStep3 = () => {
+    // Step 3: Password
     const passwordValidation = validatePassword(password);
     const confirmPasswordValidation = validateConfirmPassword(password, confirmPassword);
 
@@ -463,26 +540,68 @@ export default function SignUpScreen() {
   };
 
   const handleNext = () => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     if (currentStep === 1) {
       if (validateStep1()) {
+        Keyboard.dismiss();
         setCurrentStep(2);
       }
     } else if (currentStep === 2) {
       if (validateStep2()) {
+        Keyboard.dismiss();
         setCurrentStep(3);
+      }
+    } else if (currentStep === 3) {
+      if (validateStep3()) {
+        Keyboard.dismiss();
+        setCurrentStep(4);
       }
     }
   };
 
   const handleBack = () => {
+    // Haptic feedback
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     if (currentStep > 1) {
+      Keyboard.dismiss();
       setCurrentStep(currentStep - 1);
     }
   };
+  
+  // Handle input focus - scroll input above keyboard
+  const handleInputFocus = (inputRef: React.RefObject<TextInput | null>, offset: number = 150) => {
+    setTimeout(() => {
+      if (inputRef.current && scrollViewRef.current) {
+        inputRef.current.measureInWindow((x, y, width, height) => {
+          // Get keyboard height (approximate)
+          const keyboardHeight = Platform.OS === 'ios' ? 300 : 250;
+          const screenHeight = Dimensions.get('window').height;
+          const inputBottom = y + height;
+          const visibleAreaBottom = screenHeight - keyboardHeight;
+          
+          // If input is below visible area, scroll up
+          if (inputBottom > visibleAreaBottom - offset) {
+            const scrollAmount = inputBottom - visibleAreaBottom + offset;
+            scrollViewRef.current?.scrollTo({
+              y: scrollAmount,
+              animated: true,
+            });
+          }
+        });
+      }
+    }, 100);
+  };
 
   const handleSignUp = async () => {
-    // Final validation
-    if (!validateStep1() || !validateStep2()) {
+    // Final validation - all steps must be valid
+    if (!validateStep1() || !validateStep2() || !validateStep3()) {
       return;
     }
 
@@ -675,25 +794,30 @@ export default function SignUpScreen() {
   };
 
   const isStep1Valid = () => {
-    return validateFirstName(firstName).isValid &&
-           validateLastName(lastName).isValid &&
-           validateEmail(email).isValid;
+    return validateEmail(email).isValid;
   };
 
   const isStep2Valid = () => {
+    return validateFirstName(firstName).isValid &&
+           validateLastName(lastName).isValid;
+  };
+
+  const isStep3Valid = () => {
     return validatePassword(password).isValid &&
            validateConfirmPassword(password, confirmPassword).isValid;
   };
 
   return (
-    <LinearGradient
+    <SafeAreaView style={{ flex: 1 }}>
+      
+    {/* <LinearGradient
       colors={
         isDarkColorScheme
           ? ["#0B3D36", "#102222", "#0B1F1C"]
           : [colors.background, colors.card, colors.background]
       }
       style={{ flex: 1 }}
-    >
+    > */}
       <StatusBar barStyle={isDarkColorScheme ? "light-content" : "dark-content"} />
       
       {/* App Alert */}
@@ -709,15 +833,71 @@ export default function SignUpScreen() {
         onClose={alertState.onClose}
       />
       
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="never"
-          showsVerticalScrollIndicator={false}
+      <View style={{ flex: 1,backgroundColor:isDarkColorScheme ? "rgba(22,22,22,1)" : "#f0fdf4" }}>
+        {/* Radial Gradient Background */}
+      <MotiView 
+      // animate={{left:currentStep === 1 ? "0%" : currentStep === 2 ? "33%" : currentStep === 3 ? "60%" : currentStep === 4 ? "100%" : "0%"}}
+      transition={{ type: "timing", duration: 300}}
+      style={{ position: 'absolute', inset: 0 }}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            {isDarkColorScheme ? (
+              <>
+                {/* Dark Mode - Animated Horizontal Glow */}
+                <AnimatedRadialGradient 
+                  id="grad1" 
+                  cy="0%" 
+                  r="80%" 
+                  fy="10%"
+                  animatedProps={animatedGradientProps}
+                >
+                  <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
+                  <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+                </AnimatedRadialGradient>
+              </>
+            ) : (
+              <>
+                {/* Light Mode - Animated Horizontal Glow */}
+                <AnimatedRadialGradient 
+                  id="grad1" 
+                  cy="10%" 
+                  r="80%" 
+                  fy="10%"
+                  animatedProps={animatedGradientProps}
+                >
+                  <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                  <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                </AnimatedRadialGradient>
+              </>
+            )}
+          </Defs>
+
+          {/* Base Layer */}
+          <Rect 
+            width="100%" 
+            height="100%" 
+            fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
+          />
+
+          {/* Layer the gradients on top of the base */}
+          <Rect width="100%" height="50%" fill="url(#grad1)" />
+        </Svg>
+      </MotiView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          style={{ flex: 1 }}
         >
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={{ 
+              flexGrow: 1,
+              paddingBottom: 120 + insets.bottom, // Space for fixed bottom bar
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
           <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60 }}>
             {/* Back Button */}
             <TouchableOpacity
@@ -744,18 +924,42 @@ export default function SignUpScreen() {
               <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
 
-            {/* Step Indicator */}
-            <View style={{ marginBottom: 32, alignItems: 'center' }}>
-              <Text
+            {/* Progress Bar */}
+            <View style={{ marginBottom: 32 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap:8, marginBottom: 12}}>
+                {[1, 2, 3, 4].map((step) => (
+                  <View
+                    key={step}
+                    style={{
+                      flex:1,
+                      // width: 8,
+                      height: 4,
+                      borderRadius: 4,
+                      backgroundColor: currentStep >= step ? colors.primary : (isDarkColorScheme ? "rgba(255, 255, 255, 0.2)" : colors.border),
+                    }}
+                  />
+                ))}
+              </View>
+              {/* Animated Progress Bar */}
+              {/* <View
                 style={{
-                  fontSize: 14,
-                  color: colors.textMuted,
-                  fontWeight: '600',
-                  marginBottom: 8,
+                  height: 4,
+                  backgroundColor: isDarkColorScheme ? "rgba(255, 255, 255, 0.1)" : colors.border,
+                  borderRadius: 2,
+                  overflow: 'hidden',
                 }}
               >
-                Step {currentStep}/{totalSteps}
-              </Text>
+                <Animated.View
+                  style={[
+                    {
+                      height: '100%',
+                      backgroundColor: colors.primary,
+                      borderRadius: 2,
+                    },
+                    progressAnimatedStyle,
+                  ]}
+                />
+              </View> */}
             </View>
 
             {/* Header */}
@@ -768,9 +972,10 @@ export default function SignUpScreen() {
                   marginBottom: 12,
                 }}
               >
-                {currentStep === 1 && "Set up your Profile"}
-                {currentStep === 2 && "Create a Password"}
-                {currentStep === 3 && "Add a Photo"}
+                {currentStep === 1 && "Enter your Email"}
+                {currentStep === 2 && "Set up your Profile"}
+                {currentStep === 3 && "Create a Password"}
+                {currentStep === 4 && "Add a Photo"}
               </Text>
               <Text
                 style={{
@@ -779,18 +984,103 @@ export default function SignUpScreen() {
                   lineHeight: 24,
                 }}
               >
-                {currentStep === 1 && "Enter essential details for your account."}
-                {currentStep === 2 && "Secure your account with a password."}
-                {currentStep === 3 && "Add a profile photo so your friends know it's you!"}
+                {currentStep === 1 && "We'll use this to keep your account secure."}
+                {currentStep === 2 && "Enter your first and last name."}
+                {currentStep === 3 && "Secure your account with a strong password."}
+                {currentStep === 4 && "Add a profile photo so your friends know it's you!"}
               </Text>
             </View>
 
             {/* Steps Container */}
-            <ScrollView style={{ flex: 1}}>
-              {/* Step 1: Profile Setup */}
+            <View style={{ minHeight: 400, position: 'relative' }}>
+              {/* Step 1: Email Only */}
               <Animated.View
                 style={[
                   step1AnimatedStyle,
+                  {
+                    position: 'absolute',
+                    width: width - 48,
+                    paddingRight: 0,
+                  },
+                ]}
+              >
+                <View style={{ gap: 24 }}>
+                  {/* Email Input */}
+                  <View>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: colors.textPrimary,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Email
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: isDarkColorScheme
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : colors.input,
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: errors.email && touched.email
+                          ? colors.destructive
+                          : !errors.email && touched.email && email
+                          ? colors.primary
+                          : 'transparent',
+                        paddingHorizontal: 16,
+                        height: 56,
+                      }}
+                    >
+                      <Ionicons
+                        name="mail-outline"
+                        size={20}
+                        color={errors.email && touched.email ? colors.destructive : colors.textMuted}
+                        style={{ marginRight: 12 }}
+                      />
+                      <TextInput
+                        ref={emailRef}
+                        value={email}
+                        onChangeText={handleEmailChange}
+                        onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                        onFocus={() => handleInputFocus(emailRef)}
+                        placeholder="Email"
+                        placeholderTextColor={colors.textMuted}
+                        maxLength={VALIDATION_RULES.EMAIL.MAX_LENGTH}
+                        style={{
+                          flex: 1,
+                          fontSize: 16,
+                          color: colors.textPrimary,
+                        }}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
+                      />
+                      {!errors.email && touched.email && email && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      )}
+                    </View>
+                    {errors.email && touched.email && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
+                        <Ionicons name="alert-circle" size={14} color={colors.destructive} />
+                        <Text style={{ color: colors.destructive, fontSize: 12, marginLeft: 4 }}>
+                          {errors.email}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </Animated.View>
+
+              {/* Step 2: First Name and Last Name */}
+              <Animated.View
+                style={[
+                  step2AnimatedStyle,
                   {
                     position: 'absolute',
                     width: width - 48,
@@ -836,9 +1126,11 @@ export default function SignUpScreen() {
                         style={{ marginRight: 12 }}
                       />
                       <TextInput
+                        ref={firstNameRef}
                         value={firstName}
                         onChangeText={handleFirstNameChange}
                         onBlur={() => setTouched(prev => ({ ...prev, firstName: true }))}
+                        onFocus={() => handleInputFocus(firstNameRef)}
                         placeholder="First Name"
                         placeholderTextColor={colors.textMuted}
                         maxLength={VALIDATION_RULES.FULL_NAME.MAX_LENGTH}
@@ -850,7 +1142,7 @@ export default function SignUpScreen() {
                         autoCapitalize="words"
                         autoCorrect={false}
                         returnKeyType="next"
-                        onSubmitEditing={() => Keyboard.dismiss()}
+                        onSubmitEditing={() => lastNameRef.current?.focus()}
                       />
                       {!errors.firstName && touched.firstName && firstName && (
                         <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -903,9 +1195,11 @@ export default function SignUpScreen() {
                         style={{ marginRight: 12 }}
                       />
                       <TextInput
+                        ref={lastNameRef}
                         value={lastName}
                         onChangeText={handleLastNameChange}
                         onBlur={() => setTouched(prev => ({ ...prev, lastName: true }))}
+                        onFocus={() => handleInputFocus(firstNameRef)}
                         placeholder="Last Name"
                         placeholderTextColor={colors.textMuted}
                         maxLength={VALIDATION_RULES.FULL_NAME.MAX_LENGTH}
@@ -916,7 +1210,7 @@ export default function SignUpScreen() {
                         }}
                         autoCapitalize="words"
                         autoCorrect={false}
-                        returnKeyType="next"
+                        returnKeyType="done"
                         onSubmitEditing={() => Keyboard.dismiss()}
                       />
                       {!errors.lastName && touched.lastName && lastName && (
@@ -932,95 +1226,13 @@ export default function SignUpScreen() {
                       </View>
                     )}
                   </View>
-
-                  {/* Email Input */}
-                  <View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color: colors.textPrimary,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Email
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: isDarkColorScheme
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : colors.input,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: errors.email && touched.email
-                          ? colors.destructive
-                          : !errors.email && touched.email && email
-                          ? colors.primary
-                          : 'transparent',
-                        paddingHorizontal: 16,
-                        height: 56,
-                      }}
-                    >
-                      <Ionicons
-                        name="mail-outline"
-                        size={20}
-                        color={errors.email && touched.email ? colors.destructive : colors.textMuted}
-                        style={{ marginRight: 12 }}
-                      />
-                      <TextInput
-                        value={email}
-                        onChangeText={handleEmailChange}
-                        onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
-                        placeholder="Email"
-                        placeholderTextColor={colors.textMuted}
-                        maxLength={VALIDATION_RULES.EMAIL.MAX_LENGTH}
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          color: colors.textPrimary,
-                        }}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        returnKeyType="done"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                      />
-                      {!errors.email && touched.email && email && (
-                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                      )}
-                    </View>
-                    {errors.email && touched.email && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
-                        <Ionicons name="alert-circle" size={14} color={colors.destructive} />
-                        <Text style={{ color: colors.destructive, fontSize: 12, marginLeft: 4 }}>
-                          {errors.email}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
                 </View>
-
-                {/* Legal Text */}
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: colors.textMuted,
-                    textAlign: "center",
-                    lineHeight: 18,
-                    marginTop: 24,
-                    paddingHorizontal: 20,
-                  }}
-                >
-                  By agreeing to the <Text style={{ color: colors.primary }}>terms & conditions</Text>, you are entering into a legally binding contract with the service provider.
-                </Text>
               </Animated.View>
 
-              {/* Step 2: Password */}
+              {/* Step 3: Password */}
               <Animated.View
                 style={[
-                  step2AnimatedStyle,
+                  step3AnimatedStyle,
                   {
                     position: 'absolute',
                     width: width - 48,
@@ -1066,9 +1278,11 @@ export default function SignUpScreen() {
                         style={{ marginRight: 12 }}
                       />
                       <TextInput
+                        ref={passwordRef}
                         value={password}
                         onChangeText={handlePasswordChange}
                         onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
+                        onFocus={() => handleInputFocus(passwordRef)}
                         placeholder="Password"
                         placeholderTextColor={colors.textMuted}
                         maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
@@ -1081,7 +1295,7 @@ export default function SignUpScreen() {
                         autoCapitalize="none"
                         autoCorrect={false}
                         returnKeyType="next"
-                        onSubmitEditing={() => Keyboard.dismiss()}
+                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                       />
                       <TouchableOpacity
                         onPress={() => setShowPassword(!showPassword)}
@@ -1141,9 +1355,11 @@ export default function SignUpScreen() {
                         style={{ marginRight: 12 }}
                       />
                       <TextInput
+                        ref={confirmPasswordRef}
                         value={confirmPassword}
                         onChangeText={handleConfirmPasswordChange}
                         onBlur={() => setTouched(prev => ({ ...prev, confirmPassword: true }))}
+                        onFocus={() => handleInputFocus(firstNameRef)}
                         placeholder="Confirm Password"
                         placeholderTextColor={colors.textMuted}
                         maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
@@ -1207,10 +1423,10 @@ export default function SignUpScreen() {
                 </View>
               </Animated.View>
 
-              {/* Step 3: Photo */}
+              {/* Step 4: Photo */}
               <Animated.View
                 style={[
-                  step3AnimatedStyle,
+                  step4AnimatedStyle,
                   {
                     position: 'absolute',
                     width: width - 48,
@@ -1298,100 +1514,139 @@ export default function SignUpScreen() {
                   </View>
                 </View>
               </Animated.View>
-            </ScrollView>
+            </View>
 
-            {/* Navigation Buttons */}
-            <View style={{ marginTop: 32, gap: 12 }}>
-              {/* Next/Back Buttons */}
-              {currentStep < 3 && (
-                <Animated.View style={buttonAnimatedStyle}>
-                  <TouchableOpacity
-                    onPress={handleNext}
-                    disabled={isLoading || (currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid())}
+            {/* API Error Message (inside scrollable area) */}
+            {apiError && (
+              <View
+                style={{
+                  backgroundColor: isDarkColorScheme
+                    ? "rgba(239, 68, 68, 0.1)"
+                    : "rgba(239, 68, 68, 0.05)",
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.destructive,
+                  padding: 16,
+                  marginTop: 24,
+                  marginBottom: 24,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="alert-circle" size={20} color={colors.destructive} />
+                  <Text
                     style={{
-                      backgroundColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? colors.border : colors.primary,
-                      height: 56,
-                      borderRadius: 16,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      flex: 1,
+                      color: colors.destructive,
+                      fontSize: 14,
+                      lineHeight: 20,
                     }}
-                    activeOpacity={0.8}
                   >
-                    <Text
-                      style={{
-                        color: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? colors.textMuted : colors.primaryForeground,
-                        fontSize: 16,
-                        fontWeight: "bold",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Next
-                    </Text>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
+                    {apiError}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
-              {/* Back Button (only show on step 2 and 3) */}
-              {currentStep > 1 && currentStep < 3 && (
+        {/* Fixed Bottom Action Bar - Outside KeyboardAvoidingView to stay fixed */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            paddingTop: 16,
+            paddingBottom: insets.bottom + 16,
+            paddingHorizontal: 24,
+            // backgroundColor: isDarkColorScheme
+            //   ? "rgba(11, 31, 28, 0.98)"
+            //   : "rgba(255, 255, 255, 0.98)",
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            // elevation: 12,
+          }}
+        >
+          <View style={{ gap: 12 }}>
+            {/* Next/Back Buttons */}
+            {currentStep < 4 && (
+              <Animated.View style={buttonAnimatedStyle}>
                 <TouchableOpacity
-                  onPress={handleBack}
-                  disabled={isLoading}
-                  style={{
+                  onPress={handleNext}
+                  onPressIn={() => {
+                    buttonScale.value = withSpring(0.96, { damping: 15 });
+                  }}
+                  onPressOut={() => {
+                    buttonScale.value = withSpring(1, { damping: 15 });
+                  }}
+                    disabled={isLoading || (currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid())}
+                    style={{
+                      backgroundColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? colors.border : colors.primary,
                     height: 56,
                     borderRadius: 16,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: 'transparent',
+                    shadowColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 'transparent' : colors.primary,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 0 : 0.3,
+                    shadowRadius: 8,
+                    elevation: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 0 : 6,
                   }}
-                  activeOpacity={0.8}
+                  activeOpacity={1}
                 >
                   <Text
                     style={{
-                      color: colors.textSecondary,
+                        color: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? colors.textMuted : colors.primaryForeground,
                       fontSize: 16,
-                      fontWeight: "600",
+                      fontWeight: "bold",
+                      letterSpacing: 0.5,
                     }}
                   >
-                    Back
+                    Next
                   </Text>
                 </TouchableOpacity>
-              )}
+              </Animated.View>
+            )}
 
-              {/* API Error Message */}
-              {apiError && (
-                <View
+            {/* Back Button (only show on step 2, 3, and 4) */}
+            {currentStep > 1 && currentStep < 4 && (
+              <TouchableOpacity
+                onPress={handleBack}
+                onPressIn={() => {
+                  if (Platform.OS === 'ios') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                disabled={isLoading}
+                style={{
+                  height: 56,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: 'transparent',
+                }}
+                activeOpacity={0.6}
+              >
+                <Text
                   style={{
-                    backgroundColor: isDarkColorScheme
-                      ? "rgba(239, 68, 68, 0.1)"
-                      : "rgba(239, 68, 68, 0.05)",
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: colors.destructive,
-                    padding: 16,
-                    marginTop: 8,
+                    color: colors.textSecondary,
+                    fontSize: 16,
+                    fontWeight: "600",
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Ionicons name="alert-circle" size={20} color={colors.destructive} />
-                    <Text
-                      style={{
-                        flex: 1,
-                        color: colors.destructive,
-                        fontSize: 14,
-                        lineHeight: 20,
-                      }}
-                    >
-                      {apiError}
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </View>
-
-         
+                  Back
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+        </View>
+      </View>
+    {/* </LinearGradient> */}
+    </SafeAreaView>
   );
 }

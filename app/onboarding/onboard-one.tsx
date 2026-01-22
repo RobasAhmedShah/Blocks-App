@@ -128,7 +128,7 @@ const dynamicHeight =
                 const isActive = i === sentenceIndex;
 
                 return (
-                  <View key={`${sectionIndex}-${i}`} style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <View key={`${sectionIndex}-${i}`} style={{ flexDirection: "row", flexWrap: "wrap", }}>
                   {sentence.split(" ").map((word, wordIndex) => (
                     <MotiView
                       key={`${wordIndex}-${i}`}
@@ -143,7 +143,7 @@ const dynamicHeight =
                         duration: 300,
                         delay: (i===0 && isActive && sectionIndex!==0) ? wordIndex * 100 + i * 500 + 2000 : wordIndex * 100 + i * 500
                       }}
-                      style={{ marginBottom: 8 }}
+                      style={{ marginBottom: 6 }}
                     >
                       
                       <Text
@@ -223,6 +223,7 @@ const styles = StyleSheet.create({
     
   },
   button: {
+    marginTop:-50,
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: "center",

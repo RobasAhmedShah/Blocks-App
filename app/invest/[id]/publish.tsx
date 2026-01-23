@@ -11,6 +11,7 @@ import { marketplaceAPI } from '@/services/api/marketplace.api';
 import { useWallet } from '@/services/useWallet';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
@@ -293,7 +294,7 @@ export default function PublishScreen() {
                         >
                             <View style={{ flex: 1, alignItems: 'center' }}>
                                 {isProcessing ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <EmeraldLoader />
                                 ) : (
                                     <Text className="text-white text-lg font-bold">
                                         Swipe to Publish →

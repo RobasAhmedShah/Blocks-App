@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function SendScreen() {
   const router = useRouter();
@@ -331,7 +332,7 @@ export default function SendScreen() {
           }}
         >
           {sending ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <EmeraldLoader />
           ) : (
             <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
               Send Payment

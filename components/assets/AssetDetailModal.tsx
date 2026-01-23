@@ -20,6 +20,7 @@ import { ASSETS_CONSTANTS } from './constants';
 import { getModalStats } from './utils';
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { CustomModal } from '@/components/common/CustomModal';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 const { SCREEN_WIDTH, SCREEN_HEIGHT } = ASSETS_CONSTANTS;
 
@@ -604,7 +605,7 @@ export function AssetDetailModal({
                         <View className="flex-row items-center gap-2">
                           {downloadingDoc === certificatePath ? (
                             <>
-                              <ActivityIndicator size="small" color={colors.primaryForeground} />
+                              <EmeraldLoader />
                               <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
                                 Opening...
                               </Text>

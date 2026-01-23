@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi, KycStatus } from '@/services/api/kyc.api';
 import { useAuth } from '@/contexts/AuthContext';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function KycScreen() {
   const router = useRouter();
@@ -104,7 +105,7 @@ export default function KycScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
         </View>
       </SafeAreaView>
     );

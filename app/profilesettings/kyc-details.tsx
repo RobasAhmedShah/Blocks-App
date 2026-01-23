@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { kycApi, KycDetails } from '@/services/api/kyc.api';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function KycDetailsScreen() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function KycDetailsScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
         </View>
       </SafeAreaView>
     );

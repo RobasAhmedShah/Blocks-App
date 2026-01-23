@@ -17,6 +17,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useProperty } from '@/services/useProperty';
 import { PropertyToken } from '@/types/property';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function App() {
   const params = useLocalSearchParams<{ id: string | string[] }>();
@@ -142,7 +143,7 @@ export default function App() {
         >
           {loading ? (
             <View className="flex-1 items-center justify-center py-20">
-              <ActivityIndicator size="large" color="#E67E22" />
+              <EmeraldLoader />
               <Text className="text-white mt-4">Loading tiers...</Text>
             </View>
           ) : error ? (

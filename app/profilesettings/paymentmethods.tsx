@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { paymentMethodsApi, PaymentMethod } from "@/services/api/paymentMethods.api";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 // Card network color schemes and gradients
 const getCardStyle = (provider: string, isDarkColorScheme: boolean) => {
@@ -187,7 +188,7 @@ export default function PaymentMethodsScreen() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
           <Text style={{ color: colors.textSecondary }} className="mt-4">
             Loading payment methods...
           </Text>

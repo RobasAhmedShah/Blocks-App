@@ -24,6 +24,7 @@ import { KeyboardDismissButton } from "@/components/common/KeyboardDismissButton
 import { savedPlansService } from "@/services/savedPlans";
 import { Alert } from "react-native";
 import { useKycCheck } from "@/hooks/useKycCheck";
+import EmeraldLoader from "@/components/EmeraldLoader";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -522,7 +523,7 @@ export default function GuidedInvestmentScreen() {
             <View style={{ flexDirection: 'column', gap: 16 }}>
               {isLoadingProperties ? (
                 <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
-                  <ActivityIndicator size="large" color={colors.primary} />
+                  <EmeraldLoader />
                   <Text style={{ color: colors.textSecondary, fontSize: 14, marginTop: 12 }}>
                     Loading properties...
                   </Text>

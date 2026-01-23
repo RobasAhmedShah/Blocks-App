@@ -28,6 +28,7 @@ import { AppAlert } from '@/components/AppAlert';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 import LottieView from 'lottie-react-native';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -501,7 +502,7 @@ export default function CardDepositScreen() {
             alignItems: 'center',
             marginBottom: 24,
           }}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <EmeraldLoader />
             <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Loading payment methods...</Text>
           </View>
         ) : selectedMethod ? (
@@ -776,7 +777,7 @@ export default function CardDepositScreen() {
           }}
         >
           {isProcessing ? (
-            <ActivityIndicator size="small" color={colors.primaryForeground} />
+            <EmeraldLoader />
           ) : (
             <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
               {!amount 

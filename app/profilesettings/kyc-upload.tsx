@@ -19,6 +19,7 @@ import { kycApi } from '@/services/api/kyc.api';
 import { useKycCheck } from '@/hooks/useKycCheck';
 import { useApp } from '@/contexts/AppContext';
 import { AppAlert } from '@/components/AppAlert';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 type DocumentType = 'front' | 'back' | 'selfie';
 
@@ -311,7 +312,7 @@ export default function KycUploadScreen() {
             )}
             {doc.uploading && (
               <View className="flex-row items-center gap-1">
-                <ActivityIndicator size="small" color={colors.primary} />
+                <EmeraldLoader />
                 <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Uploading...</Text>
               </View>
             )}
@@ -359,7 +360,7 @@ export default function KycUploadScreen() {
                   className="rounded-lg items-center"
                 >
                   {doc.uploading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <EmeraldLoader />
                   ) : (
                     <>
                       <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
@@ -493,7 +494,7 @@ export default function KycUploadScreen() {
             activeOpacity={0.8}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <EmeraldLoader />
             ) : (
               <Text style={{ 
                 fontSize: 16, 

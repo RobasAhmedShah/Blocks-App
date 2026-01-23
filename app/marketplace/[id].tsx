@@ -20,6 +20,7 @@ import * as SecureStore from 'expo-secure-store';
 import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
 import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { apiClient } from '@/services/api/apiClient';
+import EmeraldLoader from '@/components/EmeraldLoader';
 // Temporarily disable WebSocket to prevent socket.io-client crash
 // TODO: Re-enable once socket.io-client polyfill is properly configured
 // import { useWebSocket } from '@/services/websocket/useWebSocket';
@@ -394,7 +395,7 @@ export default function ListingDetailScreen() {
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <EmeraldLoader />
       </View>
     );
   }
@@ -820,7 +821,7 @@ export default function ListingDetailScreen() {
           >
             {loadingCandles ? (
               <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#9EDC5A" />
+                <EmeraldLoader />
                 <Text style={{ color: 'rgba(255,255,255,0.55)', marginTop: 8, fontSize: 12 }}>
                   Loading price data...
                 </Text>
@@ -1126,7 +1127,7 @@ export default function ListingDetailScreen() {
                 }}
               >
                 {isProcessing ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <EmeraldLoader />
                 ) : (
                   <View className="flex-row items-center">
                     <MaterialIcons name="unpublished" size={20} color="#ffffff" style={{ marginRight: 8 }} />

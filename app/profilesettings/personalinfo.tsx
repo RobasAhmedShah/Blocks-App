@@ -28,6 +28,7 @@ import { UserInfo } from "@/types/profilesettings";
 import { useApp } from "@/contexts/AppContext";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import EmeraldLoader from "@/components/EmeraldLoader";
 import { profileApi } from "@/services/api/profile.api";
 // DateTimePicker is provided by @react-native-community/datetimepicker (bundled with Expo)
 // Use dynamic require to avoid type resolution issues in tooling.
@@ -291,7 +292,7 @@ export default function PersonalInformationScreen() {
                 className="w-32 h-32 rounded-full border-4 overflow-hidden items-center justify-center"
               >
                 {isUploadingImage ? (
-                  <ActivityIndicator size="large" color={colors.primary} />
+                  <EmeraldLoader />
                 ) : (localImageUri || userInfo.profileImage) ? (
                   <Image
                     source={{ uri: localImageUri || userInfo.profileImage || '' }}

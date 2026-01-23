@@ -20,6 +20,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { LinearGradient } from "expo-linear-gradient";
 import { linkedBankAccountsApi, LinkedBankAccount, CreateLinkedBankAccountDto } from "@/services/api/linked-bank-accounts.api";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 export default function LinkedBankAccountsScreen() {
   const router = useRouter();
@@ -260,7 +261,7 @@ export default function LinkedBankAccountsScreen() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
           <Text style={{ color: colors.textSecondary }} className="mt-4">
             Loading bank accounts...
           </Text>
@@ -765,7 +766,7 @@ export default function LinkedBankAccountsScreen() {
               }}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <EmeraldLoader />
               ) : (
                 <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
                   Add Bank Account

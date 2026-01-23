@@ -27,6 +27,7 @@ import { normalizePropertyImages } from "@/utils/propertyUtils";
 import { useApp } from "@/contexts/AppContext";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import * as Linking from "expo-linking";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 export default function PropertyDetailHero() {
   const router = useRouter();
@@ -154,7 +155,7 @@ export default function PropertyDetailHero() {
   if (loading) {
     return (
       <View className="flex-1 bg-[#0B1220] items-center justify-center">
-        <ActivityIndicator size="large" color="#D97706" />
+        <EmeraldLoader />
         <Text className="text-white/60 mt-4 text-sm">Loading property...</Text>
       </View>
     );

@@ -17,6 +17,7 @@ import { MarketplaceListing } from '@/services/api/marketplace.api';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
 import { AppAlert } from '@/components/AppAlert';
 import { useRouter } from 'expo-router';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 interface BuyTokenModalProps {
   visible: boolean;
@@ -535,7 +536,7 @@ export function BuyTokenModal({
                 }}
               >
                 {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <EmeraldLoader />
                 ) : (
                   <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
                     Confirm Purchase

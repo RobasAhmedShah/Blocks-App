@@ -1,28 +1,28 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, View, StyleSheet, Easing } from "react-native";
+import LottieView from "lottie-react-native";
+import React  from "react";
+import { View, StyleSheet } from "react-native";
 
 export default function ArcLoader({ size = 48, color = "#22C55E" }) {
-  const rotate = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.timing(rotate, {
-        toValue: 1,
-        duration: 1100,            // slower + smoother
-        easing: Easing.inOut(Easing.linear),
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
 
-  const rotation = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      <Animated.View
+       <View style={{ justifyContent: 'center', backgroundColor: 'transparent',
+         alignItems: 'center',position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,zIndex: 1000 }}>
+            <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/Comp1.json")}
+            autoPlay 
+           
+            style={{ width: 220, height: 220,marginBottom: -20 }}
+          />
+        </View>
+        </View>
+
+      {/* <Animated.View
         style={[
           styles.arc,
           {
@@ -32,7 +32,7 @@ export default function ArcLoader({ size = 48, color = "#22C55E" }) {
             transform: [{ rotate: rotation }],
           },
         ]}
-      />
+      /> */}
     </View>
   );
 }
@@ -42,20 +42,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  arc: {
-    borderWidth: 4,
-    borderRadius: 999,
-    borderTopColor: "transparent",
-    borderLeftColor: "transparent",
-
-    // Rounder, smoother ends
-    borderRightColor: "transparent",
-    borderBottomColor: "rgba(34,197,94,0.9)",
-
-    // Gives that super-soft premium look
-    shadowColor: "rgba(34,197,94,0.5)",
-    shadowRadius: 8,
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 0 },
-  },
+ 
 });

@@ -14,6 +14,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { useApp } from '@/contexts/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function CryptoPaymentScreen() {
   const router = useRouter();
@@ -580,7 +581,7 @@ export default function CryptoPaymentScreen() {
             </Text>
             {!txConfirmed && (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-                <ActivityIndicator size="small" color="#10B981" />
+                <EmeraldLoader />
                 <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginLeft: 8 }}>
                   Waiting for confirmation...
                 </Text>
@@ -604,7 +605,7 @@ export default function CryptoPaymentScreen() {
             }}
           >
             {sending ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <EmeraldLoader />
             ) : (
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
                 Send Payment

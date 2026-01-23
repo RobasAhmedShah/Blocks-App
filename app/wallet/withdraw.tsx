@@ -21,6 +21,7 @@ import { useWallet } from '@/services/useWallet';
 import { bankWithdrawalsAPI } from '@/services/api/bank-withdrawals.api';
 import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-bank-accounts.api';
 import LottieView from 'lottie-react-native';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -434,7 +435,7 @@ export default function WithdrawScreen() {
 
             {loadingLinkedAccounts ? (
               <View style={{ alignItems: 'center', padding: 40 }}>
-                <ActivityIndicator size="large" color={colors.primary} />
+                <EmeraldLoader />
               </View>
             ) : linkedBankAccounts.length === 0 ? (
               <View style={{ alignItems: 'center', padding: 40 }}>
@@ -1382,7 +1383,7 @@ export default function WithdrawScreen() {
                 marginBottom: 16,
               }}>
               {isProcessing ? (
-                <ActivityIndicator size="small" color={isDarkColorScheme ? '#000000' : '#000000'} />
+                <EmeraldLoader />
               ) : (
                 <Text
                   style={{

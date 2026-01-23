@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { authApi } from '@/services/api/auth.api';
 import { MarketplacePreviewCard } from './MarketplacePreviewCard';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 interface MarketplacePreviewRowProps {
   limit?: number;
@@ -110,7 +111,7 @@ export function MarketplacePreviewRow({ limit = 6 }: MarketplacePreviewRowProps)
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <EmeraldLoader />
       </View>
     );
   }

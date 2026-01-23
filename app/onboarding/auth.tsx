@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,6 +30,7 @@ import Animated, {
 import { signInWithGoogle } from "@/src/lib/googleSignin";
 import { authApi } from "@/services/api/auth.api";
 import LottieView from "lottie-react-native";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 const { width, height } = Dimensions.get("window");
 
@@ -124,6 +128,11 @@ export default function AuthScreen() {
   // Email is visible by default (0), password starts off-screen to the right
   const emailSlideX = useSharedValue(0);
   const passwordSlideX = useSharedValue(width);
+  
+  // Refs for keyboard handling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -454,25 +463,37 @@ export default function AuthScreen() {
           />
 
         {/* Content Container */}
-        <Animated.View
-          style={[
-            {
-              flex: 1,
-              justifyContent: 'space-between',
-              paddingHorizontal: 24,
-            },
-            contentAnimatedStyle,
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
-          {/* Top Section - Brand Area */}
-          <View
-            style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              paddingTop: 80,
-            }}
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
+            <Animated.View
+              style={[
+                {
+                  flex: 1,
+                  minHeight: height - 100,
+                  justifyContent: 'flex-end',
+                },
+                contentAnimatedStyle,
+              ]}
+            >
+              {/* Top Section - Brand Area - Fixed */}
+              <View
+                style={{
+                  minHeight: 280,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  paddingTop: '20%',
+                  marginTop: '10%',
+                 
+                }}
+              >
             <Animated.View
               entering={FadeIn.delay(200).duration(600)}
               style={{
@@ -530,22 +551,24 @@ export default function AuthScreen() {
 
 
 
-          {/* Bottom Section - Authentication Actions */}
+          {/* Bottom Section - Authentication Actions - Moves with keyboard */}
           <Animated.View
              entering={FadeInDown.delay(400).duration(600)}
              style={{
                paddingBottom: 40,
                gap: 12,
-             }}
-           >
+               marginTop: '20%',
+             }}>
              {/* Email/Password Input Section - Visible by default above buttons */}
              <View
                style={{
                 flexDirection:'column',
                 width: '100%',
                 marginBottom: 12,
+                
                }}
              >
+                
             {/* Email Input - Slides Left */}
             <Animated.View style={emailAnimatedStyle}>
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -564,6 +587,7 @@ export default function AuthScreen() {
                 >
                   <Ionicons name="mail-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
                   <TextInput
+                    ref={emailInputRef}
                     value={email}
                     onChangeText={setEmail}
                     placeholder="Enter your email"
@@ -637,22 +661,23 @@ export default function AuthScreen() {
                     borderColor: 'rgba(255, 255, 255, 0.2)',
                   }}
                 >
-                  <Ionicons name="lock-closed-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Enter your password"
-                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                    maxLength={128}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={{
-                      flex: 1,
-                      fontSize: 16,
-                      color: '#FFFFFF',
-                    }}
-                  />
+                        <Ionicons name="lock-closed-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                        <TextInput
+                          ref={passwordInputRef}
+                          value={password}
+                          onChangeText={setPassword}
+                          placeholder="Enter your password"
+                          placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                          maxLength={128}
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          style={{
+                            flex: 1,
+                            fontSize: 16,
+                            color: '#FFFFFF',
+                          }}
+                        />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
                     style={{ padding: 4 }}
@@ -687,9 +712,9 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               </View>
             </Animated.View>
-             </View>
-
+               </View>
              {/* Primary Button - Continue with Google */}
+             
             <Animated.View style={buttonAnimatedStyle}>
               <TouchableOpacity
                 onPress={() => handleButtonPress(handleGoogleLogin)}
@@ -712,7 +737,7 @@ export default function AuthScreen() {
                 activeOpacity={0.8}
               >
                 {isGoogleLoading ? (
-                  <ActivityIndicator size="small" color="#000000" />
+                  <EmeraldLoader />
                 ) : (
                   <>
                     <Ionicons name="logo-google" size={24} color="#4285F4" />
@@ -807,7 +832,9 @@ export default function AuthScreen() {
               <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
             </Text>
           </Animated.View>
-        </Animated.View>
+          </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       {/* </ImageBackground> */}
     </View>
   );

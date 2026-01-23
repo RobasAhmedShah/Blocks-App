@@ -7,6 +7,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
 
@@ -168,7 +169,7 @@ export default function SellReviewScreen() {
                         className="rounded-2xl py-4 items-center bg-emerald-500"
                     >
                         {isProcessing ? (
-                            <ActivityIndicator color="#fff" />
+                            <EmeraldLoader />
                         ) : (
                             <Text className="text-white text-lg font-bold">
                                 Continue to Publish

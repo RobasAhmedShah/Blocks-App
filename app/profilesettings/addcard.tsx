@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { paymentMethodsApi, CreatePaymentMethodDto } from "@/services/api/paymentMethods.api";
 import { LinearGradient } from "expo-linear-gradient";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 // Validation interfaces
 interface ValidationError {
@@ -884,7 +885,7 @@ export default function AddCardScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="white" />
+              <EmeraldLoader />
             ) : (
               <>
                 <Ionicons name="checkmark-circle-outline" size={24} color="white" />

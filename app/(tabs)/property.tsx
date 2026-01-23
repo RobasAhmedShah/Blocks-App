@@ -19,6 +19,7 @@ import { propertyFilters } from '@/data/mockCommon';
 import PropertyFilterModal, { PropertyFilterState, SortOption } from '@/components/property/PropertyFilterModal';
 import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 
 const { width } = Dimensions.get('window');
@@ -545,7 +546,7 @@ export default function HomeScreen() {
       {/* Property Cards - 2 Column Grid */}
       {isLoadingProperties && !refreshing && filteredProperties.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-          <ActivityIndicator size="large" color="#9EDC5A" />
+          <EmeraldLoader />
           <Text style={{ color: 'rgba(255, 255, 255, 0.55)', marginTop: 16, fontSize: 15 }}>
             Loading properties...
           </Text>

@@ -26,6 +26,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { signInWithGoogle } from "@/src/lib/googleSignin";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
 // Validation Rules & Regex
 const VALIDATION_RULES = {
@@ -789,7 +790,7 @@ export default function SignInScreen() {
                 activeOpacity={0.8}
               >
                 {isGoogleLoading ? (
-                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                  <EmeraldLoader />
                 ) : (
                   <>
                     <Ionicons name="logo-google" size={24} color={colors.textSecondary} />

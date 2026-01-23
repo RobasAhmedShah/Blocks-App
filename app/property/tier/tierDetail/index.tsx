@@ -28,6 +28,7 @@ import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
 import { PropertyInvestmentCalculator } from "@/components/PropertyInvestmentCalculator";
 import { useKycCheck } from "@/hooks/useKycCheck";
 import { useAuth } from "@/contexts/AuthContext";
+import EmeraldLoader from "@/components/EmeraldLoader";
 import { BlurView } from 'expo-blur';
 import Constants from 'expo-constants';
 import { normalizePropertyImages } from '@/utils/propertyUtils';
@@ -227,7 +228,7 @@ export default function PropertyDetailScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0B1A12' }} className="items-center justify-center">
-        <ActivityIndicator size="large" color="#9EDC5A" />
+        <EmeraldLoader />
         <Text style={{ color: 'rgba(255,255,255,0.55)' }} className="mt-4 text-base">
           Loading property...
         </Text>
@@ -1006,7 +1007,7 @@ export default function PropertyDetailScreen() {
                           }}
                         >
                           {downloadingDoc === doc.name ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <EmeraldLoader />
                           ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                               <Ionicons name="download-outline" size={18} color="#FFFFFF" />
@@ -1172,7 +1173,7 @@ export default function PropertyDetailScreen() {
                   </View>
                 ) : (
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                    <ActivityIndicator size="large" color="#9EDC5A" />
+                    <EmeraldLoader />
                     <Text style={{ color: 'rgba(255,255,255,0.55)', marginTop: 12, fontSize: 14, textAlign: 'center' }}>
                       Loading map coordinates...
                     </Text>

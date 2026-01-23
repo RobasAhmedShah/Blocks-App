@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 import { AppAlert } from '@/components/AppAlert';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 const BALANCE_EPSILON = 0.01;
 
@@ -460,7 +461,7 @@ export default function InvestmentReviewScreen() {
               }}
             >
               {isProcessing ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <EmeraldLoader />
               ) : (
                 <Ionicons 
                   name="arrow-forward" 

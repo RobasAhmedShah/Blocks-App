@@ -24,6 +24,7 @@ import { SignInGate } from '@/components/common/SignInGate';
 import { useWallet } from '@/services/useWallet';
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function SellTokensScreen() {
   const router = useRouter();
@@ -401,7 +402,7 @@ export default function SellTokensScreen() {
                     </View>
                   </View>
                   {loadingAvailable ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
+                    <EmeraldLoader />
                   ) : (
                     <View className="flex-row justify-between mt-3">
                       <View>
@@ -662,7 +663,7 @@ export default function SellTokensScreen() {
                   }}
                 >
                   {isProcessing ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <EmeraldLoader />
                   ) : (
                     <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
                       Publish on Marketplace

@@ -28,6 +28,7 @@ import { normalizePropertyImages } from '@/utils/propertyUtils';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/lib/useColorScheme';
+import EmeraldLoader from '@/components/EmeraldLoader';
 import { usePortfolio } from '@/services/usePortfolio';
 import { marketplaceAPI } from '@/services/api/marketplace.api';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
@@ -217,7 +218,7 @@ export default function BuyTokensScreen() {
     return (
       <LinearGradient colors={['#064E3B', '#022C22', '#000']} style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <EmeraldLoader />
           <Text style={{ color: '#fff', marginTop: 16 }}>Loading...</Text>
         </View>
       </LinearGradient>

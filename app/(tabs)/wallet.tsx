@@ -28,6 +28,7 @@ import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestri
 import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -431,7 +432,7 @@ export default function WalletScreen() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <ActivityIndicator size="large" color='rgb(22, 163, 74)' />
+        <EmeraldLoader />
       </View>
     );
   }
@@ -1197,7 +1198,7 @@ export default function WalletScreen() {
                               opacity: refreshingBalance ? 0.6 : 1,
                             }}>
                             {refreshingBalance ? (
-                              <ActivityIndicator size="small" color="#3b82f6" />
+                              <EmeraldLoader />
                             ) : (
                               <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
                                 Refresh

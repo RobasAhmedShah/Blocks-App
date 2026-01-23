@@ -22,6 +22,7 @@ import Constants from 'expo-constants';
 import { authApi } from '@/services/api/auth.api';
 import * as SecureStore from 'expo-secure-store';
 import { BuyTokenModal } from '@/components/marketplace/BuyTokenModal';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function MarketplaceScreen() {
   const router = useRouter();
@@ -401,7 +402,7 @@ export default function MarketplaceScreen() {
       {/* Listings */}
       {loading || (activeTab === 'my' && loadingMyListings) ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
         </View>
       ) : (
         <ScrollView

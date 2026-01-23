@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppAlert } from '@/components/AppAlert';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 export default function MyListingsScreen() {
   const router = useRouter();
@@ -179,7 +180,7 @@ export default function MyListingsScreen() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EmeraldLoader />
         </View>
       ) : listings.length === 0 ? (
         <View className="flex-1 items-center justify-center px-4">

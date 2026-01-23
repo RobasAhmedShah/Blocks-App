@@ -24,6 +24,7 @@ import { bankTransfersAPI } from '@/services/api/bank-transfers.api';
 import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-bank-accounts.api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDepositSuccess } from '@/contexts/DepositSuccessContext';
+import EmeraldLoader from '@/components/EmeraldLoader';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -649,13 +650,14 @@ export default function BankTransferDepositScreen() {
               </View>
             ) : (
               <View style={{ alignItems: 'center', width: '100%' }}>
-                <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 16 }} />
+                <EmeraldLoader />
                 <Text style={{
                   fontSize: 20,
                   fontWeight: 'bold',
                   color: colors.textPrimary,
                   marginBottom: 8,
                   textAlign: 'center',
+                  marginTop: 16,
                 }}>
                   {depositLoadingState.title}
                 </Text>
@@ -727,7 +729,7 @@ export default function BankTransferDepositScreen() {
 
             {loadingLinkedAccounts ? (
               <View style={{ alignItems: 'center', padding: 40 }}>
-                <ActivityIndicator size="large" color={colors.primary} />
+                <EmeraldLoader />
               </View>
             ) : linkedBankAccounts.length === 0 ? (
               <View style={{ alignItems: 'center', padding: 40 }}>
@@ -1449,7 +1451,7 @@ export default function BankTransferDepositScreen() {
                 }}
               >
                 {isProcessing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <EmeraldLoader />
                 ) : (
                   <Text style={{
                     color: canSubmit ? colors.primaryForeground : colors.textMuted,

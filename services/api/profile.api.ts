@@ -11,6 +11,8 @@ export interface UserInfo {
   profileImage?: string | null;
   role: string;
   isActive: boolean;
+  customerTypeEnum?: 'kyc' | 'nonkyc'; // User type: kyc = traditional KYC users, nonkyc = wallet-only users
+  walletAddress?: string | null; // Wallet address for non-KYC users
   createdAt: string;
   updatedAt: string;
 }

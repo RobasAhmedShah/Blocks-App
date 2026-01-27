@@ -28,9 +28,10 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { signInWithGoogle } from "@/src/lib/googleSignin";
-import { authApi } from "@/services/api/auth.api";
+import { authApi, WalletAuthResponse } from "@/services/api/auth.api";
 import LottieView from "lottie-react-native";
 import EmeraldLoader from "@/components/EmeraldLoader";
+import { useWalletConnect } from "@/src/wallet/WalletConnectProvider";
 
 const { width, height } = Dimensions.get("window");
 
@@ -113,8 +114,9 @@ const getFriendlyErrorMessage = (error: unknown): string => {
 export default function AuthScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn, enterGuestMode } = useAuth();
+  const { signIn, enterGuestMode, isAuthenticated } = useAuth();
   const { expoPushToken } = useNotifications();
+  const { connect, isConnected, address } = useWalletConnect();
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -122,6 +124,8 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState<'email' | 'password'>('email');
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
+  const [isWalletConnecting, setIsWalletConnecting] = useState(false);
+  const [pendingWalletAuth, setPendingWalletAuth] = useState(false);
   
   const contentOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
@@ -152,6 +156,61 @@ export default function AuthScreen() {
   useEffect(() => {
     contentOpacity.value = withTiming(1, { duration: 600 });
   }, []);
+
+  // Auto-authenticate when wallet address becomes available after connection
+  useEffect(() => {
+    if (pendingWalletAuth && address && isConnected && !isAuthenticated) {
+      const authenticateWallet = async () => {
+        try {
+          setIsWalletConnecting(true);
+          console.log('[Wallet Auth] Authenticating with wallet address:', address);
+          
+          const response = await authApi.walletConnect({
+            walletAddress: address,
+            expoToken: expoPushToken || undefined,
+          });
+          
+          console.log('[Wallet Auth] Authentication successful, signing in...');
+          await signIn(response.token, response.refreshToken);
+          setPendingWalletAuth(false);
+          
+          if (response.isNewUser) {
+            setAlertState({
+              visible: true,
+              title: 'Welcome!',
+              message: 'Your wallet account has been created. You can now use all features without KYC.',
+              type: 'success',
+              onConfirm: () => {
+                setAlertState(prev => ({ ...prev, visible: false }));
+              },
+            });
+          }
+        } catch (error: any) {
+          console.error('[Wallet Auth] Authentication error:', error);
+          setPendingWalletAuth(false);
+          const friendlyMessage = getFriendlyErrorMessage(error);
+          setAlertState({
+            visible: true,
+            title: 'Wallet Authentication Failed',
+            message: friendlyMessage,
+            type: 'error',
+            onConfirm: () => {
+              setAlertState(prev => ({ ...prev, visible: false }));
+            },
+          });
+        } finally {
+          setIsWalletConnecting(false);
+        }
+      };
+      
+      // Small delay to ensure connection is fully established
+      const timer = setTimeout(() => {
+        authenticateWallet();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [address, isConnected, pendingWalletAuth, isAuthenticated, expoPushToken, signIn]);
 
   const contentAnimatedStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -720,13 +779,15 @@ export default function AuthScreen() {
                 onPress={() => handleButtonPress(handleGoogleLogin)}
                 disabled={isGoogleLoading}
                 style={{
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#000000',
                   height: 56,
                   borderRadius: 28,
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
                   gap: 12,
+                  borderWidth: 1,
+                  borderColor: '#000000',
                   opacity: isGoogleLoading ? 0.7 : 1,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
@@ -740,19 +801,167 @@ export default function AuthScreen() {
                   <ActivityIndicator size="small" color="#000000" />
                 ) : (
                   <>
-                    <Ionicons name="logo-google" size={24} color="#4285F4" />
+                    <Ionicons name="logo-google" size={24} color="#FFFFFF" />
                     <Text
                       style={{
-                        color: '#000000',
+                        color: 'rgba(255, 255, 255, 0.9)',
                         fontSize: 16,
-                        fontWeight: '600',
+                        fontWeight: '500',
                         letterSpacing: 0.3,
                       }}
                     >
-                      Continue with Google
+                      Sign in with Google
                     </Text>
                   </>
                 )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Connect Wallet Button (No KYC Required) */}
+            <Animated.View style={buttonAnimatedStyle}>
+              <TouchableOpacity
+                onPress={async () => {
+                  console.log('[Auth] Connect Wallet button pressed');
+                  console.log('[Auth] Current state:', { isConnected, address: address ? `${address.slice(0, 10)}...` : null });
+                  
+                  try {
+                    // If already connected, authenticate immediately
+                    if (isConnected && address) {
+                      console.log('[Auth] Already connected, authenticating...');
+                      setIsWalletConnecting(true);
+                      
+                      try {
+                        console.log('[Auth] Calling walletConnect API with address:', address);
+                        const response = await Promise.race([
+                          authApi.walletConnect({
+                            walletAddress: address,
+                            expoToken: expoPushToken || undefined,
+                          }),
+                          new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000)
+                          ),
+                        ]) as WalletAuthResponse;
+                        
+                        console.log('[Auth] API response received:', { 
+                          hasToken: !!response.token, 
+                          isNewUser: response.isNewUser 
+                        });
+                        
+                        console.log('[Auth] Signing in with token...');
+                        await signIn(response.token, response.refreshToken);
+                        console.log('[Auth] Sign in successful');
+                        
+                        if (response.isNewUser) {
+                          setAlertState({
+                            visible: true,
+                            title: 'Welcome!',
+                            message: 'Your wallet account has been created. You can now use all features without KYC.',
+                            type: 'success',
+                            onConfirm: () => {
+                              setAlertState(prev => ({ ...prev, visible: false }));
+                            },
+                          });
+                        }
+                        setIsWalletConnecting(false);
+                        return;
+                      } catch (apiError: any) {
+                        console.error('[Auth] Authentication API error:', apiError);
+                        setIsWalletConnecting(false);
+                        throw apiError; // Re-throw to be caught by outer catch
+                      }
+                    }
+                    
+                    // Set flag to trigger authentication when wallet connects
+                    // Do this BEFORE opening modal so useEffect can catch the connection
+                    setPendingWalletAuth(true);
+                    
+                    // Simply open WalletConnect modal (same as wallet screen)
+                    console.log('[Auth] Opening WalletConnect modal...');
+                    await connect();
+                    console.log('[Auth] WalletConnect modal opened');
+                    // Note: Authentication will happen automatically via useEffect when address becomes available
+                  } catch (error: any) {
+                    console.error('[Auth] Wallet connect error:', error);
+                    console.error('[Auth] Error details:', {
+                      message: error?.message,
+                      stack: error?.stack,
+                      name: error?.name,
+                    });
+                    setPendingWalletAuth(false);
+                    setIsWalletConnecting(false);
+                    
+                    // Show all errors to help debug
+                    const errorMessage = error?.message || 'Unknown error occurred';
+                    setAlertState({
+                      visible: true,
+                      title: 'Wallet Connection Failed',
+                      message: `Failed to open wallet connection: ${errorMessage}\n\nPlease try again or check your wallet app.`,
+                      type: 'error',
+                      onConfirm: () => {
+                        setAlertState(prev => ({ ...prev, visible: false }));
+                      },
+                    });
+                  }
+                }}
+                disabled={isWalletConnecting || pendingWalletAuth}
+                style={{
+                  height: 56,
+                  borderRadius: 28,
+                  marginTop: 12,
+                  opacity: (isWalletConnecting || pendingWalletAuth) ? 0.6 : 1,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                  overflow: 'hidden',
+                }}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#3b82f6', '#60a5fa', '#93c5fd']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    flex: 1,
+                    height: 56,
+                    borderRadius: 28,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 12,
+                  }}
+                >
+                  {(isWalletConnecting || pendingWalletAuth) ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 16,
+                          fontWeight: '600',
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        {pendingWalletAuth ? 'Connecting...' : 'Authenticating...'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 16,
+                          fontWeight: '600',
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        Continue With Wallet
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
 

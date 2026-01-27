@@ -1127,7 +1127,7 @@ export default function ListingDetailScreen() {
                 }}
               >
                 {isProcessing ? (
-                  <EmeraldLoader />
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <View className="flex-row items-center">
                     <MaterialIcons name="unpublished" size={20} color="#ffffff" style={{ marginRight: 8 }} />

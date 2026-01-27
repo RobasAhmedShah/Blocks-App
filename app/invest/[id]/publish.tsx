@@ -294,7 +294,7 @@ export default function PublishScreen() {
                         >
                             <View style={{ flex: 1, alignItems: 'center' }}>
                                 {isProcessing ? (
-                                    <EmeraldLoader />
+                                    <ActivityIndicator size="small" color="#ffffff" />
                                 ) : (
                                     <Text className="text-white text-lg font-bold">
                                         Swipe to Publish →

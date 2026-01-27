@@ -494,18 +494,7 @@ export default function CardDepositScreen() {
           Payment Method
         </Text>
 
-        {isLoadingMethods ? (
-          <View style={{
-            padding: 16,
-            borderRadius: 12,
-            backgroundColor: colors.card,
-            alignItems: 'center',
-            marginBottom: 24,
-          }}>
-            <EmeraldLoader />
-            <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Loading payment methods...</Text>
-          </View>
-        ) : selectedMethod ? (
+        { selectedMethod ? (
           /* Selected Payment Method Card */
           <TouchableOpacity
             onPress={() => setShowMethodSelector(true)}
@@ -777,7 +766,8 @@ export default function CardDepositScreen() {
           }}
         >
           {isProcessing ? (
-            <EmeraldLoader />
+            <ActivityIndicator size="small" color={colors.primaryForeground} />
+            // <EmeraldLoader />
           ) : (
             <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
               {!amount 

@@ -169,7 +169,7 @@ export default function SellReviewScreen() {
                         className="rounded-2xl py-4 items-center bg-emerald-500"
                     >
                         {isProcessing ? (
-                            <EmeraldLoader />
+                            <ActivityIndicator size="small" color="#ffffff" />
                         ) : (
                             <Text className="text-white text-lg font-bold">
                                 Continue to Publish

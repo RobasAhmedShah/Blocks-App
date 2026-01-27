@@ -1383,7 +1383,8 @@ export default function WithdrawScreen() {
                 marginBottom: 16,
               }}>
               {isProcessing ? (
-                <EmeraldLoader />
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+                // <EmeraldLoader />
               ) : (
                 <Text
                   style={{

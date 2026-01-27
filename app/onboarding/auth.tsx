@@ -737,7 +737,7 @@ export default function AuthScreen() {
                 activeOpacity={0.8}
               >
                 {isGoogleLoading ? (
-                  <EmeraldLoader />
+                  <ActivityIndicator size="small" color="#000000" />
                 ) : (
                   <>
                     <Ionicons name="logo-google" size={24} color="#4285F4" />

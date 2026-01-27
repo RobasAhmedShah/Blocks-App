@@ -605,7 +605,7 @@ export function AssetDetailModal({
                         <View className="flex-row items-center gap-2">
                           {downloadingDoc === certificatePath ? (
                             <>
-                              <EmeraldLoader />
+                              <ActivityIndicator size="small" color={colors.primaryForeground} />
                               <Text style={{ color: colors.primaryForeground, fontWeight: '700', fontSize: 15 }}>
                                 Opening...
                               </Text>

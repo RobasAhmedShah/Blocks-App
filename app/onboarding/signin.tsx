@@ -850,7 +850,7 @@ export default function SignInScreen() {
                 activeOpacity={0.8}
               >
                 {isGoogleLoading ? (
-                  <EmeraldLoader />
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
                 ) : (
                   <>
                     <Ionicons name="logo-google" size={24} color={colors.textSecondary} />

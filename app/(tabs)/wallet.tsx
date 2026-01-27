@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
   Modal,
+  FlatList,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -29,6 +30,285 @@ import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EmeraldLoader from '@/components/EmeraldLoader';
+
+// Memoized SVG Background Component
+const BackgroundGradient = React.memo(({ isDarkColorScheme }: { isDarkColorScheme: boolean }) => (
+  <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
+    <Svg width="100%" height="100%">
+      <Defs>
+        {isDarkColorScheme ? (
+          <>
+            <RadialGradient id="grad1" cx="90%" cy="0%" r="80%" fx="90%" fy="10%">
+              <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
+              <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
+            </RadialGradient>
+          </>
+        ) : (
+          <>
+            <RadialGradient id="grad1" cx="10%" cy="10%" r="80%" fx="90%" fy="10%">
+              <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+              <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </RadialGradient>
+          </>
+        )}
+      </Defs>
+      <Rect 
+        width="100%" 
+        height="100%" 
+        fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
+      />
+      <Rect width="100%" height="50%" fill="url(#grad1)" />
+    </Svg>
+  </View>
+));
+BackgroundGradient.displayName = 'BackgroundGradient';
+
+// Memoized Wallet Card SVG Gradient
+const WalletCardGradient = React.memo(({ 
+  isDarkColorScheme, 
+  gradientId 
+}: { 
+  isDarkColorScheme: boolean;
+  gradientId: string;
+}) => {
+  const isCrypto = gradientId.includes('crypto');
+  
+  return (
+    <View style={{ position: 'absolute', inset: 0 }}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          {isDarkColorScheme ? (
+            <>
+              {isCrypto ? (
+                <>
+                  <RadialGradient id={`grad3-${gradientId}`} cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                    <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                    <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                  </RadialGradient>
+                  <RadialGradient id={`grad4-${gradientId}`} cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                    <Stop offset="0%" stopColor="#60a5fa" stopOpacity="0.2" />
+                    <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                  </RadialGradient>
+                </>
+              ) : (
+                <>
+                  <RadialGradient id={`grad1-${gradientId}`} cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                    <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+                    <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                  </RadialGradient>
+                  <RadialGradient id={`grad2-${gradientId}`} cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                    <Stop offset="0%" stopColor="#34d399" stopOpacity="0.2" />
+                    <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
+                  </RadialGradient>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {isCrypto ? (
+                <>
+                  <RadialGradient id={`grad3-${gradientId}`} cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                    <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                    <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                  </RadialGradient>
+                  <RadialGradient id={`grad4-${gradientId}`} cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                    <Stop offset="0%" stopColor="#93c5fd" stopOpacity="0.2" />
+                    <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0" />
+                  </RadialGradient>
+                </>
+              ) : (
+                <>
+                  <RadialGradient id={`grad1-${gradientId}`} cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
+                    <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                    <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                  </RadialGradient>
+                  <RadialGradient id={`grad2-${gradientId}`} cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
+                    <Stop offset="0%" stopColor="#6ee7b7" stopOpacity="0.2" />
+                    <Stop offset="100%" stopColor="#f0fdf4" stopOpacity="0" />
+                  </RadialGradient>
+                </>
+              )}
+            </>
+          )}
+        </Defs>
+        <Rect 
+          width="100%" 
+          height="100%" 
+          fill={isDarkColorScheme ? (isCrypto ? "#022c22" : "#022c22") : (isCrypto ? "#eff6ff" : "#f0fdf4")} 
+        />
+        {isCrypto ? (
+          <>
+            <Rect width="100%" height="100%" fill={`url(#grad3-${gradientId})`} />
+            <Rect width="100%" height="100%" fill={`url(#grad4-${gradientId})`} />
+          </>
+        ) : (
+          <>
+            <Rect width="100%" height="100%" fill={`url(#grad1-${gradientId})`} />
+            <Rect width="100%" height="100%" fill={`url(#grad2-${gradientId})`} />
+          </>
+        )}
+      </Svg>
+    </View>
+  );
+});
+WalletCardGradient.displayName = 'WalletCardGradient';
+
+// Memoized Category Chip Component
+const CategoryChip = React.memo(({ 
+  filter, 
+  activeTab, 
+  onPress, 
+  colors, 
+  isDarkColorScheme 
+}: {
+  filter: { value: string; label: string };
+  activeTab: string;
+  onPress: () => void;
+  colors: any;
+  isDarkColorScheme: boolean;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={{
+      backgroundColor:
+        activeTab === filter.value
+          ? colors.primary
+          : isDarkColorScheme
+            ? 'rgba(0, 0, 0, 0.3)'
+            : 'rgba(255, 255, 255, 0.8)',
+      borderWidth: 0,
+      borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
+    }}
+    className="rounded-full px-4 py-2">
+    <Text
+      style={{
+        color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
+        fontWeight: activeTab === filter.value ? '600' : '400',
+      }}
+      className="text-sm">
+      {filter.label}
+    </Text>
+  </TouchableOpacity>
+));
+CategoryChip.displayName = 'CategoryChip';
+
+// Memoized Transaction Item Component
+const TransactionItem = React.memo(({ 
+  transaction, 
+  colors, 
+  isDarkColorScheme,
+}: {
+  transaction: any;
+  colors: any;
+  isDarkColorScheme: boolean;
+}) => (
+  <View
+    style={{
+      backgroundColor: isDarkColorScheme
+        ? 'rgba(0, 0, 0, 0.5)'
+        : 'rgba(255, 255, 255, 0.8)',
+    }}
+    className="mb-2 flex-row items-center rounded-2xl p-4">
+    <View className="h-12 w-12 items-center justify-center rounded-full">
+      <MaterialIcons
+        name={getTransactionIcon(transaction.type) as any}
+        size={28}
+        color={getTransactionColor(transaction.type, colors)}
+      />
+    </View>
+    <View className="ml-3 flex-1">
+      <Text style={{ color: colors.textPrimary }} className="mb-0.5 font-semibold">
+        {transaction.description}
+      </Text>
+      {transaction.propertyTitle && (
+        <Text style={{ color: colors.textSecondary }} className="text-xs">
+          {transaction.propertyTitle}
+        </Text>
+      )}
+      {transaction.type === 'withdraw' &&
+        transaction.status === 'pending' &&
+        transaction.metadata?.bankName && (
+          <View style={{ marginTop: 4 }}>
+            <Text style={{ color: colors.textSecondary }} className="text-xs">
+              {transaction.metadata.bankName}
+            </Text>
+            {transaction.metadata.displayCode && (
+              <Text style={{ color: colors.textMuted }} className="text-xs">
+                Request: {transaction.metadata.displayCode}
+              </Text>
+            )}
+          </View>
+        )}
+      {transaction.type === 'withdraw' &&
+        transaction.status === 'completed' &&
+        transaction.metadata?.bankTransactionId && (
+          <Text style={{ color: colors.textSecondary }} className="mt-1 text-xs">
+            Transaction ID: {transaction.metadata.bankTransactionId}
+          </Text>
+        )}
+      <Text style={{ color: transaction.status === 'completed' ? colors.primary : colors.warning }} className="text-xs">
+        {new Date(transaction.date).toLocaleDateString()} • {transaction.status}
+      </Text>
+    </View>
+    <View className="items-end">
+      <Text
+        className="text-lg "
+        style={{
+          color:
+            transaction.type === 'deposit' ||
+            transaction.type === 'rental' ||
+            transaction.type === 'reward' ||
+            transaction.type === 'rental_income'
+              ? colors.primary
+              : transaction.type === 'withdraw' || transaction.type === 'investment'
+                ? colors.destructive
+                : colors.textPrimary,
+        }}>
+        {transaction.amount >= 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+      </Text>
+      <Text style={{ color: colors.textSecondary }} className="text-xs">
+        {transaction.currency || 'USDC'}
+      </Text>
+    </View>
+  </View>
+));
+TransactionItem.displayName = 'TransactionItem';
+
+// Helper functions moved outside component to avoid recreation
+const getTransactionIcon = (type: string) => {
+  switch (type) {
+    case 'deposit':
+      return 'add-circle';
+    case 'withdraw':
+      return 'remove-circle';
+    case 'investment':
+      return 'trending-up';
+    case 'rental':
+    case 'rental_income':
+      return 'payments';
+    case 'transfer':
+      return 'swap-horiz';
+    default:
+      return 'receipt';
+  }
+};
+
+const getTransactionColor = (type: string, colors: any) => {
+  switch (type) {
+    case 'deposit':
+    case 'rental':
+    case 'rental_income':
+      return colors.primary;
+    case 'withdraw':
+      return colors.primary;
+    case 'investment':
+      return colors.primary;
+    case 'transfer':
+      return colors.warning;
+    default:
+      return colors.textMuted;
+  }
+};
 
 export default function WalletScreen() {
   const router = useRouter();
@@ -132,7 +412,6 @@ export default function WalletScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const [actualHeaderHeight, setActualHeaderHeight] = useState(120);
-  const [isStickyVisible, setIsStickyVisible] = useState(false);
 
   // Extract first name from fullName (from actual profile data)
   const firstName = state.userInfo?.fullName?.split(' ')[0] || 'User';
@@ -165,7 +444,9 @@ export default function WalletScreen() {
             depositAmountRef.current = pendingInfo.expectedAmount || 0;
             pendingDepositRef.current = true;
             currentBalanceRef.current = state.balance?.usdc || 0;
-            console.log('📦 Wallet: Loaded pending deposit from storage');
+            if (__DEV__) {
+              console.log('📦 Wallet: Loaded pending deposit from storage');
+            }
           }
         } catch (error) {
           console.error('Error loading pending deposit in wallet:', error);
@@ -188,16 +469,20 @@ export default function WalletScreen() {
     const expectedAmount = depositAmountRef.current;
     const tolerance = 0.01;
     
-    console.log('🔍 Wallet: Checking deposit success', {
-      currentBalance,
-      previousBalance,
-      initialBalance: initialBalanceRef.current,
-      balanceIncrease,
-      expectedAmount,
-    });
+    if (__DEV__) {
+      console.log('🔍 Wallet: Checking deposit success', {
+        currentBalance,
+        previousBalance,
+        initialBalance: initialBalanceRef.current,
+        balanceIncrease,
+        expectedAmount,
+      });
+    }
     
     if (balanceIncrease >= expectedAmount - tolerance && balanceIncrease > 0.01) {
-      console.log('✅ Wallet: Deposit detected! Balance increased by:', balanceIncrease);
+      if (__DEV__) {
+        console.log('✅ Wallet: Deposit detected! Balance increased by:', balanceIncrease);
+      }
       
       // Clear pending deposit
       pendingDepositRef.current = false;
@@ -244,7 +529,9 @@ export default function WalletScreen() {
     });
     
     if (!isConnected || !address || !provider) {
-      console.log('[Crypto Balance] Missing connection details, setting balance to 0.00');
+      if (__DEV__) {
+        console.log('[Crypto Balance] Missing connection details, setting balance to 0.00');
+      }
       setCryptoBalance('0.00');
       setTokenSymbol('USDC');
       return;
@@ -544,11 +831,15 @@ export default function WalletScreen() {
     if (isConnected && address && provider) {
       // Prevent duplicate calls
       if (isLoadingBalanceRef.current) {
-        console.log('[Crypto Balance] Balance already loading, skipping...');
+        if (__DEV__) {
+          console.log('[Crypto Balance] Balance already loading, skipping...');
+        }
         return;
       }
       
-      console.log('[Crypto Balance] Wallet connected, loading balance...');
+      if (__DEV__) {
+        console.log('[Crypto Balance] Wallet connected, loading balance...');
+      }
       isLoadingBalanceRef.current = true;
       
       // Small delay to ensure provider is fully ready and chainId is detected
@@ -569,7 +860,9 @@ export default function WalletScreen() {
         isLoadingBalanceRef.current = false;
       };
     } else {
-      console.log('[Crypto Balance] Wallet not connected, resetting balance');
+      if (__DEV__) {
+        console.log('[Crypto Balance] Wallet not connected, resetting balance');
+      }
       setCryptoBalance('0.00');
       setTokenSymbol('USDC'); // Default to TOKEN (will be fetched from contract)
       isLoadingBalanceRef.current = false;
@@ -601,7 +894,6 @@ export default function WalletScreen() {
       // Reset scroll position to top when screen comes into focus
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
-      setIsStickyVisible(false);
       
       if (loadWallet && loadTransactions && !isGuest && isAuthenticated) {
         loadWallet();
@@ -678,71 +970,39 @@ export default function WalletScreen() {
     });
   }, [transactions, pendingWithdrawalTransactions]);
 
-  const filteredTransactions = allTransactions.filter((tx) => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'rental_income') {
-      // Show both 'rental' and 'rental_income' when filtering by rental_income
-      return tx.type === 'rental' || tx.type === 'rental_income' || tx.type === 'reward';
-    }
-    return tx.type === activeTab;
-  });
+  const filteredTransactions = useMemo(() => {
+    return allTransactions.filter((tx) => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'rental_income') {
+        // Show both 'rental' and 'rental_income' when filtering by rental_income
+        return tx.type === 'rental' || tx.type === 'rental_income' || tx.type === 'reward';
+      }
+      return tx.type === activeTab;
+    });
+  }, [allTransactions, activeTab]);
 
-  // Show SignInGate if in guest mode (after ALL hooks are called)
-  if (isGuest || !isAuthenticated) {
-    return <SignInGate />;
-  }
+  // Memoized renderItem for FlatList
+  const renderTransactionItem = useCallback(({ item: transaction }: { item: any }) => (
+    <TransactionItem
+      transaction={transaction}
+      colors={colors}
+      isDarkColorScheme={isDarkColorScheme}
+    />
+  ), [colors, isDarkColorScheme]);
 
-  // Loading state - after ALL hooks
-  if (loading || loadingWithdrawals) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgb(32, 32, 32)',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <EmeraldLoader />
-      </View>
-    );
-  }
+  // Memoized keyExtractor
+  const keyExtractor = useCallback((item: any) => item.id, []);
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'deposit':
-        return 'add-circle';
-      case 'withdraw':
-        return 'remove-circle';
-      case 'investment':
-        return 'trending-up';
-      case 'rental':
-      case 'rental_income':
-        return 'payments';
-      case 'transfer':
-        return 'swap-horiz';
-      default:
-        return 'receipt';
-    }
-  };
+  // Memoized ListEmptyComponent
+  const ListEmptyComponent = useMemo(() => (
+    <View style={{ padding: 24, alignItems: 'center' }}>
+      <Text style={{ color: colors.textSecondary }} className="text-sm">
+        No transactions found
+      </Text>
+    </View>
+  ), [colors.textSecondary]);
 
-  const getTransactionColor = (type: string) => {
-    switch (type) {
-      case 'deposit':
-      case 'rental':
-      case 'rental_income':
-        return colors.primary;
-      case 'withdraw':
-        return colors.primary;
-      case 'investment':
-        return colors.primary;
-      case 'transfer':
-        return colors.warning;
-      default:
-        return colors.textMuted;
-    }
-  };
-
-  // Calculate animated values for header only
+  // Calculate animated values for header only (must be before early returns)
   const collapseThreshold = 50; // Start collapsing after 50px scroll
   const walletCardHeight = 320; // Approximate height of wallet card section
   const stickySectionHeight = 100; // Height of categories + heading section
@@ -806,17 +1066,47 @@ export default function WalletScreen() {
     extrapolate: 'clamp',
   });
 
-  // Handle scroll event
+  // Track sticky visibility for pointer events (minimize state updates) - MUST be before early returns
+  const [stickyPointerEventsEnabled, setStickyPointerEventsEnabled] = useState(false);
+  
+  // Update pointer events state only when crossing threshold to minimize re-renders
+  useEffect(() => {
+    const listenerId = stickyOpacity.addListener(({ value }) => {
+      const shouldEnable = value > 0.1;
+      if (shouldEnable !== stickyPointerEventsEnabled) {
+        setStickyPointerEventsEnabled(shouldEnable);
+      }
+    });
+    return () => {
+      stickyOpacity.removeListener(listenerId);
+    };
+  }, [stickyOpacity, stickyPointerEventsEnabled]);
+
+  // Show SignInGate if in guest mode (after ALL hooks are called)
+  if (isGuest || !isAuthenticated) {
+    return <SignInGate />;
+  }
+
+  // Loading state - after ALL hooks
+  if (loading || loadingWithdrawals) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgb(32, 32, 32)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        <EmeraldLoader />
+      </View>
+    );
+  }
+
+  // Handle scroll event - use native driver for all opacity/transform animations
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     { 
-      useNativeDriver: false, // We need to animate height/opacity which requires layout
-      listener: (event: any) => {
-        const offsetY = event.nativeEvent.contentOffset.y;
-        const stickyThreshold = walletCardHeight;
-        // Enable pointer events when sticky section is visible (opacity > 0.1)
-        setIsStickyVisible(offsetY >= stickyThreshold - 20);
-    }
+      useNativeDriver: false, // Required for scrollY value updates
     }
   );
 
@@ -835,39 +1125,7 @@ export default function WalletScreen() {
       ) : (
         <>
       {/* Radial Gradient Background */}
-      <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(22, 22, 22, 1)' }}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                {isDarkColorScheme ? (
-                  <>
-                    {/* Dark Mode - Top Right Glow */}
-                    <RadialGradient id="grad1" cx="90%" cy="0%" r="80%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="rgb(226, 223, 34)" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="rgb(226, 223, 34)" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                ) : (
-                  <>
-                    {/* Light Mode - Top Right Glow */}
-                    <RadialGradient id="grad1" cx="10%" cy="10%" r="80%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                )}
-              </Defs>
-
-              {/* Base Layer */}
-              <Rect 
-                width="100%" 
-                height="100%" 
-                fill={isDarkColorScheme ? "rgba(22,22,22,0)" : "#f0fdf4"} 
-              />
-
-              {/* Layer the gradients on top of the base */}
-              <Rect width="100%" height="50%" fill="url(#grad1)" />
-            </Svg>
-          </View>
+      <BackgroundGradient isDarkColorScheme={isDarkColorScheme} />
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
       
           {/* Sticky Header - Always visible */}
@@ -1093,52 +1351,7 @@ export default function WalletScreen() {
           }}
           className="p-2">
           {/* Radial Gradient Background */}
-          <View style={{ position: 'absolute', inset: 0 }}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                {isDarkColorScheme ? (
-                  <>
-                    {/* Dark Mode - Top Right Glow */}
-                    <RadialGradient id="grad1" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                    </RadialGradient>
-
-                    {/* Dark Mode - Bottom Left Glow */}
-                    <RadialGradient id="grad2" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
-                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.2" />
-                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                ) : (
-                  <>
-                    {/* Light Mode - Top Right Glow */}
-                    <RadialGradient id="grad1" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                    </RadialGradient>
-
-                    {/* Light Mode - Bottom Left Glow */}
-                    <RadialGradient id="grad2" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
-                      <Stop offset="0%" stopColor="#6ee7b7" stopOpacity="0.2" />
-                      <Stop offset="100%" stopColor="#f0fdf4" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                )}
-              </Defs>
-
-              {/* Base Layer */}
-              <Rect 
-                width="100%" 
-                height="100%" 
-                fill={isDarkColorScheme ? "#022c22" : "#f0fdf4"} 
-              />
-
-              {/* Layer the gradients on top of the base */}
-              <Rect width="100%" height="100%" fill="url(#grad1)" />
-              <Rect width="100%" height="100%" fill="url(#grad2)" />
-            </Svg>
-          </View>
+          <WalletCardGradient isDarkColorScheme={isDarkColorScheme} gradientId="usdc-card" />
 
           {/* Total Balance Label */}
           <View
@@ -1267,7 +1480,9 @@ export default function WalletScreen() {
             >
               <TouchableOpacity
                 onPress={() => {
-                            console.log('[Wallet] Deposit button pressed, balance:', balance);
+                            if (__DEV__) {
+                              console.log('[Wallet] Deposit button pressed, balance:', balance);
+                            }
                             checkAndBlock('deposits', () => {
                   router.push('../wallet');
                             });
@@ -1336,38 +1551,7 @@ export default function WalletScreen() {
           className="p-4 pb-2">
 
           {/* Radial Gradient Background */}
-          <View style={{ position: 'absolute', inset: 0 }}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                {isDarkColorScheme ? (
-                  <>
-                    <RadialGradient id="grad3" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                    </RadialGradient>
-                    <RadialGradient id="grad4" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
-                      <Stop offset="0%" stopColor="#60a5fa" stopOpacity="0.2" />
-                      <Stop offset="100%" stopColor="#022c22" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                ) : (
-                  <>
-                    <RadialGradient id="grad3" cx="90%" cy="10%" r="70%" fx="90%" fy="10%">
-                      <Stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                    </RadialGradient>
-                    <RadialGradient id="grad4" cx="10%" cy="90%" r="70%" fx="10%" fy="90%">
-                      <Stop offset="0%" stopColor="#93c5fd" stopOpacity="0.2" />
-                      <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0" />
-                    </RadialGradient>
-                  </>
-                )}
-              </Defs>
-              <Rect width="100%" height="100%" fill={isDarkColorScheme ? "#022c22" : "#eff6ff"} />
-              <Rect width="100%" height="100%" fill="url(#grad3)" />
-              <Rect width="100%" height="100%" fill="url(#grad4)" />
-            </Svg>
-          </View>
+          <WalletCardGradient isDarkColorScheme={isDarkColorScheme} gradientId="crypto-card" />
 
                     {!isConnected ? (
                       /* Not Connected State */
@@ -1382,11 +1566,17 @@ export default function WalletScreen() {
                         <Pressable
                           onPress={async () => {
                             try {
-                              console.log('[Wallet] Connect button pressed, calling connect()...');
+                              if (__DEV__) {
+                                console.log('[Wallet] Connect button pressed, calling connect()...');
+                              }
                               await connect();
-                              console.log('[Wallet] Connect function completed');
+                              if (__DEV__) {
+                                console.log('[Wallet] Connect function completed');
+                              }
                             } catch (error) {
-                              console.error('[Wallet] Error connecting wallet:', error);
+                              if (__DEV__) {
+                                console.error('[Wallet] Error connecting wallet:', error);
+                              }
                               Alert.alert(
                                 'Connection Error',
                                 error instanceof Error ? error.message : 'Failed to open wallet connection. Please try again.',
@@ -1473,7 +1663,7 @@ export default function WalletScreen() {
                               opacity: refreshingBalance ? 0.6 : 1,
                             }}>
                             {refreshingBalance ? (
-                              <EmeraldLoader />
+                              <ActivityIndicator size="small" color="#3b82f6" />
                             ) : (
                               <Text style={{ color: '#3b82f6', fontSize: 14, fontWeight: '600' }}>
                                 Refresh
@@ -1522,29 +1712,14 @@ export default function WalletScreen() {
                   { value: 'investment', label: 'Investment' },
                   { value: 'rental_income', label: 'Rental' },
                 ].map((filter) => (
-                  <TouchableOpacity
+                  <CategoryChip
                     key={filter.value}
+                    filter={filter}
+                    activeTab={activeTab}
                     onPress={() => setActiveTab(filter.value)}
-                    style={{
-                      backgroundColor:
-                        activeTab === filter.value
-                          ? colors.primary
-                          : isDarkColorScheme
-                            ? 'rgba(0, 0, 0, 0.3)'
-                            : 'rgba(255, 255, 255, 0.8)',
-                      borderWidth: activeTab === filter.value ? 0 : 0,
-                      borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
-                    }}
-                    className="rounded-full px-4 py-2">
-                    <Text
-                      style={{
-                        color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
-                        fontWeight: activeTab === filter.value ? '600' : '400',
-                      }}
-                      className="text-sm">
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
+                    colors={colors}
+                    isDarkColorScheme={isDarkColorScheme}
+                  />
                 ))}
               </ScrollView>
             </View>
@@ -1743,7 +1918,7 @@ export default function WalletScreen() {
                 zIndex: 9,
                 opacity: stickyOpacity,
               }}
-              pointerEvents={isStickyVisible ? 'auto' : 'none'}>
+              pointerEvents={stickyPointerEventsEnabled ? 'auto' : 'none'}>
               {/* Animated Background for Sticky Section */}
               <Animated.View
                 style={{
@@ -1770,29 +1945,14 @@ export default function WalletScreen() {
                     { value: 'investment', label: 'Investment' },
                     { value: 'rental_income', label: 'Rental' },
                   ].map((filter) => (
-                    <TouchableOpacity
+                    <CategoryChip
                       key={filter.value}
+                      filter={filter}
+                      activeTab={activeTab}
                       onPress={() => setActiveTab(filter.value)}
-                      style={{
-                        backgroundColor:
-                          activeTab === filter.value
-                            ? colors.primary
-                            : isDarkColorScheme
-                              ? 'rgba(0, 0, 0, 0.3)'
-                              : 'rgba(255, 255, 255, 0.8)',
-                        borderWidth: activeTab === filter.value ? 0 : 0,
-                        borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.3)' : colors.border,
-                      }}
-                      className="rounded-full px-4 py-2">
-                      <Text
-                        style={{
-                          color: activeTab === filter.value ? '#FFFFFF' : colors.textSecondary,
-                          fontWeight: activeTab === filter.value ? '600' : '400',
-                        }}
-                        className="text-sm">
-                        {filter.label}
-                      </Text>
-                    </TouchableOpacity>
+                      colors={colors}
+                      isDarkColorScheme={isDarkColorScheme}
+                    />
                   ))}
                 </ScrollView>
               </View>

@@ -942,7 +942,7 @@ export default function PropertyDetailScreen() {
                           }}
                         >
                           {downloadingDoc === doc.name ? (
-                            <EmeraldLoader />
+                            <ActivityIndicator size="small" color="#FFFFFF" />
                           ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                               <Ionicons name="download-outline" size={18} color="#FFFFFF" />

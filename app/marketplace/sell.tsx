@@ -402,7 +402,7 @@ export default function SellTokensScreen() {
                     </View>
                   </View>
                   {loadingAvailable ? (
-                    <EmeraldLoader />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <View className="flex-row justify-between mt-3">
                       <View>
@@ -663,7 +663,7 @@ export default function SellTokensScreen() {
                   }}
                 >
                   {isProcessing ? (
-                    <EmeraldLoader />
+                    <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
                       Publish on Marketplace

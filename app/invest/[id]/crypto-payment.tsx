@@ -948,7 +948,7 @@ export default function CryptoPaymentScreen() {
             </Text>
             {!txConfirmed && (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-                <EmeraldLoader />
+                <ActivityIndicator size="small" color="#10B981" />
                 <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginLeft: 8 }}>
                   Waiting for confirmation...
                 </Text>

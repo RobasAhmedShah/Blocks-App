@@ -536,7 +536,7 @@ export function BuyTokenModal({
                 }}
               >
                 {isProcessing ? (
-                  <EmeraldLoader />
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <Text style={{ color: '#ffffff' }} className="text-lg font-bold">
                     Confirm Purchase

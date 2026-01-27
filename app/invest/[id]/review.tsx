@@ -461,7 +461,7 @@ export default function InvestmentReviewScreen() {
               }}
             >
               {isProcessing ? (
-                <EmeraldLoader />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Ionicons 
                   name="arrow-forward" 

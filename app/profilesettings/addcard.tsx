@@ -885,7 +885,8 @@ export default function AddCardScreen() {
             activeOpacity={0.8}
           >
             {loading ? (
-              <EmeraldLoader />
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+              // <EmeraldLoader />
             ) : (
               <>
                 <Ionicons name="checkmark-circle-outline" size={24} color="white" />

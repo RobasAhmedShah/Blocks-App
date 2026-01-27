@@ -312,7 +312,7 @@ export default function KycUploadScreen() {
             )}
             {doc.uploading && (
               <View className="flex-row items-center gap-1">
-                <EmeraldLoader />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Uploading...</Text>
               </View>
             )}
@@ -360,7 +360,7 @@ export default function KycUploadScreen() {
                   className="rounded-lg items-center"
                 >
                   {doc.uploading ? (
-                    <EmeraldLoader />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
                       <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
@@ -494,7 +494,7 @@ export default function KycUploadScreen() {
             activeOpacity={0.8}
           >
             {submitting ? (
-              <EmeraldLoader />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={{ 
                 fontSize: 16, 

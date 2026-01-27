@@ -44,19 +44,67 @@ export default function WalletScreen() {
   // Check account restrictions - if account is restricted, show blocking screen
   const { showRestrictionScreen, restrictionDetails } = useRestrictionGuard();
   const { checkAndBlock, modalProps } = useRestrictionModal();
-  const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>('usdc');
+  
+  // Check if user is non-KYC (wallet-only user)
+  const isNonKycUser = state.userInfo?.customerTypeEnum === 'nonkyc';
+  
+  // For non-KYC users, default to 'crypto' tab and don't allow switching to 'usdc'
+  const [walletTab, setWalletTab] = useState<'usdc' | 'crypto'>(isNonKycUser ? 'crypto' : 'usdc');
+  
+  // Update walletTab if user type changes (e.g., after profile loads)
+  useEffect(() => {
+    if (isNonKycUser && walletTab === 'usdc') {
+      setWalletTab('crypto');
+    }
+  }, [isNonKycUser]);
   
   // WalletConnect
-  const { connect, disconnect, isConnected, address, provider, chainId } = useWalletConnect();
+  const { connect, disconnect, isConnected, address, provider, chainId, isOnPolygonAmoy } = useWalletConnect();
   const [cryptoBalance, setCryptoBalance] = useState<string>('0.00');
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const isLoadingBalanceRef = React.useRef(false);
+  // Token symbol - always USDC
+  const [tokenSymbol, setTokenSymbol] = useState<string>('USDC');
+  
+  // Format large numbers for display (e.g., 99999836.87 -> "99.99M")
+  const formatBalance = (balance: string): string => {
+    const num = parseFloat(balance);
+    if (isNaN(num)) return '0.00';
+    
+    if (num >= 1000000000) {
+      // Billions - show 2 decimal places
+      return (num / 1000000000).toFixed(2) + 'B';
+    } else if (num >= 1000000) {
+      // Millions - use floor to avoid rounding up to 100M
+      const millions = num / 1000000;
+      // If it's between 99.9 and 100, use floor to show 99.XX instead of rounding to 100.00
+      if (millions >= 99.9 && millions < 100) {
+        // Floor to 2 decimal places to prevent rounding up
+        const floored = Math.floor(millions * 100) / 100;
+        return floored.toFixed(2) + 'M';
+      }
+      // For other values, use normal rounding
+      return millions.toFixed(2) + 'M';
+    } else if (num >= 1000) {
+      // Thousands - show 2 decimal places
+      return (num / 1000).toFixed(2) + 'K';
+    } else {
+      // Less than 1000, show 2 decimal places
+      return num.toFixed(2);
+    }
+  };
+  
+  // Polygon Amoy Token Contract Address
+  const POLYGON_AMOY_TOKEN_ADDRESS = '0x5dAe3dA171CFEA728CB7042860Ab31BAbD5E9385';
+  const [tokenDecimals, setTokenDecimals] = React.useState<number>(6); // Default to 6 (USDC standard), will be fetched from contract
 
   // Get RPC URL based on detected chain
+  // Since we only support Polygon Amoy Testnet, default to it when chainId is null
   const getRpcUrl = (detectedChainId: number | null | undefined): string => {
     if (!detectedChainId) {
-      // Default to local testnet if chain not detected
-      return 'http://192.168.1.142:7545';
+      // Default to Polygon Amoy Testnet (since that's the only supported chain)
+      console.log('[RPC URL] Chain ID not detected, defaulting to Polygon Amoy Testnet');
+      return 'https://rpc-amoy.polygon.technology';
     }
 
     switch (detectedChainId) {
@@ -190,12 +238,15 @@ export default function WalletScreen() {
     console.log('[Crypto Balance] loadCryptoBalance called', { 
       isConnected, 
       address: address ? `${address.slice(0, 10)}...` : null, 
-      hasProvider: !!provider 
+      hasProvider: !!provider,
+      chainId,
+      isOnPolygonAmoy
     });
     
     if (!isConnected || !address || !provider) {
       console.log('[Crypto Balance] Missing connection details, setting balance to 0.00');
       setCryptoBalance('0.00');
+      setTokenSymbol('USDC');
       return;
     }
     
@@ -204,98 +255,290 @@ export default function WalletScreen() {
         setRefreshingBalance(true);
       }
 
-      // Detect chain and use appropriate RPC endpoint
-      const rpcUrl = getRpcUrl(chainId);
-      const networkName = chainId 
-        ? (chainId === 1 ? 'Ethereum Mainnet' 
-          : chainId === 11155111 ? 'Sepolia Testnet'
-          : chainId === 80002 ? 'Polygon Amoy Testnet'
-          : `Chain ${chainId}`)
-        : 'Local Testnet';
+      // FORCE Polygon Amoy RPC - we only support Polygon Amoy Testnet
+      // Don't use getRpcUrl() which might return wrong chain
+      const rpcUrl = 'https://rpc-amoy.polygon.technology';
+      const networkName = 'Polygon Amoy Testnet';
       
-      console.log('[Crypto Balance] Fetching balance...', { 
+      console.log('[Crypto Balance] Fetching token balance on Polygon Amoy...', { 
         address, 
         chainId, 
         network: networkName,
-        rpcUrl 
+        rpcUrl,
+        note: 'Forced Polygon Amoy RPC regardless of detected chainId'
       });
 
+      let balance: string = '0x0';
+      let formattedBalance: string = '0.0000';
       
-      console.log('[Crypto Balance] Fetching balance from Geth Testnet RPC...', { address });
+      // ALWAYS fetch token balance - we only support Polygon Amoy Testnet
+      // No need to check chainId, just always fetch token when connected
+      console.log('[Crypto Balance] Fetching token balance (Polygon Amoy only):', {
+        chainId,
+        isOnPolygonAmoy,
+        isConnected,
+        rpcUrl
+      });
       
-      // Always query from Geth Testnet RPC (bypassing WalletConnect provider)
-      const testnetRpcUrl = 'http://192.168.1.142:7545';
-      console.log('[Crypto Balance] Querying testnet RPC:', testnetRpcUrl);
+      // Always fetch token balance - we only support Polygon Amoy
+      console.log('[Crypto Balance] Fetching token balance on Polygon Amoy...');
+      console.log('[Crypto Balance] Wallet address:', address);
+      console.log('[Crypto Balance] Token contract:', POLYGON_AMOY_TOKEN_ADDRESS);
+      console.log('[Crypto Balance] RPC URL:', rpcUrl);
+      setTokenSymbol('USDC');
+        
+      // ERC-20 balanceOf function signature: 0x70a08231
+      // Then pad the address to 32 bytes (64 hex chars)
+      const balanceOfFunction = '0x70a08231';
+      const walletAddress = address.startsWith('0x') ? address.slice(2).toLowerCase() : address.toLowerCase();
+      const paddedAddress = walletAddress.padStart(64, '0');
+      const data = balanceOfFunction + paddedAddress;
       
-      let balance: string;
-      
+      console.log('[Crypto Balance] ERC-20 call data:', {
+        function: balanceOfFunction,
+        walletAddress,
+        paddedAddress,
+        fullData: data
+      });
+        
       try {
+        const requestBody = {
+          jsonrpc: '2.0',
+          method: 'eth_call',
+          params: [
+            {
+              to: POLYGON_AMOY_TOKEN_ADDRESS,
+              data: data,
+            },
+            'latest',
+          ],
+          id: 1,
+        };
+        
+        console.log('[Crypto Balance] RPC request:', JSON.stringify(requestBody, null, 2));
+        
         const rpcResponse = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_getBalance',
-            params: [address, 'latest'],
-            id: 1,
-          }),
+          body: JSON.stringify(requestBody),
         });
         
+        console.log('[Crypto Balance] RPC response status:', rpcResponse.status);
+        
         if (!rpcResponse.ok) {
-          throw new Error(`RPC request failed with status ${rpcResponse.status}`);
+          const errorText = await rpcResponse.text();
+          console.error('[Crypto Balance] RPC response error text:', errorText);
+          throw new Error(`RPC request failed with status ${rpcResponse.status}: ${errorText}`);
         }
         
         const rpcData = await rpcResponse.json();
+        console.log('[Crypto Balance] RPC response data:', JSON.stringify(rpcData, null, 2));
         
         if (rpcData.error) {
+          console.error('[Crypto Balance] RPC error:', rpcData.error);
           throw new Error(rpcData.error.message || 'RPC error');
         }
         
         if (rpcData.result) {
-          console.log(`[Crypto Balance] ${networkName} balance response:`, rpcData.result);
+          console.log('[Crypto Balance] Token balance response:', rpcData.result);
           balance = rpcData.result;
+          
+          // Handle "0x" result (zero balance)
+          if (balance === '0x' || balance === '0x0') {
+            console.log('[Crypto Balance] Zero token balance detected');
+            formattedBalance = '0.00';
+          } else {
+            // Convert from token units using decimals (6 for this token)
+            const balanceHex = balance === '0x' || balance === '0x0' ? '0' : balance;
+            const tokenBalanceRaw = BigInt(balanceHex);
+            const decimals = tokenDecimals || 6; // This token uses 6 decimals
+            
+            console.log('[Crypto Balance] Raw balance:', {
+              hex: balance,
+              decimal: tokenBalanceRaw.toString(),
+              decimals: decimals,
+            });
+            
+            // Simple division: raw balance / 10^decimals
+            // For 100 million tokens with 6 decimals:
+            // 100,000,000 * 10^6 = 100,000,000,000,000
+            // 100,000,000,000,000 / 10^6 = 100,000,000
+            const divisor = Math.pow(10, decimals);
+            const tokenBalance = Number(tokenBalanceRaw) / divisor;
+            
+            console.log('[Crypto Balance] Balance conversion:', { 
+              rawDecimal: tokenBalanceRaw.toString(),
+              decimals: decimals,
+              divisor: divisor,
+              tokenBalance: tokenBalance,
+            });
+            
+            // Format the balance nicely (e.g., 100M, 1.5K, etc.)
+            formattedBalance = formatBalance(tokenBalance.toString());
+            
+            console.log('[Crypto Balance] Final formatted balance:', formattedBalance);
+          }
         } else {
+          console.error('[Crypto Balance] No result in RPC response');
           throw new Error('No result from RPC');
         }
-      } catch (rpcError) {
-        console.error(`[Crypto Balance] ${networkName} RPC query failed:`, rpcError);
-        throw rpcError;
-      }
+        } catch (rpcError: any) {
+          console.error('[Crypto Balance] Polygon Amoy token RPC query failed:', rpcError);
+          console.error('[Crypto Balance] Error stack:', rpcError.stack);
+          // Don't throw - set balance to 0 and let user know
+          formattedBalance = '0.00';
+          console.warn('[Crypto Balance] Setting balance to 0.00 due to error');
+        }
       
-      console.log('[Crypto Balance] Raw balance response:', balance);
-      
-      // Convert from wei to ETH (balance is in hex)
-      const ethBalance = parseInt(balance, 16) / 1e18;
-      const formattedBalance = ethBalance.toFixed(4);
-      
-      console.log('[Crypto Balance] Converted balance:', { 
-        raw: balance, 
-        wei: parseInt(balance, 16), 
-        eth: ethBalance, 
-        formatted: formattedBalance 
-      });
-      
+      console.log('[Crypto Balance] Setting balance to:', formattedBalance);
       setCryptoBalance(formattedBalance);
+      console.log('[Crypto Balance] Balance state updated, token symbol:', tokenSymbol);
     } catch (error) {
       console.error('[Crypto Balance] Error loading crypto balance:', error);
       console.error('[Crypto Balance] Error details:', {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
+      // Set to 0 but keep token symbol
       setCryptoBalance('0.00');
+      setTokenSymbol('USDC');
+      console.warn('[Crypto Balance] Balance set to 0.0000 due to error, but keeping token symbol');
     } finally {
       if (showLoading) {
         setRefreshingBalance(false);
       }
     }
-  }, [isConnected, address, provider, chainId]);
+  }, [isConnected, address, provider, chainId, isOnPolygonAmoy]);
+
+  // Fetch token symbol and decimals from contract when connected
+  React.useEffect(() => {
+    const fetchTokenInfo = async () => {
+      if (!isConnected || !address || !provider) {
+        setTokenSymbol('USDC');
+        return;
+      }
+
+      const rpcUrl = 'https://rpc-amoy.polygon.technology';
+
+      try {
+        // Fetch token symbol - ERC-20 symbol() function signature: 0x95d89b41
+        const symbolFunction = '0x95d89b41';
+        
+        const symbolResponse = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_call',
+            params: [
+              {
+                to: POLYGON_AMOY_TOKEN_ADDRESS,
+                data: symbolFunction,
+              },
+              'latest',
+            ],
+            id: 1,
+          }),
+        });
+
+        const symbolData = await symbolResponse.json();
+        if (symbolData.result && symbolData.result !== '0x') {
+          // Decode the string from hex
+          const hex = symbolData.result.slice(2);
+          const lengthHex = hex.slice(64, 128);
+          const length = parseInt(lengthHex, 16) * 2;
+          const stringHex = hex.slice(128, 128 + length);
+          let symbol = '';
+          for (let i = 0; i < stringHex.length; i += 2) {
+            const charCode = parseInt(stringHex.substr(i, 2), 16);
+            if (charCode > 0) {
+              symbol += String.fromCharCode(charCode);
+            }
+          }
+          console.log('[Token Info] Fetched symbol from contract:', symbol.trim());
+          // Always display as USDC regardless of contract symbol
+          setTokenSymbol('USDC');
+        } else {
+          console.log('[Token Info] Could not fetch symbol, using USDC');
+          setTokenSymbol('USDC');
+        }
+
+        // Fetch token decimals - ERC-20 decimals() function signature: 0x313ce567
+        const decimalsFunction = '0x313ce567';
+        
+        const decimalsResponse = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_call',
+            params: [
+              {
+                to: POLYGON_AMOY_TOKEN_ADDRESS,
+                data: decimalsFunction,
+              },
+              'latest',
+            ],
+            id: 2,
+          }),
+        });
+
+        const decimalsData = await decimalsResponse.json();
+        if (decimalsData.result && decimalsData.result !== '0x') {
+          const decimals = parseInt(decimalsData.result, 16);
+          console.log('[Token Info] Fetched decimals from contract:', decimals);
+          setTokenDecimals(decimals);
+          
+          // Reload balance with correct decimals
+          if (isConnected && address && provider) {
+            console.log('[Token Info] Decimals fetched, reloading balance with correct decimals');
+            setTimeout(() => {
+              loadCryptoBalance(false);
+            }, 500);
+          }
+        } else {
+          console.log('[Token Info] Could not fetch decimals, using default 6');
+          setTokenDecimals(6);
+        }
+      } catch (error) {
+        console.error('[Token Info] Error fetching token info:', error);
+        setTokenSymbol('USDC');
+        setTokenDecimals(6);
+      }
+    };
+
+    if (isConnected) {
+      fetchTokenInfo();
+    } else {
+      setTokenSymbol('USDC');
+      setTokenDecimals(18);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, provider]);
+
+  // Reload balance when decimals change (to use correct decimals)
+  React.useEffect(() => {
+    if (isConnected && address && provider && tokenDecimals > 0) {
+      console.log('[Token Decimals] Decimals changed to', tokenDecimals, '- reloading balance with correct decimals');
+      // Small delay to ensure state is updated
+      const timer = setTimeout(() => {
+        if (!isLoadingBalanceRef.current) {
+          loadCryptoBalance(false);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenDecimals]);
 
   // Load crypto balance when wallet connects or address/provider changes
   React.useEffect(() => {
     console.log('[Crypto Balance] Connection state changed', { 
       isConnected, 
       address: address ? `${address.slice(0, 10)}...` : null, 
-      hasProvider: !!provider 
+      hasProvider: !!provider,
+      chainId,
+      isOnPolygonAmoy
     });
     
     if (isConnected && address && provider) {
@@ -308,14 +551,18 @@ export default function WalletScreen() {
       console.log('[Crypto Balance] Wallet connected, loading balance...');
       isLoadingBalanceRef.current = true;
       
-      // Small delay to ensure provider is fully ready
+      // Small delay to ensure provider is fully ready and chainId is detected
+      // If chainId is null, wait a bit longer for it to be detected
+      const delay = chainId ? 300 : 1000;
+      console.log('[Crypto Balance] Waiting', delay, 'ms before loading balance (chainId:', chainId, ')');
+      
       const timer = setTimeout(async () => {
         try {
           await loadCryptoBalance(true);
         } finally {
           isLoadingBalanceRef.current = false;
         }
-      }, 300);
+      }, delay);
       
       return () => {
         clearTimeout(timer);
@@ -324,10 +571,28 @@ export default function WalletScreen() {
     } else {
       console.log('[Crypto Balance] Wallet not connected, resetting balance');
       setCryptoBalance('0.00');
+      setTokenSymbol('USDC'); // Default to TOKEN (will be fetched from contract)
       isLoadingBalanceRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, provider, chainId]); // Added chainId to detect chain changes
+  }, [isConnected, address, provider, chainId, isOnPolygonAmoy]); // Added chainId and isOnPolygonAmoy to detect chain changes
+
+  // Reload balance when chainId changes from null to a value (chain detection completed)
+  React.useEffect(() => {
+    if (isConnected && address && provider && chainId && !isLoadingBalanceRef.current) {
+      console.log('[Crypto Balance] Chain ID detected, reloading balance for chain:', chainId);
+      const timer = setTimeout(async () => {
+        try {
+          await loadCryptoBalance(false); // Don't show loading spinner on chain change
+        } catch (error) {
+          console.error('[Crypto Balance] Error reloading balance after chain detection:', error);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chainId]); // Only trigger when chainId changes
 
 
   // Refresh wallet balance and transactions when screen comes into focus
@@ -345,7 +610,12 @@ export default function WalletScreen() {
       }
       // Refresh crypto balance if connected (only if not already loading)
       if (isConnected && address && provider && !isLoadingBalanceRef.current) {
-        loadCryptoBalance(false); // Don't show loading spinner on focus refresh
+        // Add a small delay to ensure blockchain state is updated
+        setTimeout(() => {
+          if (isConnected && address && provider && !isLoadingBalanceRef.current) {
+            loadCryptoBalance(false); // Don't show loading spinner on focus refresh
+          }
+        }, 500);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadWallet, loadTransactions, loadPendingWithdrawals, isGuest, isAuthenticated, isConnected, address, provider, chainId]) // Added chainId to refresh when chain changes
@@ -664,7 +934,31 @@ export default function WalletScreen() {
                   ],
                   zIndex: 2,
                 }}>
-                {walletTab === 'usdc' ? (
+                {/* Show crypto balance for non-KYC users, otherwise show based on selected tab */}
+                {isNonKycUser || walletTab === 'crypto' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: 'sans-serif-light',
+                        fontSize: 24,
+                        fontWeight: '700',
+                      }}>
+                      {cryptoBalance}
+                    </Text>
+                    <Text
+                      style={{
+                        color: '#3b82f6',
+                        fontSize: 14,
+                        fontFamily: 'sans-serif-light',
+                        fontWeight: 'bold',
+                        marginLeft: 6,
+                        marginTop: 2,
+                      }}>
+                      {tokenSymbol}
+                    </Text>
+                  </View>
+                ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               <Text
                 style={{
@@ -706,29 +1000,6 @@ export default function WalletScreen() {
                       USDC
                     </Text>
           </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                    <Text
-                      style={{
-                        color: colors.textPrimary,
-                        fontFamily: 'sans-serif-light',
-                        fontSize: 24,
-                        fontWeight: '700',
-                      }}>
-                      {cryptoBalance}
-                    </Text>
-                    <Text
-                      style={{
-                        color: '#3b82f6',
-                        fontSize: 14,
-                        fontFamily: 'sans-serif-light',
-                        fontWeight: 'bold',
-                        marginLeft: 6,
-                        marginTop: 2,
-                      }}>
-                      ETH
-                    </Text>
-                  </View>
                 )}
               </Animated.View>
           <TouchableOpacity
@@ -778,35 +1049,39 @@ export default function WalletScreen() {
             <View>
               <View className="px-4 pb-4">
         {/* Navigation Tabs - Above the Card */}
-                <View className="mb-4 mt-4 flex-row gap-2">
-          <TouchableOpacity
-            onPress={() => setWalletTab('usdc')}
-            style={{
-              flex: 1,
-              backgroundColor: walletTab === 'usdc' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-              borderRadius: 12,
-              padding: 12,
-            }}>
-            <Text style={{ color: walletTab === 'usdc' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
-              Custody
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setWalletTab('crypto')}
-            style={{
-              flex: 1,
-              backgroundColor: walletTab === 'crypto' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-              borderRadius: 12,
-              padding: 12,
-            }}>
-            <Text style={{ color: walletTab === 'crypto' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
-              Crypto
-            </Text>
-          </TouchableOpacity>
-        </View>
+                {/* Hide Custody tab for non-KYC users - they only use crypto wallet */}
+                {!isNonKycUser && (
+                  <View className="mb-4 mt-4 flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setWalletTab('usdc')}
+                      style={{
+                        flex: 1,
+                        backgroundColor: walletTab === 'usdc' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: 12,
+                        padding: 12,
+                      }}>
+                      <Text style={{ color: walletTab === 'usdc' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+                        Custody
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setWalletTab('crypto')}
+                      style={{
+                        flex: 1,
+                        backgroundColor: walletTab === 'crypto' ? colors.primary : isDarkColorScheme ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: 12,
+                        padding: 12,
+                      }}>
+                      <Text style={{ color: walletTab === 'crypto' ? '#FFFFFF' : colors.textSecondary, textAlign: 'center', fontWeight: '600' }}>
+                        Crypto
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
         
                 {/* Wallet Card - Shows based on selected tab */}
-        {walletTab === 'usdc' ? (
+        {/* Hide Custody wallet UI for non-KYC users - they only use crypto wallet */}
+        {!isNonKycUser && walletTab === 'usdc' ? (
                   <View
           style={{
             backgroundColor: isDarkColorScheme ? colors.background : 'rgba(255, 255, 255, 0.8)',
@@ -1147,7 +1422,7 @@ export default function WalletScreen() {
                             {cryptoBalance}
                           </Text>
                           <Text style={{ color: '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
-                            ETH
+                            {tokenSymbol}
                           </Text>
                         </View>
 
@@ -1231,7 +1506,8 @@ export default function WalletScreen() {
             
 
             {/* Categories and Recent Transactions Heading - Normal flow */}
-        {walletTab === 'usdc' && (
+        {/* Hide Custody transactions UI for non-KYC users */}
+        {!isNonKycUser && walletTab === 'usdc' && (
               <Animated.View style={{ opacity: normalCategoriesOpacity }}>
                 {/* Categories Chips */}
                 <View className="mx-4 mb-3 mt-4">
@@ -1283,7 +1559,8 @@ export default function WalletScreen() {
             )}
 
             {/* Transactions Section - Scrollable */}
-            {walletTab === 'usdc' && (
+            {/* Hide Custody transactions for non-KYC users */}
+            {!isNonKycUser && walletTab === 'usdc' && (
               <View className="px-4 pb-20">
               {filteredTransactions.length === 0 ? (
           <View style={{ padding: 24, alignItems: 'center' }}>
@@ -1455,7 +1732,8 @@ export default function WalletScreen() {
           </Modal>
 
           {/* Sticky Categories and Recent Transactions Heading */}
-          {walletTab === 'usdc' && (
+          {/* Hide sticky categories for non-KYC users */}
+          {!isNonKycUser && walletTab === 'usdc' && (
             <Animated.View
               style={{
                 position: 'absolute',

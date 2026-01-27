@@ -66,7 +66,7 @@ export default function BuyTokensScreen() {
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   
   // Admin address for crypto payments
-  const ADMIN_ADDRESS = '0x7E92A4257904d19006b669028e2B2C5fa30fc12f';
+  const ADMIN_ADDRESS = '0xe19bf17047a06c6107a1E3803835E0730e19aDee';
 
   // Check complianceStatus and granular restrictions
   // Only show full blocking screen if 'restricted'

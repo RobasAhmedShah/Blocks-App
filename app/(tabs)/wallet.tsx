@@ -1777,11 +1777,11 @@ export default function WalletScreen() {
                   : 'rgba(255, 255, 255, 0.8)',
               }}
               className="mb-2 flex-row items-center rounded-2xl p-4">
-              <View className="h-12 w-12 items-center justify-center rounded-full">
+              <View className="h-12 w-12  items-center justify-center rounded-full">
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
                   size={28}
-                  color={getTransactionColor(transaction.type, isDarkColorScheme)}
+                  color={getTransactionColor(transaction.type, colors)}
                 />
               </View>
               <View className="ml-3 flex-1">

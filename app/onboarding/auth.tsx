@@ -650,18 +650,19 @@ export default function AuthScreen() {
                 alignItems: 'center',
               }}
             >
-              {/* Logo */}
-              <Image
-                source={require("@/assets/icon.png")}
+
+              <View style={{ display:'flex', flexDirection:'row', justifyContent:'center', 
+               height:100,  alignItems:'center', padding: 10, backgroundColor: 'rgba(22, 22, 22, 0.9)', borderRadius: 20, marginBottom: 16 }}>
+              <Image 
+                source={require("@/assets/applogo.png")}
                 style={{
                   width: 80,
                   height: 80,
                   borderRadius: 20,
-                  marginBottom: 16,
-                  borderWidth: 2,
+            
                   padding: 10,
-                  borderColor: 'rgb(62, 255, 24)',
-                  shadowColor: 'rgb(62, 255, 24)',
+                  // backgroundColor: 'rgba(22, 22, 22, 0.42)',
+                  shadowColor: 'rgb(0, 0, 0)',
                   shadowOffset: { width: 20, height: 20 },
                   shadowOpacity: 1,
                   shadowRadius: 4,
@@ -669,6 +670,12 @@ export default function AuthScreen() {
                 }}
                 resizeMode="contain"
               />
+
+
+
+              </View>
+              {/* Logo */}
+              
 
               {/* App Name */}
               <Text

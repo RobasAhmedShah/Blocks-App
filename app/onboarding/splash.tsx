@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, Dimensions } from "react-native";
+import { View, Text, Dimensions, Image } from "react-native";
 import { useRouter } from "expo-router";
 import Animated, {
   useSharedValue,
@@ -111,14 +111,13 @@ export default function SplashScreen() {
   }));
 
   return (
-    <LinearGradient
-      colors={isDarkColorScheme ? ["#0B3D36", "#102222", "#0B1F1C"] : [colors.background, colors.card, colors.background]}
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+   
+      <View style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor:  "rgba(22, 22, 22, 1)",
+          }}>
       {/* Background Pattern */}
       <View
         style={{
@@ -151,7 +150,7 @@ export default function SplashScreen() {
       {/* Main Content */}
       <View style={{ alignItems: "center", position: "relative" }}>
         {/* Logo Container with Shimmer */}
-        <View style={{ position: "relative", marginBottom: 24 }}>
+        <View style={{ position: "relative" }}>
           <Animated.View
             style={[
               logoAnimatedStyle,
@@ -159,11 +158,8 @@ export default function SplashScreen() {
                 width: 120,
                 height: 120,
                 borderRadius: 30,
-                backgroundColor: isDarkColorScheme ? "rgba(13, 165, 165, 0.2)" : `${colors.primary}20`,
                 alignItems: "center",
                 justifyContent: "center",
-                borderWidth: 2,
-                borderColor: colors.primary,
                 overflow: "hidden",
               },
             ]}
@@ -174,16 +170,14 @@ export default function SplashScreen() {
                 shimmerAnimatedStyle,
                 {
                   position: "absolute",
-                  width: 100,
+                  width: 120,
                   height: "100%",
-                  backgroundColor: "rgba(255, 255, 255, 0.3)",
                   transform: [{ skewX: "-20deg" }],
                 },
               ]}
             />
 
-            {/* Logo Icon */}
-            <Ionicons name="apps" size={60} color={colors.primary} />
+            <Image source={require("@/assets/applogo.png")} style={{ width: '50%', height: '50%' }} resizeMode="contain" />
           </Animated.View>
 
           {/* Glow Effect */}
@@ -201,95 +195,7 @@ export default function SplashScreen() {
             }}
           />
         </View>
-
-        {/* App Name */}
-        <Animated.View style={textAnimatedStyle}>
-          <Text
-            style={{
-              fontSize: 48,
-              fontWeight: "bold",
-              color: colors.textPrimary,
-              letterSpacing: 2,
-              marginBottom: 8,
-            }}
-          >
-            Blocks
-          </Text>
-        </Animated.View>
-
-        {/* Tagline */}
-        <Animated.View style={textAnimatedStyle}>
-          <Text
-            style={{
-              fontSize: 16,
-              color: colors.primary,
-              letterSpacing: 1,
-              fontWeight: "600",
-            }}
-          >
-            Build Your Future
-          </Text>
-        </Animated.View>
-
-        {/* Subtitle */}
-        <Animated.View style={[textAnimatedStyle, { marginTop: 4 }]}>
-          <Text
-            style={{
-              fontSize: 14,
-              color: colors.textSecondary,
-              letterSpacing: 0.5,
-            }}
-          >
-            Real Estate Investment Made Easy
-          </Text>
-        </Animated.View>
       </View>
-
-      {/* Bottom Loading Indicator */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 60,
-          alignItems: "center",
-        }}
-      >
-        <Animated.View
-          style={[
-            rotationAnimatedStyle,
-            {
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              borderWidth: 3,
-              borderColor: `${colors.primary}30`,
-              borderTopColor: colors.primary,
-            },
-          ]}
-        />
-        <Text
-          style={{
-            color: colors.textMuted,
-            fontSize: 12,
-            marginTop: 16,
-            letterSpacing: 1,
-          }}
-        >
-          Loading...
-        </Text>
-      </View>
-
-      {/* Version */}
-      <Text
-        style={{
-          position: "absolute",
-          bottom: 24,
-          color: colors.textMuted,
-          fontSize: 10,
-          letterSpacing: 1,
-        }}
-      >
-        Version 1.0.0
-      </Text>
-    </LinearGradient>
+    </View>
   );
 }

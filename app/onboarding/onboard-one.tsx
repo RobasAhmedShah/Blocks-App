@@ -125,8 +125,6 @@ export default function OnboardingScreen() {
             {
               width: width,
               height: height * 0.6, // Takes 50% of screen height,
-              borderWidth: 1,
-              borderColor: "red",
             },
           ]}
           resizeMode="contain"
@@ -137,7 +135,7 @@ export default function OnboardingScreen() {
       {sectionIndex < slides.length - 1 && (
         <TouchableOpacity
           style={styles.skip}
-          onPress={() => router.replace("/onboarding/pin-verification" as any)}
+          onPress={() => router.replace("/onboarding/auth" as any)}
         >
           <Text style={{ color: "#d0e8d0", fontWeight: "600" }}>Skip</Text>
         </TouchableOpacity>

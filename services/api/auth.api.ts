@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+// Backend runs on port 3001 locally (see Blocks-Backend src/main.ts)
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 export interface LoginDto {
   email: string;
@@ -23,7 +24,8 @@ export interface GoogleLoginDto {
 
 export interface RegisterDto {
   email: string;
-  password: string;
+  /** Optional for mobile (OTP + PIN device unlock). */
+  password?: string;
   fullName: string;
   phone?: string;
   expoToken?: string;
@@ -95,6 +97,36 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface OtpRequestDto {
+  email: string;
+}
+
+export interface OtpVerifyDto {
+  email: string;
+  otp: string;
+  expoToken?: string;
+  webPushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+}
+
+export interface OtpResponse {
+  message: string;
+}
+
+/** Returned when OTP is valid but user does not exist; app should redirect to signup. */
+export interface OtpVerifiedNewUserResponse {
+  verified: true;
+  email: string;
+  existingUser: false;
+}
+
+export type OtpVerifyResponse = AuthResponse | OtpVerifiedNewUserResponse;
 
 // Public API client for auth endpoints (no token required)
 async function publicRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -223,6 +255,21 @@ export const authApi = {
   // Wallet-only authentication (no KYC required)
   walletConnect: async (dto: WalletConnectDto): Promise<WalletAuthResponse> => {
     return publicRequest<WalletAuthResponse>('/api/mobile/wallet-auth/connect', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  // OTP Authentication
+  requestOtp: async (dto: OtpRequestDto): Promise<OtpResponse> => {
+    return publicRequest<OtpResponse>('/api/mobile/auth/otp/request', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  verifyOtp: async (dto: OtpVerifyDto): Promise<OtpVerifyResponse> => {
+    return publicRequest<OtpVerifyResponse>('/api/mobile/auth/otp/verify', {
       method: 'POST',
       body: JSON.stringify(dto),
     });

@@ -33,11 +33,43 @@ import LottieView from "lottie-react-native";
 import EmeraldLoader from "@/components/EmeraldLoader";
 import { useWalletConnect } from "@/src/wallet/WalletConnectProvider";
 import { SvgXml } from "react-native-svg";
+import * as SecureStore from 'expo-secure-store';
 
 // Google SVG Logo
 const googleLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>`;
 
 const { width, height } = Dimensions.get("window");
+
+// Helper function to check if PIN exists and redirect to creation if needed
+const checkAndHandlePinSetup = async (
+  router: any,
+  token: string,
+  refreshToken: string
+): Promise<boolean> => {
+  try {
+    const storedPin = await SecureStore.getItemAsync('device_pin');
+    const pinEnabled = await SecureStore.getItemAsync('pin_enabled');
+    
+    // If no PIN exists, redirect to PIN creation screen
+    if (!storedPin || pinEnabled !== 'true') {
+      console.log('No PIN found, redirecting to PIN creation...');
+      router.replace({
+        pathname: '/onboarding/pin-verification' as any,
+        params: { 
+          mode: 'create',
+          token: token,
+          refreshToken: refreshToken,
+        },
+      });
+      return true; // Indicates PIN setup is needed
+    }
+    
+    return false; // PIN exists, no setup needed
+  } catch (error) {
+    console.error('Error checking PIN:', error);
+    return false;
+  }
+};
 
 // Helper function to convert error messages to user-friendly messages
 const getFriendlyErrorMessage = (error: unknown): string => {
@@ -118,29 +150,32 @@ const getFriendlyErrorMessage = (error: unknown): string => {
 export default function AuthScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
-  const { signIn, enterGuestMode, isAuthenticated } = useAuth();
+  const { signIn, enterGuestMode, isAuthenticated, isPinSet, unlockWithPin } = useAuth();
   const { expoPushToken } = useNotifications();
   const { connect, isConnected, address } = useWalletConnect();
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'email' | 'password'>('email');
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
+  const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'otp' | null>(null);
   const [isWalletConnecting, setIsWalletConnecting] = useState(false);
   const [pendingWalletAuth, setPendingWalletAuth] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpTimer, setOtpTimer] = useState(60);
+  const [canResendOtp, setCanResendOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [pin, setPin] = useState('');
+  const [showPinEntry, setShowPinEntry] = useState(true);
+  const [isUnlockingPin, setIsUnlockingPin] = useState(false);
+  const [pinError, setPinError] = useState('');
   
   const contentOpacity = useSharedValue(0);
   const buttonScale = useSharedValue(1);
-  // Email is visible by default (0), password starts off-screen to the right
   const emailSlideX = useSharedValue(0);
-  const passwordSlideX = useSharedValue(width);
+  const otpSlideX = useSharedValue(width);
   
-  // Refs for keyboard handling
   const scrollViewRef = useRef<ScrollView>(null);
   const emailInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
 
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -161,6 +196,23 @@ export default function AuthScreen() {
     contentOpacity.value = withTiming(1, { duration: 600 });
   }, []);
 
+  // OTP Timer countdown
+  useEffect(() => {
+    if (currentStep === 'otp' && otpTimer > 0) {
+      const interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResendOtp(true);
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentStep, otpTimer]);
+
   // Auto-authenticate when wallet address becomes available after connection
   useEffect(() => {
     if (pendingWalletAuth && address && isConnected && !isAuthenticated) {
@@ -174,11 +226,23 @@ export default function AuthScreen() {
             expoToken: expoPushToken || undefined,
           });
           
-          console.log('[Wallet Auth] Authentication successful, signing in...');
-          await signIn(response.token, response.refreshToken);
+          console.log('[Wallet Auth] Authentication successful, checking PIN...');
+          
+          // Check if PIN exists, redirect to creation if needed
+          const needsPinSetup = await checkAndHandlePinSetup(
+            router,
+            response.token,
+            response.refreshToken
+          );
+          
+          if (!needsPinSetup) {
+            // PIN exists, sign in normally
+            await signIn(response.token, response.refreshToken);
+          }
+          
           setPendingWalletAuth(false);
           
-          if (response.isNewUser) {
+          if (response.isNewUser && !needsPinSetup) {
             setAlertState({
               visible: true,
               title: 'Welcome!',
@@ -229,8 +293,8 @@ export default function AuthScreen() {
     transform: [{ translateX: emailSlideX.value }],
   }));
 
-  const passwordAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: passwordSlideX.value }],
+  const otpAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: otpSlideX.value }],
   }));
 
   const handleGoogleLogin = async () => {
@@ -259,7 +323,17 @@ export default function AuthScreen() {
         expoToken: expoPushToken || undefined,
       });
   
-      await signIn(response.token, response.refreshToken);
+      // Check if PIN exists, redirect to creation if needed
+      const needsPinSetup = await checkAndHandlePinSetup(
+        router,
+        response.token,
+        response.refreshToken
+      );
+      
+      if (!needsPinSetup) {
+        // PIN exists, sign in normally
+        await signIn(response.token, response.refreshToken);
+      }
     } catch (error: any) {
       console.error('❌ Google login error:', error);
       
@@ -310,6 +384,101 @@ export default function AuthScreen() {
     }
   };
 
+  const handleRequestOtp = async () => {
+    try {
+      setIsVerifyingOtp(true);
+      await authApi.requestOtp({ email: email.trim() });
+
+      setAlertState({
+        visible: true,
+        title: 'Code Sent',
+        message: 'A 6-digit verification code has been sent to your email.',
+        type: 'success',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+
+      // Reset timer and enable countdown
+      setOtpTimer(60);
+      setCanResendOtp(false);
+    } catch (error: any) {
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Failed to Send Code',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      setAlertState({
+        visible: true,
+        title: 'Invalid Code',
+        message: 'Please enter the 6-digit verification code.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+      const response = await authApi.verifyOtp({
+        email: email.trim(),
+        otp: otp,
+        expoToken: expoPushToken || undefined,
+      });
+
+      // Non-existing user: OTP verified but no account; go to signup to create profile
+      if ('existingUser' in response && response.existingUser === false) {
+        router.replace({
+          pathname: '/onboarding/signup' as any,
+          params: { email: response.email },
+        });
+        return;
+      }
+
+      // Existing user: sign in with the received tokens
+      const authResponse = response as { user: any; token: string; refreshToken: string };
+      
+      // Check if PIN exists, redirect to creation if needed
+      const needsPinSetup = await checkAndHandlePinSetup(
+        router,
+        authResponse.token,
+        authResponse.refreshToken
+      );
+      
+      if (!needsPinSetup) {
+        // PIN exists, sign in normally
+        await signIn(authResponse.token, authResponse.refreshToken);
+      }
+    } catch (error: any) {
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Verification Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const handleEmailNext = async () => {
     // Validate email before proceeding
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -326,122 +495,40 @@ export default function AuthScreen() {
       return;
     }
 
-    try {
-      // Check if email exists in database
-      const result = await authApi.checkEmail(email.trim());
-      
-      if (result.exists) {
-        // Email exists - proceed to password step for login
-        setAuthMode('signin');
-        emailSlideX.value = withTiming(-width, { duration: 300 });
-        passwordSlideX.value = withTiming(0, { duration: 300 });
-        setCurrentStep('password');
-      } else {
-        // Email doesn't exist - route to signup with email pre-filled
-        router.push({
-          pathname: "/onboarding/signup" as any,
-          params: { email: email.trim() },
-        });
-      }
-    } catch (error) {
-      // If check fails, assume email doesn't exist and route to signup
-      console.error('Error checking email:', error);
-      router.push({
-        pathname: "/onboarding/signup" as any,
-        params: { email: email.trim() },
-      });
-    }
+    // Use OTP flow instead of password
+    setAuthMode('otp');
+    emailSlideX.value = withTiming(-width, { duration: 300 });
+    otpSlideX.value = withTiming(0, { duration: 300 });
+    setCurrentStep('otp');
+    
+    // Automatically request OTP
+    await handleRequestOtp();
   };
 
-  const handlePasswordBack = () => {
-    // Slide password right and email back from left
-    passwordSlideX.value = withTiming(width, { duration: 300 });
+  const handleOtpBack = () => {
+    otpSlideX.value = withTiming(width, { duration: 300 });
     emailSlideX.value = withTiming(0, { duration: 300 });
     setCurrentStep('email');
+    setOtp('');
+    setOtpTimer(60);
+    setCanResendOtp(false);
   };
 
-  const handlePasswordSubmit = async () => {
-    if (!password.trim() || password.length < 6) {
-      setAlertState({
-        visible: true,
-        title: 'Invalid Password',
-        message: 'Password must be at least 6 characters.',
-        type: 'error',
-        onConfirm: () => {
-          setAlertState(prev => ({ ...prev, visible: false }));
-        },
-      });
+  const handleUnlockPin = async () => {
+    if (pin.length !== 4) {
+      setPinError('Enter your 4-digit PIN');
       return;
     }
-
-    // Determine if signin or signup based on authMode
-    // If authMode is null, check if user exists (signin) or create new (signup)
-    if (authMode === 'signin') {
-      // Handle sign in
-      try {
-        const response = await authApi.login({
-          email: email.trim(),
-          password: password,
-          expoToken: expoPushToken || undefined,
-        });
-        await signIn(response.token, response.refreshToken);
-      } catch (error) {
-        const friendlyMessage = getFriendlyErrorMessage(error);
-        setAlertState({
-          visible: true,
-          title: 'Sign In Failed',
-          message: friendlyMessage,
-          type: 'error',
-          onConfirm: () => {
-            setAlertState(prev => ({ ...prev, visible: false }));
-          },
-        });
+    setIsUnlockingPin(true);
+    setPinError('');
+    try {
+      const ok = await unlockWithPin(pin);
+      if (!ok) {
+        setPinError('Incorrect PIN');
       }
-    } else if (authMode === 'signup') {
-      // Navigate to signup with email pre-filled
-      router.push({
-        pathname: "/onboarding/signup" as any,
-        params: { email: email.trim() },
-      });
-    } else {
-      // Try signin first, if fails, go to signup
-      try {
-        const response = await authApi.login({
-          email: email.trim(),
-          password: password,
-          expoToken: expoPushToken || undefined,
-        });
-        await signIn(response.token, response.refreshToken);
-      } catch (error: any) {
-        // If user not found, go to signup
-        if (error.message?.includes('not found') || error.message?.includes('404')) {
-          router.push({
-            pathname: "/onboarding/signup" as any,
-            params: { email: email.trim(), password: password },
-          });
-        } else {
-          const friendlyMessage = getFriendlyErrorMessage(error);
-          setAlertState({
-            visible: true,
-            title: 'Sign In Failed',
-            message: friendlyMessage,
-            type: 'error',
-            onConfirm: () => {
-              setAlertState(prev => ({ ...prev, visible: false }));
-            },
-          });
-        }
-      }
+    } finally {
+      setIsUnlockingPin(false);
     }
-  };
-
-  const handleSignUp = () => {
-    setAuthMode('signup');
-    setCurrentStep('email');
-    emailSlideX.value = withTiming(0, { duration: 300 });
-    passwordSlideX.value = withTiming(width, { duration: 300 });
-    setEmail('');
-    setPassword('');
   };
 
   const handleGuestMode = () => {
@@ -622,17 +709,80 @@ export default function AuthScreen() {
                gap: 12,
                marginTop: '20%',
              }}>
-             {/* Email/Password Input Section - Visible by default above buttons */}
+             {/* PIN entry when user has set a device PIN */}
+             {isPinSet && showPinEntry && (
+               <View style={{ width: '100%', marginBottom: 16 }}>
+                 <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 8, textAlign: 'center' }}>
+                   Enter your 4-digit PIN to unlock
+                 </Text>
+                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                   <View
+                     style={{
+                       flex: 1,
+                       flexDirection: 'row',
+                       alignItems: 'center',
+                       backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                       borderRadius: 28,
+                       paddingHorizontal: 20,
+                       height: 56,
+                       borderWidth: 1,
+                       borderColor: pinError ? 'rgba(255,100,100,0.6)' : 'rgba(255, 255, 255, 0.2)',
+                     }}
+                   >
+                     <Ionicons name="keypad-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                     <TextInput
+                       value={pin}
+                       onChangeText={(t) => { setPin(t.replace(/[^0-9]/g, '').slice(0, 4)); setPinError(''); }}
+                       placeholder="PIN"
+                       placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                       maxLength={4}
+                       keyboardType="number-pad"
+                       secureTextEntry
+                       style={{ flex: 1, fontSize: 16, color: '#FFFFFF', letterSpacing: 8 }}
+                     />
+                   </View>
+                   <TouchableOpacity
+                     onPress={handleUnlockPin}
+                     disabled={pin.length !== 4 || isUnlockingPin}
+                     style={{
+                       backgroundColor: colors.primary,
+                       width: 56,
+                       height: 56,
+                       borderRadius: 28,
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       opacity: pin.length === 4 && !isUnlockingPin ? 1 : 0.5,
+                     }}
+                   >
+                     {isUnlockingPin ? (
+                       <ActivityIndicator size="small" color={colors.primaryForeground} />
+                     ) : (
+                       <Ionicons name="lock-open-outline" size={24} color={colors.primaryForeground} />
+                     )}
+                   </TouchableOpacity>
+                 </View>
+                 {pinError ? (
+                   <Text style={{ fontSize: 12, color: 'rgba(255,150,150,0.9)', marginTop: 6, textAlign: 'center' }}>{pinError}</Text>
+                 ) : null}
+                 <TouchableOpacity
+                   onPress={() => setShowPinEntry(false)}
+                   style={{ marginTop: 12, paddingVertical: 8 }}
+                 >
+                   <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600', textAlign: 'center' }}>
+                     Use OTP instead
+                   </Text>
+                 </TouchableOpacity>
+               </View>
+             )}
+
+             {/* Email/OTP Input Section */}
              <View
                style={{
                 flexDirection:'column',
                 width: '100%',
                 marginBottom: 12,
-                
                }}
              >
-                
-            {/* Email Input - Slides Left */}
             <Animated.View style={emailAnimatedStyle}>
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                 <View
@@ -691,88 +841,111 @@ export default function AuthScreen() {
               <Text style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center', marginTop: 8 }}>We’ll check if you already have an account.</Text>
             </Animated.View>
 
-            {/* Password Input - Slides in from Right */}
-            <Animated.View style={passwordAnimatedStyle}>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center',marginTop:-80 }}>
-                <TouchableOpacity
-                  onPress={handlePasswordBack}
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-                
-                <View
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderRadius: 28,
-                    paddingHorizontal: 20,
-                    height: 56,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                  }}
-                >
-                        <Ionicons name="lock-closed-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
-                        <TextInput
-                          ref={passwordInputRef}
-                          value={password}
-                          onChangeText={setPassword}
-                          placeholder="Enter your password"
-                          placeholderTextColor="rgba(255, 255, 255, 0.6)"
-                          maxLength={128}
-                          secureTextEntry={!showPassword}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          style={{
-                            flex: 1,
-                            fontSize: 16,
-                            color: '#FFFFFF',
-                          }}
-                        />
+            {/* OTP Input - Slides in from Right */}
+            <Animated.View style={otpAnimatedStyle}>
+              <View style={{ marginTop: -80 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                   <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={{ padding: 4 }}
+                    onPress={handleOtpBack}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={22}
-                      color="rgba(255, 255, 255, 0.7)"
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderRadius: 28,
+                      paddingHorizontal: 20,
+                      height: 56,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                  >
+                    <Ionicons name="shield-checkmark-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                    <TextInput
+                      value={otp}
+                      onChangeText={(text) => {
+                        // Only allow numbers and limit to 6 digits
+                        const numericText = text.replace(/[^0-9]/g, '').slice(0, 6);
+                        setOtp(numericText);
+                      }}
+                      placeholder="Enter 6-digit code"
+                      placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={{
+                        flex: 1,
+                        fontSize: 16,
+                        color: '#FFFFFF',
+                        letterSpacing: 4,
+                      }}
                     />
+                  </View>
+                  
+                  <TouchableOpacity
+                    onPress={handleVerifyOtp}
+                    disabled={otp.length !== 6 || isVerifyingOtp}
+                    style={{
+                      backgroundColor: colors.primary,
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: otp.length === 6 && !isVerifyingOtp ? 1 : 0.5,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 4,
+                      elevation: 5,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {isVerifyingOtp ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Ionicons name="checkmark" size={24} color={colors.primaryForeground} />
+                    )}
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={handlePasswordSubmit}
-                  disabled={!password.trim() || password.length < 6}
-                  style={{
-                    backgroundColor: colors.primary,
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: password.trim() && password.length >= 6 ? 1 : 0.5,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 5,
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkmark" size={24} color={colors.primaryForeground} />
-                </TouchableOpacity>
+
+                {/* Timer and Resend */}
+                <View style={{ marginTop: 12, alignItems: 'center' }}>
+                  {!canResendOtp ? (
+                    <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.6)' }}>
+                      Resend code in {otpTimer}s
+                    </Text>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleRequestOtp}
+                      disabled={isVerifyingOtp}
+                      style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+                    >
+                      <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>
+                        Resend Code
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.5)', marginTop: 4, textAlign: 'center' }}>
+                    Check your email for the verification code
+                  </Text>
+                </View>
               </View>
             </Animated.View>
                </View>
@@ -857,11 +1030,23 @@ export default function AuthScreen() {
                           isNewUser: response.isNewUser 
                         });
                         
-                        console.log('[Auth] Signing in with token...');
-                        await signIn(response.token, response.refreshToken);
-                        console.log('[Auth] Sign in successful');
+                        console.log('[Auth] Checking PIN...');
                         
-                        if (response.isNewUser) {
+                        // Check if PIN exists, redirect to creation if needed
+                        const needsPinSetup = await checkAndHandlePinSetup(
+                          router,
+                          response.token,
+                          response.refreshToken
+                        );
+                        
+                        if (!needsPinSetup) {
+                          // PIN exists, sign in normally
+                          console.log('[Auth] Signing in with token...');
+                          await signIn(response.token, response.refreshToken);
+                          console.log('[Auth] Sign in successful');
+                        }
+                        
+                        if (response.isNewUser && !needsPinSetup) {
                           setAlertState({
                             visible: true,
                             title: 'Welcome!',
@@ -981,14 +1166,6 @@ export default function AuthScreen() {
 
             {/* Tertiary Button - Create an account */}
           {/*  <TouchableOpacity
-            //   onPress={() => {
-            //     setAuthMode('signup');
-            //     setEmail('');
-            //     setPassword('');
-            //     setCurrentStep('email');
-            //     emailSlideX.value = withTiming(0, { duration: 300 });
-            //     passwordSlideX.value = withTiming(width, { duration: 300 });
-            //   }}
             onPress={() => router.push("/onboarding/signup")}
               style={{
                 backgroundColor: 'transparent',

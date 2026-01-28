@@ -344,8 +344,10 @@ function RootNavigation() {
       <Stack.Screen name="onboarding/splash" />
       <Stack.Screen name="onboarding/onboard-one" />
       <Stack.Screen name="onboarding/welcome" />
+      <Stack.Screen name="onboarding/auth" />
       <Stack.Screen name="onboarding/signin" />
       <Stack.Screen name="onboarding/signup" />
+      <Stack.Screen name="onboarding/pin-verification" />
 
       {/* Define the protected (tabs) group */}
       <Stack.Screen name="(tabs)" />

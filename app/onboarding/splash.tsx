@@ -13,12 +13,14 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { width, height } = Dimensions.get("window");
 
 export default function SplashScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { isAuthenticated, isPinSet, isLoading } = useAuth();
 
   // Animation values
   const logoScale = useSharedValue(0);
@@ -68,20 +70,27 @@ export default function SplashScreen() {
       -1
     );
 
-    // Navigate after animation
+    // Navigate after animation and auth check
     const timer = setTimeout(() => {
-      // Check if user has seen onboarding (you'll implement AsyncStorage later)
-      const hasSeenOnboarding = false;
+      // Don't navigate if still loading auth state
+      if (isLoading) return;
       
-      if (hasSeenOnboarding) {
-        router.replace("/(tabs)" as any);
-      } else {
+      // If authenticated, go to home
+      if (isAuthenticated) {
+        router.replace("/(tabs)/home" as any);
+      } 
+      // If has PIN set (logged in, needs to unlock), go to PIN screen
+      else if (isPinSet) {
+        router.replace("/onboarding/pin-verification" as any);
+      } 
+      // Otherwise, show onboarding/auth
+      else {
         router.replace("/onboarding/onboard-one" as any);
       }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isAuthenticated, isPinSet, isLoading]);
 
   const logoAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: logoScale.value }],

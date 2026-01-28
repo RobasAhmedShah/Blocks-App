@@ -1061,8 +1061,15 @@ export default function WalletScreen() {
 
   // Hide normal categories when sticky version is visible
   const normalCategoriesOpacity = scrollY.interpolate({
-    inputRange: [0, stickyThreshold - 20, stickyThreshold],
-    outputRange: [1, 1, 0],
+    inputRange: [1, stickyThreshold - 20, stickyThreshold],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animated background opacity for categories section - starts transparent, gradually darkens on scroll
+  const categoriesBackgroundOpacity = scrollY.interpolate({
+    inputRange: [walletCardHeight - 50, walletCardHeight, walletCardHeight + 100, walletCardHeight + 200],
+    outputRange: [0, 0.3, 0.7, 1],
     extrapolate: 'clamp',
   });
 
@@ -1135,7 +1142,7 @@ export default function WalletScreen() {
               setActualHeaderHeight(height);
             }}
         style={{
-          position: 'absolute',
+          // position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
@@ -1298,10 +1305,11 @@ export default function WalletScreen() {
           {/* Scrollable Content */}
           <ScrollView
             ref={scrollViewRef}
+            stickyHeaderIndices={[1]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: actualHeaderHeight }}
+            contentContainerStyle={{ }}
           >
             {/* Wallet Card Sections */}
             <View>
@@ -1698,9 +1706,24 @@ export default function WalletScreen() {
             {/* Categories and Recent Transactions Heading - Normal flow */}
         {/* Hide Custody transactions UI for non-KYC users */}
         {!isNonKycUser && walletTab === 'usdc' && (
-              <Animated.View style={{ opacity: normalCategoriesOpacity }}>
-                {/* Categories Chips */}
-                <View className="mx-4 mb-3 mt-4">
+              <Animated.View style={{ position: 'relative' }}>
+                {/* Animated background that gradually appears on scroll */}
+                <Animated.View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: isDarkColorScheme ? 'rgba(22, 22, 22, 1)' : 'rgba(255, 255, 255, 1)',
+                    opacity: categoriesBackgroundOpacity,
+                  }}
+                />
+                <View style={{ position: 'relative', zIndex: 1 }}>
+                 {/* Categories Chips */}
+                 <View 
+                 className="mx-4 mb-3 mt-4 "
+                 >
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1722,13 +1745,14 @@ export default function WalletScreen() {
                   />
                 ))}
               </ScrollView>
-            </View>
+             </View>
             
                 {/* Recent Transactions Heading */}
             <View className="px-4">
                   <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
-                Recent Transactions
+                Recent Transactionssss
               </Text>
+                </View>
                 </View>
               </Animated.View>
             )}
@@ -1736,7 +1760,7 @@ export default function WalletScreen() {
             {/* Transactions Section - Scrollable */}
             {/* Hide Custody transactions for non-KYC users */}
             {!isNonKycUser && walletTab === 'usdc' && (
-              <View className="px-4 pb-20">
+              <View className="px-4 pb-20 mt-4">
               {filteredTransactions.length === 0 ? (
           <View style={{ padding: 24, alignItems: 'center' }}>
             <Text style={{ color: colors.textSecondary }} className="text-sm">
@@ -1933,7 +1957,7 @@ export default function WalletScreen() {
               />
 
               {/* Categories Chips */}
-              <View className="mx-4 mb-3 pt-2" style={{ zIndex: 1 }}>
+              {/* <View className="mx-4 mb-3 pt-2" style={{ zIndex: 1 }}>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -1955,14 +1979,14 @@ export default function WalletScreen() {
                     />
                   ))}
                 </ScrollView>
-              </View>
+              </View> */}
 
               {/* Recent Transactions Heading */}
-              <View className="px-4" style={{ zIndex: 1 }}>
+              {/* <View className="px-4" style={{ zIndex: 1 }}>
                 <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
                   Recent Transactions
                 </Text>
-              </View>
+              </View> */}
             </Animated.View>
           )}
           </>

@@ -1757,7 +1757,7 @@ export default function WalletScreen() {
                 <MaterialIcons
                   name={getTransactionIcon(transaction.type)}
                   size={28}
-                  color={getTransactionColor(transaction.type)}
+                  color={getTransactionColor(transaction.type, colors)}
                 />
               </View>
               <View className="ml-3 flex-1">

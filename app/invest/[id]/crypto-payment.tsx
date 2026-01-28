@@ -15,6 +15,7 @@ import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { useApp } from '@/contexts/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import EmeraldLoader from '@/components/EmeraldLoader';
+import { AppAlert } from '@/components/AppAlert';
 
 export default function CryptoPaymentScreen() {
   const router = useRouter();
@@ -42,6 +43,10 @@ export default function CryptoPaymentScreen() {
   const [tokenAmount, setTokenAmount] = useState(0);
   const [tokenDecimals, setTokenDecimals] = useState(6); // Default to 6 decimals
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
+  const [paymentSuccessTitle, setPaymentSuccessTitle] = useState('');
+  const [paymentSuccessMessage, setPaymentSuccessMessage] = useState('');
+  const [paymentSuccessType, setPaymentSuccessType] = useState<'success' | 'info'>('success');
 
   const tokenCount = parseFloat(params.tokenCount || '0');
   const totalInvestment = parseFloat(params.totalInvestment || '0');
@@ -825,35 +830,20 @@ export default function CryptoPaymentScreen() {
       
       console.log('[Crypto Payment] Investment completed successfully');
 
-      Alert.alert(
-        'Payment Successful!',
-        `Your payment has been confirmed.\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nYour investment is being processed.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to confirmation page
-              // Wallet stays connected (no disconnect)
-              router.replace({
-                pathname: `/invest/${propertyId}/confirm` as any,
-                params: {
-                  tokenCount: tokenCount.toString(),
-                  totalAmount: params.totalAmount,
-                  totalInvestment: params.totalInvestment,
-                  propertyTitle: params.propertyTitle,
-                },
-              } as any);
-            },
-          },
-        ]
+      setPaymentSuccessTitle('Payment Successful!');
+      setPaymentSuccessMessage(
+        `Your payment has been confirmed.\n\nTransaction: ${txHash.slice(0, 10)}...${txHash.slice(-8)}\n\nYour investment is being processed.`
       );
+      setPaymentSuccessType('success');
+      setShowPaymentSuccessModal(true);
     } catch (error: any) {
       console.error('[Crypto Payment] Error completing investment:', error);
-      Alert.alert(
-        'Payment Sent',
-        `Your payment was sent successfully, but there was an error processing the investment.\n\nTransaction: ${txHash}\n\nPlease contact support with this transaction hash.`,
-        [{ text: 'OK' }]
+      setPaymentSuccessTitle('Payment Sent');
+      setPaymentSuccessMessage(
+        `Your payment was sent successfully, but there was an error processing the investment.\n\nTransaction: ${txHash}\n\nPlease contact support with this transaction hash.`
       );
+      setPaymentSuccessType('info');
+      setShowPaymentSuccessModal(true);
     } finally {
       setSending(false);
     }
@@ -1015,6 +1005,29 @@ export default function CryptoPaymentScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* In-app payment success modal (matches app theme) */}
+      <AppAlert
+        visible={showPaymentSuccessModal}
+        title={paymentSuccessTitle}
+        message={paymentSuccessMessage}
+        type={paymentSuccessType}
+        confirmText="OK"
+        onConfirm={() => {
+          setShowPaymentSuccessModal(false);
+          if (paymentSuccessType === 'success') {
+            router.replace({
+              pathname: `/invest/${params.propertyId}/confirm` as any,
+              params: {
+                tokenCount: tokenCount.toString(),
+                totalAmount: params.totalAmount,
+                totalInvestment: params.totalInvestment,
+                propertyTitle: params.propertyTitle,
+              },
+            } as any);
+          }
+        }}
+      />
     </LinearGradient>
   );
 }

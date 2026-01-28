@@ -43,8 +43,15 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.1016447845766-24stah4d5r1j3q6rd17hgh7gnppfifvl"
         }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
       ]
-      
+   
     ],
     "experiments": {
       "typedRoutes": true,
@@ -78,7 +85,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.intelik.Blocks",
-      "googleServicesFile": "./google-services.json", 
+      "googleServicesFile": "./google-services.json",
       "versionCode": 142,
       "config": {
         "googleMaps": {
@@ -91,7 +98,6 @@
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-   
       "apiUrl": "https://blocks-backend.vercel.app"
     },
     "owner": "robas",

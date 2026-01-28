@@ -13,6 +13,8 @@ const REFRESH_TOKEN_KEY = 'refresh_token';
 const BIOMETRIC_TOKEN_KEY = 'biometric_auth_token';
 const BIOMETRIC_REFRESH_TOKEN_KEY = 'biometric_refresh_token';
 const PENDING_NOTIFICATION_URL_KEY = 'pending_notification_url';
+const DEVICE_PIN_KEY = 'device_pin';
+const PIN_ENABLED_KEY = 'pin_enabled';
 
 // --- Define State and Context Shapes ---
 interface AuthState {
@@ -21,15 +23,18 @@ interface AuthState {
   isLoading: boolean;
   isBiometricSupported: boolean;
   isBiometricEnrolled: boolean;
+  isPinSet: boolean;
   isGuest: boolean;
 }
 
 interface AuthContextProps extends Omit<AuthState, 'token'> {
-  signIn: (token: string, refreshToken: string, enableBiometrics?: boolean) => Promise<void>;
+  signIn: (token: string, refreshToken: string, enableBiometrics?: boolean, devicePin?: string) => Promise<void>;
   signOut: () => Promise<void>;
   enableBiometrics: () => Promise<boolean>;
   disableBiometrics: () => Promise<boolean>;
   loginWithBiometrics: () => Promise<boolean>;
+  setDevicePin: (pin: string) => Promise<void>;
+  unlockWithPin: (pin: string) => Promise<boolean>;
   enterGuestMode: () => void;
   exitGuestMode: () => void;
   setInitialGuestMode: () => void;
@@ -45,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
     isBiometricSupported: false,
     isBiometricEnrolled: false,
+    isPinSet: false,
     isGuest: false,
   });
   
@@ -76,13 +82,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
         const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
         const biometricEnabled = await SecureStore.getItemAsync('biometric_enabled');
+        const pinEnabled = await SecureStore.getItemAsync(PIN_ENABLED_KEY);
         
-        // If biometric is enabled, don't auto-authenticate - require biometric verification
-        if (biometricEnabled === 'true' && token) {
+        // If biometric or PIN is enabled, don't auto-authenticate - require verification
+        if (token && (biometricEnabled === 'true' || pinEnabled === 'true')) {
           setAuthState(prev => ({
             ...prev,
             isLoading: false,
-            isAuthenticated: false, // Require biometric verification
+            isAuthenticated: false, // Require biometric or PIN verification
+            isPinSet: pinEnabled === 'true',
           }));
           return;
         }
@@ -256,21 +264,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (authState.isLoading) return; 
 
     const inOnboardingGroup = segments[0] === 'onboarding';
+    const currentScreen = segments[1];
 
-    // Allow guest mode to access non-onboarding routes
+    // User has tokens but needs to unlock — show PIN screen as guard, not auth/sign-in
     if (!authState.isAuthenticated && !authState.isGuest && !inOnboardingGroup) {
-      // Not authenticated, not guest, and NOT in onboarding, redirect to signin
-      // Use InteractionManager to defer navigation until all interactions complete
-      // This prevents hooks errors during render by ensuring navigation happens after render cycle
       const interaction = InteractionManager.runAfterInteractions(() => {
-        router.replace('/onboarding/auth');
+        // If PIN is set, user is logged in — go directly to PIN screen to unlock
+        if (authState.isPinSet) {
+          router.replace('/onboarding/pin-verification');
+        } else {
+          router.replace('/onboarding/auth');
+        }
       });
       
-      // Cleanup function to cancel navigation if component unmounts
       return () => {
         interaction.cancel();
       };
-    } else if (authState.isAuthenticated && inOnboardingGroup) {
+    }
+    
+    // If user is in onboarding (splash, onboard-one, auth, etc.) but has PIN set, redirect to PIN screen
+    if (!authState.isAuthenticated && authState.isPinSet && inOnboardingGroup) {
+      // Allow PIN verification screen itself
+      if (currentScreen !== 'pin-verification') {
+        const interaction = InteractionManager.runAfterInteractions(() => {
+          router.replace('/onboarding/pin-verification');
+        });
+        return () => {
+          interaction.cancel();
+        };
+      }
+    } 
+    // If user is in onboarding and authenticated, go to home
+    else if (authState.isAuthenticated && inOnboardingGroup) {
       // Authenticated and in onboarding - check for pending notification route first
       navigateToPendingNotification().then((navigated) => {
         // If no pending notification or navigation failed, go to default home
@@ -281,10 +306,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
     }
-  }, [authState.isAuthenticated, authState.isGuest, authState.isLoading, segments, router]);
+  }, [authState.isAuthenticated, authState.isGuest, authState.isPinSet, authState.isLoading, segments, router]);
 
   // --- Auth Actions ---
-  const signIn = async (token: string, refreshToken: string, enableBiometrics: boolean = false) => {
+  const signIn = async (token: string, refreshToken: string, enableBiometrics: boolean = false, devicePin?: string) => {
     try {
       // Always store tokens in standard keys
       await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -295,12 +320,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await SecureStore.setItemAsync('biometric_enabled', 'true');
       }
       
+      // If device PIN is provided (4-digit unlock), store it locally
+      if (devicePin && devicePin.length === 4) {
+        await SecureStore.setItemAsync(DEVICE_PIN_KEY, devicePin);
+        await SecureStore.setItemAsync(PIN_ENABLED_KEY, 'true');
+      }
+      
       setAuthState(prev => ({
         ...prev,
         token: token,
         isAuthenticated: true,
         isLoading: false,
         isBiometricEnrolled: enableBiometrics,
+        isPinSet: !!devicePin && devicePin.length === 4,
         isGuest: false, // Clear guest mode on sign in
       }));
       
@@ -338,6 +370,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await SecureStore.deleteItemAsync(TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       await SecureStore.deleteItemAsync('biometric_enabled');
+      await SecureStore.deleteItemAsync(PIN_ENABLED_KEY);
+      await SecureStore.deleteItemAsync(DEVICE_PIN_KEY);
       // Clean up old biometric keys if they exist (for migration)
       await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
       await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY).catch(() => {});
@@ -348,6 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token: null,
         isAuthenticated: false,
         isBiometricEnrolled: false,
+        isPinSet: false,
         isLoading: false, // Ensure loading is false after logout
       }));
     } catch (e) {
@@ -358,6 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token: null,
         isAuthenticated: false,
         isBiometricEnrolled: false,
+        isPinSet: false,
         isGuest: false,
         isLoading: false,
       }));
@@ -511,6 +547,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
+
+  /** Store 4-digit PIN for device unlock (local only, not sent to backend). */
+  const setDevicePin = async (pin: string): Promise<void> => {
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) return;
+    await SecureStore.setItemAsync(DEVICE_PIN_KEY, pin);
+    await SecureStore.setItemAsync(PIN_ENABLED_KEY, 'true');
+    setAuthState(prev => ({ ...prev, isPinSet: true }));
+  };
+
+  /** Unlock with 4-digit PIN; returns true if PIN matches. */
+  const unlockWithPin = async (pin: string): Promise<boolean> => {
+    try {
+      const storedPin = await SecureStore.getItemAsync(DEVICE_PIN_KEY);
+      if (!storedPin || pin !== storedPin) return false;
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      if (!token) return false;
+      try {
+        await authApi.getMe(token);
+        setAuthState(prev => ({
+          ...prev,
+          token,
+          isAuthenticated: true,
+          isGuest: false,
+        }));
+        return true;
+      } catch {
+        if (refreshToken) {
+          try {
+            const refreshed = await authApi.refreshToken(refreshToken);
+            await SecureStore.setItemAsync(TOKEN_KEY, refreshed.token);
+            await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshed.refreshToken);
+            setAuthState(prev => ({
+              ...prev,
+              token: refreshed.token,
+              isAuthenticated: true,
+              isGuest: false,
+            }));
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        return false;
+      }
+    } catch (e) {
+      console.error('PIN unlock error:', e);
+      return false;
+    }
+  };
   
   // Provide the auth state and actions
   const value = {
@@ -519,6 +605,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     enableBiometrics,
     disableBiometrics,
     loginWithBiometrics,
+    setDevicePin,
+    unlockWithPin,
     enterGuestMode,
     exitGuestMode,
     setInitialGuestMode,
@@ -526,6 +614,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: authState.isLoading,
     isBiometricSupported: authState.isBiometricSupported,
     isBiometricEnrolled: authState.isBiometricEnrolled,
+    isPinSet: authState.isPinSet,
     isGuest: authState.isGuest,
   };
 

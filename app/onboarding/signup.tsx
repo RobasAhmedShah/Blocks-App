@@ -118,49 +118,6 @@ const validateEmail = (value: string): { isValid: boolean; error?: string } => {
   return { isValid: true };
 };
 
-const validatePassword = (value: string): { isValid: boolean; error?: string; strength?: number } => {
-  if (!value) {
-    return { isValid: false, error: "Password is required", strength: 0 };
-  }
-  
-  if (value.length < VALIDATION_RULES.PASSWORD.MIN_LENGTH) {
-    return { isValid: false, error: `Password must be at least ${VALIDATION_RULES.PASSWORD.MIN_LENGTH} characters`, strength: 0 };
-  }
-  
-  if (value.length > VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
-    return { isValid: false, error: "Password is too long", strength: 0 };
-  }
-  
-  let strength = 0;
-  const hasUppercase = VALIDATION_RULES.PASSWORD.UPPERCASE_REGEX.test(value);
-  const hasLowercase = VALIDATION_RULES.PASSWORD.LOWERCASE_REGEX.test(value);
-  const hasNumber = VALIDATION_RULES.PASSWORD.NUMBER_REGEX.test(value);
-  const hasSpecialChar = VALIDATION_RULES.PASSWORD.SPECIAL_CHAR_REGEX.test(value);
-  
-  if (!hasUppercase || !hasLowercase) {
-    return { isValid: false, error: "Password must contain uppercase and lowercase letters", strength: 1 };
-  }
-  
-  if (hasUppercase) strength++;
-  if (hasLowercase) strength++;
-  if (hasNumber) strength++;
-  if (hasSpecialChar) strength++;
-  if (value.length >= 12) strength++;
-  
-  return { isValid: true, strength };
-};
-
-const validateConfirmPassword = (password: string, confirmPassword: string): { isValid: boolean; error?: string } => {
-  if (!confirmPassword) {
-    return { isValid: false, error: "Please confirm your password" };
-  }
-  
-  if (password !== confirmPassword) {
-    return { isValid: false, error: "Passwords do not match" };
-  }
-  
-  return { isValid: true };
-};
 
 // Helper function to convert error messages to user-friendly messages for signup
 const getFriendlyErrorMessage = (error: unknown): string => {
@@ -268,42 +225,31 @@ export default function SignUpScreen() {
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
-  const confirmPasswordRef = useRef<TextInput>(null);
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 3; // Email, Name, Photo (PIN is separate screen)
   
   // Form fields
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(params.email || "");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
   const [errors, setErrors] = useState<{
     firstName?: string;
     lastName?: string;
     email?: string;
-    password?: string;
-    confirmPassword?: string;
   }>({});
   
   const [touched, setTouched] = useState({
     firstName: false,
     lastName: false,
     email: false,
-    password: false,
-    confirmPassword: false,
   });
   
   const [apiError, setApiError] = useState<string | null>(null);
-  const [passwordStrength, setPasswordStrength] = useState(0);
   
   // Step slide animations
   const step1TranslateX = useSharedValue(0);
@@ -315,8 +261,8 @@ export default function SignUpScreen() {
   const progressValue = useSharedValue(0);
   
   // Gradient horizontal position (0 = left, 1 = right)
-  // Step 1 → 10%, Step 2 → 35%, Step 3 → 60%, Step 4 → 90%
-  const gradientX = useSharedValue(0.1);
+  // Step 1 → 15%, Step 2 → 50%, Step 3 → 85%
+  const gradientX = useSharedValue(0.15);
   
   // Alert state
   const [alertState, setAlertState] = useState<{
@@ -351,30 +297,22 @@ export default function SignUpScreen() {
       step1TranslateX.value = withTiming(0, { duration: 300 });
       step2TranslateX.value = withTiming(width, { duration: 300 });
       step3TranslateX.value = withTiming(width, { duration: 300 });
-      step4TranslateX.value = withTiming(width, { duration: 300 });
-      progressValue.value = withTiming(25, { duration: 300 });
-      gradientX.value = withTiming(0.1, { duration: 300 }); // 10%
+      progressValue.value = withTiming(33, { duration: 300 });
+      gradientX.value = withTiming(0.15, { duration: 300 }); // 15%
     } else if (currentStep === 2) {
       step1TranslateX.value = withTiming(-width, { duration: 300 });
       step2TranslateX.value = withTiming(0, { duration: 300 });
       step3TranslateX.value = withTiming(width, { duration: 300 });
       step4TranslateX.value = withTiming(width, { duration: 300 });
-      progressValue.value = withTiming(50, { duration: 300 });
-      gradientX.value = withTiming(0.35, { duration: 300 }); // 35%
+      progressValue.value = withTiming(66, { duration: 300 });
+      gradientX.value = withTiming(0.5, { duration: 300 }); // 50%
     } else if (currentStep === 3) {
       step1TranslateX.value = withTiming(-width, { duration: 300 });
       step2TranslateX.value = withTiming(-width, { duration: 300 });
       step3TranslateX.value = withTiming(0, { duration: 300 });
       step4TranslateX.value = withTiming(width, { duration: 300 });
-      progressValue.value = withTiming(75, { duration: 300 });
-      gradientX.value = withTiming(0.6, { duration: 300 }); // 60%
-    } else if (currentStep === 4) {
-      step1TranslateX.value = withTiming(-width, { duration: 300 });
-      step2TranslateX.value = withTiming(-width, { duration: 300 });
-      step3TranslateX.value = withTiming(-width, { duration: 300 });
-      step4TranslateX.value = withTiming(0, { duration: 300 });
       progressValue.value = withTiming(100, { duration: 300 });
-      gradientX.value = withTiming(0.9, { duration: 300 }); // 90%
+      gradientX.value = withTiming(0.85, { duration: 300 }); // 85%
     }
   }, [currentStep]);
 
@@ -399,21 +337,6 @@ export default function SignUpScreen() {
       setErrors(prev => ({ ...prev, email: validation.error }));
     }
   }, [email, touched.email]);
-
-  useEffect(() => {
-    if (touched.password) {
-      const validation = validatePassword(password);
-      setErrors(prev => ({ ...prev, password: validation.error }));
-      setPasswordStrength(validation.strength || 0);
-    }
-  }, [password, touched.password]);
-
-  useEffect(() => {
-    if (touched.confirmPassword) {
-      const validation = validateConfirmPassword(password, confirmPassword);
-      setErrors(prev => ({ ...prev, confirmPassword: validation.error }));
-    }
-  }, [password, confirmPassword, touched.confirmPassword]);
 
   const step1AnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: step1TranslateX.value }],
@@ -473,17 +396,6 @@ export default function SignUpScreen() {
     }
   };
 
-  const handlePasswordChange = (text: string) => {
-    if (text.length <= VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
-      setPassword(text);
-    }
-  };
-
-  const handleConfirmPasswordChange = (text: string) => {
-    if (text.length <= VALIDATION_RULES.PASSWORD.MAX_LENGTH) {
-      setConfirmPassword(text);
-    }
-  };
 
   const validateStep1 = () => {
     // Step 1: Email only
@@ -520,24 +432,6 @@ export default function SignUpScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const validateStep3 = () => {
-    // Step 3: Password
-    const passwordValidation = validatePassword(password);
-    const confirmPasswordValidation = validateConfirmPassword(password, confirmPassword);
-
-    const newErrors: typeof errors = {};
-    if (!passwordValidation.isValid) newErrors.password = passwordValidation.error;
-    if (!confirmPasswordValidation.isValid) newErrors.confirmPassword = confirmPasswordValidation.error;
-
-    setErrors(newErrors);
-    setTouched({
-      ...touched,
-      password: true,
-      confirmPassword: true,
-    });
-
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleNext = () => {
     // Haptic feedback
@@ -554,11 +448,6 @@ export default function SignUpScreen() {
       if (validateStep2()) {
         Keyboard.dismiss();
         setCurrentStep(3);
-      }
-    } else if (currentStep === 3) {
-      if (validateStep3()) {
-        Keyboard.dismiss();
-        setCurrentStep(4);
       }
     }
   };
@@ -601,7 +490,7 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     // Final validation - all steps must be valid
-    if (!validateStep1() || !validateStep2() || !validateStep3()) {
+    if (!validateStep1() || !validateStep2()) {
       return;
     }
 
@@ -615,15 +504,20 @@ export default function SignUpScreen() {
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       const response = await authApi.register({
         email: email.trim(),
-        password: password,
         fullName: fullName,
         expoToken: expoPushToken || undefined,
       });
       
-      await signIn(response.token, response.refreshToken);
-      
-      // After successful signup, request permissions
-      await requestPermissionsOnSignup();
+      // Don't sign in yet - pass tokens to PIN screen
+      // Sign in will happen AFTER PIN is created
+      router.replace({
+        pathname: '/onboarding/pin-verification' as any,
+        params: { 
+          mode: 'create',
+          token: response.token,
+          refreshToken: response.refreshToken,
+        },
+      });
     } catch (error) {
       const friendlyMessage = getFriendlyErrorMessage(error);
       setAlertState({
@@ -680,18 +574,6 @@ export default function SignUpScreen() {
         },
       });
     }
-  };
-
-  const getPasswordRequirements = () => {
-    const hasMinLength = password.length >= VALIDATION_RULES.PASSWORD.MIN_LENGTH;
-    const hasNumber = VALIDATION_RULES.PASSWORD.NUMBER_REGEX.test(password);
-    const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-
-    return [
-      { text: `At least ${VALIDATION_RULES.PASSWORD.MIN_LENGTH} characters`, met: hasMinLength },
-      { text: 'At least 1 number', met: hasNumber },
-      { text: 'Passwords are a match', met: passwordsMatch },
-    ];
   };
 
   const requestPermissionsOnSignup = async () => {
@@ -779,20 +661,6 @@ export default function SignUpScreen() {
     router.push("/onboarding/signin" as any);
   };
 
-  const getPasswordStrengthColor = () => {
-    if (passwordStrength <= 1) return '#EF4444';
-    if (passwordStrength <= 2) return '#F59E0B';
-    if (passwordStrength <= 3) return '#10B981';
-    return '#22C55E';
-  };
-
-  const getPasswordStrengthText = () => {
-    if (passwordStrength <= 1) return 'Weak';
-    if (passwordStrength <= 2) return 'Fair';
-    if (passwordStrength <= 3) return 'Good';
-    return 'Strong';
-  };
-
   const isStep1Valid = () => {
     return validateEmail(email).isValid;
   };
@@ -803,8 +671,8 @@ export default function SignUpScreen() {
   };
 
   const isStep3Valid = () => {
-    return validatePassword(password).isValid &&
-           validateConfirmPassword(password, confirmPassword).isValid;
+    // Step 3 is photo, which is optional, so always valid
+    return true;
   };
 
   return (
@@ -927,7 +795,7 @@ export default function SignUpScreen() {
             {/* Progress Bar */}
             <View style={{ marginBottom: 32 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap:8, marginBottom: 12}}>
-                {[1, 2, 3, 4].map((step) => (
+                {[1, 2, 3].map((step) => (
                   <View
                     key={step}
                     style={{
@@ -974,8 +842,7 @@ export default function SignUpScreen() {
               >
                 {currentStep === 1 && "Enter your Email"}
                 {currentStep === 2 && "Set up your Profile"}
-                {currentStep === 3 && "Create a Password"}
-                {currentStep === 4 && "Add a Photo"}
+                {currentStep === 3 && "Add a Photo"}
               </Text>
               <Text
                 style={{
@@ -986,8 +853,7 @@ export default function SignUpScreen() {
               >
                 {currentStep === 1 && "We'll use this to keep your account secure."}
                 {currentStep === 2 && "Enter your first and last name."}
-                {currentStep === 3 && "Secure your account with a strong password."}
-                {currentStep === 4 && "Add a profile photo so your friends know it's you!"}
+                {currentStep === 3 && "Add a profile photo so your friends know it's you!"}
               </Text>
             </View>
 
@@ -1229,204 +1095,10 @@ export default function SignUpScreen() {
                 </View>
               </Animated.View>
 
-              {/* Step 3: Password */}
+              {/* Step 3: Photo */}
               <Animated.View
                 style={[
                   step3AnimatedStyle,
-                  {
-                    position: 'absolute',
-                    width: width - 48,
-                    paddingRight: 0,
-                  },
-                ]}
-              >
-                <View style={{ gap: 24 }}>
-                  {/* Password Input */}
-                  <View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color: colors.textPrimary,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Password
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: isDarkColorScheme
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : colors.input,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: errors.password && touched.password
-                          ? colors.destructive
-                          : !errors.password && touched.password && password
-                          ? colors.primary
-                          : 'transparent',
-                        paddingHorizontal: 16,
-                        height: 56,
-                      }}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={errors.password && touched.password ? colors.destructive : colors.textMuted}
-                        style={{ marginRight: 12 }}
-                      />
-                      <TextInput
-                        ref={passwordRef}
-                        value={password}
-                        onChangeText={handlePasswordChange}
-                        onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
-                        onFocus={() => handleInputFocus(passwordRef)}
-                        placeholder="Password"
-                        placeholderTextColor={colors.textMuted}
-                        maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          color: colors.textPrimary,
-                        }}
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        returnKeyType="next"
-                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowPassword(!showPassword)}
-                        style={{ padding: 4 }}
-                      >
-                        <Ionicons
-                          name={showPassword ? "eye-off-outline" : "eye-outline"}
-                          size={20}
-                          color={colors.textMuted}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {errors.password && touched.password && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
-                        <Ionicons name="alert-circle" size={14} color={colors.destructive} />
-                        <Text style={{ color: colors.destructive, fontSize: 12, marginLeft: 4 }}>
-                          {errors.password}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Confirm Password Input */}
-                  <View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color: colors.textPrimary,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Confirm Password
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: isDarkColorScheme
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : colors.input,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: errors.confirmPassword && touched.confirmPassword
-                          ? colors.destructive
-                          : !errors.confirmPassword && touched.confirmPassword && confirmPassword
-                          ? colors.primary
-                          : 'transparent',
-                        paddingHorizontal: 16,
-                        height: 56,
-                      }}
-                    >
-                      <Ionicons
-                        name="lock-closed-outline"
-                        size={20}
-                        color={errors.confirmPassword && touched.confirmPassword ? colors.destructive : colors.textMuted}
-                        style={{ marginRight: 12 }}
-                      />
-                      <TextInput
-                        ref={confirmPasswordRef}
-                        value={confirmPassword}
-                        onChangeText={handleConfirmPasswordChange}
-                        onBlur={() => setTouched(prev => ({ ...prev, confirmPassword: true }))}
-                        onFocus={() => handleInputFocus(firstNameRef)}
-                        placeholder="Confirm Password"
-                        placeholderTextColor={colors.textMuted}
-                        maxLength={VALIDATION_RULES.PASSWORD.MAX_LENGTH}
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          color: colors.textPrimary,
-                        }}
-                        secureTextEntry={!showConfirmPassword}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        returnKeyType="done"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={{ padding: 4 }}
-                      >
-                        <Ionicons
-                          name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                          size={20}
-                          color={colors.textMuted}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {errors.confirmPassword && touched.confirmPassword && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4 }}>
-                        <Ionicons name="alert-circle" size={14} color={colors.destructive} />
-                        <Text style={{ color: colors.destructive, fontSize: 12, marginLeft: 4 }}>
-                          {errors.confirmPassword}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Password Requirements */}
-                  {password.length > 0 && (
-                    <View style={{ marginTop: 8, gap: 8 }}>
-                      {getPasswordRequirements().map((req, index) => (
-                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <View
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: 3,
-                              backgroundColor: req.met ? colors.primary : colors.border,
-                            }}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: req.met ? colors.primary : colors.textMuted,
-                            }}
-                          >
-                            {req.text}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </Animated.View>
-
-              {/* Step 4: Photo */}
-              <Animated.View
-                style={[
-                  step4AnimatedStyle,
                   {
                     position: 'absolute',
                     width: width - 48,
@@ -1574,7 +1246,7 @@ export default function SignUpScreen() {
         >
           <View style={{ gap: 12 }}>
             {/* Next/Back Buttons */}
-            {currentStep < 4 && (
+            {currentStep < 3 && (
               <Animated.View style={buttonAnimatedStyle}>
                 <TouchableOpacity
                   onPress={handleNext}
@@ -1584,24 +1256,24 @@ export default function SignUpScreen() {
                   onPressOut={() => {
                     buttonScale.value = withSpring(1, { damping: 15 });
                   }}
-                    disabled={isLoading || (currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid())}
+                    disabled={isLoading || (currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid())}
                     style={{
-                      backgroundColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? colors.border : colors.primary,
+                      backgroundColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? colors.border : colors.primary,
                     height: 56,
                     borderRadius: 16,
                     alignItems: "center",
                     justifyContent: "center",
-                    shadowColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 'transparent' : colors.primary,
+                    shadowColor: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? 'transparent' : colors.primary,
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 0 : 0.3,
+                    shadowOpacity: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? 0 : 0.3,
                     shadowRadius: 8,
-                    elevation: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? 0 : 6,
+                    elevation: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? 0 : 6,
                   }}
                   activeOpacity={1}
                 >
                   <Text
                     style={{
-                        color: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || (currentStep === 3 && !isStep3Valid()) || isLoading) ? colors.textMuted : colors.primaryForeground,
+                        color: ((currentStep === 1 && !isStep1Valid()) || (currentStep === 2 && !isStep2Valid()) || isLoading) ? colors.textMuted : colors.primaryForeground,
                       fontSize: 16,
                       fontWeight: "bold",
                       letterSpacing: 0.5,
@@ -1613,8 +1285,8 @@ export default function SignUpScreen() {
               </Animated.View>
             )}
 
-            {/* Back Button (only show on step 2, 3, and 4) */}
-            {currentStep > 1 && currentStep < 4 && (
+            {/* Back Button (only show on step 2 and 3) */}
+            {currentStep > 1 && currentStep < 3 && (
               <TouchableOpacity
                 onPress={handleBack}
                 onPressIn={() => {

@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Pressable,
   ColorValue,
+  Image,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -69,14 +71,15 @@ const slides = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { width, height } = Dimensions.get("window");
 
   const [sectionIndex, setSectionIndex] = useState(0);
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const BASE_HEIGHT = 120;
-const LINE_HEIGHT = 44;
+  const LINE_HEIGHT = 44;
 
-const dynamicHeight =
-  BASE_HEIGHT + (sentenceIndex + 1) * LINE_HEIGHT;
+  const dynamicHeight =
+    BASE_HEIGHT + (sentenceIndex + 1) * LINE_HEIGHT;
 
   const currentSlide = slides[sectionIndex];
 
@@ -95,6 +98,16 @@ const dynamicHeight =
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
+
+
+
+
+
+
+
+
+
+
       {/* BACKGROUND GRADIENT PER SECTION */}
       <LinearGradient
         colors={currentSlide.gradient as [ColorValue, ColorValue, ...ColorValue[] ]}
@@ -103,11 +116,28 @@ const dynamicHeight =
         style={StyleSheet.absoluteFill}
       />
 
+      {/* 🎨 ANIMATED GIF AT TOP */}
+      <View style={styles.animationContainer}>
+        <Image
+          source={require("@/assets/demoblocks.gif")}
+          style={[
+            styles.animation,
+            {
+              width: width,
+              height: height * 0.6, // Takes 50% of screen height,
+              borderWidth: 1,
+              borderColor: "red",
+            },
+          ]}
+          resizeMode="contain"
+        />
+      </View>
+
       {/* SKIP */}
       {sectionIndex < slides.length - 1 && (
         <TouchableOpacity
           style={styles.skip}
-          onPress={() => router.replace("/onboarding/auth" as any)}
+          onPress={() => router.replace("/onboarding/pin-verification" as any)}
         >
           <Text style={{ color: "#d0e8d0", fontWeight: "600" }}>Skip</Text>
         </TouchableOpacity>
@@ -192,6 +222,19 @@ const dynamicHeight =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  animationContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 80, // Space for status bar and skip button
+    zIndex: 1,
+  },
+  animation: {
+    opacity: 0.9,
   },
   skip: {
     position: "absolute",

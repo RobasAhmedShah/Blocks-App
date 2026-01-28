@@ -1750,7 +1750,7 @@ export default function WalletScreen() {
                 {/* Recent Transactions Heading */}
             <View className="px-4">
                   <Text style={{ color: colors.textPrimary }} className="mb-3 ml-4 text-base font-bold">
-                Recent Transactions
+                Recent Transactionssss
               </Text>
                 </View>
                 </View>

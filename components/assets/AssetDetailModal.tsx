@@ -18,20 +18,11 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { ASSETS_CONSTANTS } from './constants';
 import { getModalStats } from './utils';
-import { SimpleLineGraph, LineGraphDataPoint } from '@/components/portfolio/SimpleLineGraph';
 import { CustomModal } from '@/components/common/CustomModal';
 import EmeraldLoader from '@/components/EmeraldLoader';
 
 const { SCREEN_WIDTH, SCREEN_HEIGHT } = ASSETS_CONSTANTS;
 
-// Token price trend data (sample data - can be replaced with real data)
-const tokenPriceData: LineGraphDataPoint[] = [
-  { date: new Date('2025-01-01'), value: 10 },
-  { date: new Date('2025-01-02'), value: 18 },
-  { date: new Date('2025-01-03'), value: 14 },
-  { date: new Date('2025-01-04'), value: 22 },
-  { date: new Date('2025-01-05'), value: 19 },
-];
 
 // Types
 export interface StatCard {
@@ -373,34 +364,6 @@ export function AssetDetailModal({
                     </View>
                   ))}
                 </View>
-              </View>
-
-              {/* Token Price Trend */}
-              <View
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 16,
-                  padding: 20,
-                  marginBottom: 24,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: "600",
-                    marginBottom: 16,
-                  }}
-                >
-                  Token Price Trend
-                </Text>
-                <SimpleLineGraph 
-                  data={tokenPriceData}
-                  lineColor={colors.primary}
-                  gradientColor={colors.primary}
-                />
               </View>
 
               {/* Investment Details Card */}

@@ -31,30 +31,29 @@ export default function InvestmentConfirmScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 16, 
-        paddingTop: 48 
-      }}>
-        <Text style={{ 
-          flex: 1, 
-          textAlign: 'center', 
-          fontSize: 18, 
-          fontWeight: 'bold', 
-          color: colors.textPrimary 
-        }}>
-          Investment Successful
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push({
-            pathname: '/portfolio/ownproperty/propertydetails',
-            params: { id: id },
-          } as any)}
-          style={{ width: 48, alignItems: 'flex-end' }}
-        >
-          <Ionicons name="close" size={28} color={colors.textMuted} />
-        </TouchableOpacity>
+     {/* Header */}
+     <View
+      style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+      className="flex-row items-center px-4 py-4 mt-8"
+      >
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity 
+            className="w-10 h-10 items-center justify-center"
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+
+          <View className="flex-1 items-center">
+            <Text style={{ color: colors.textPrimary }} className="text-lg font-bold">
+              Confirm Investment
+            </Text>
+          </View>
+
+          <View className="w-10" />
+        </View>
+
+       
       </View>
 
       <ScrollView 
@@ -153,8 +152,8 @@ export default function InvestmentConfirmScreen() {
         <View style={{ width: '100%', maxWidth: 384, gap: 16, paddingTop: 32 }}>
           <TouchableOpacity
             onPress={() => router.push({
-              pathname: '/portfolio/ownproperty/propertydetails',
-              params: { id: id },
+              pathname: '/portfolio/myassets/assets-first',
+              params: { propertyId: id }, // Use propertyId to be more explicit
             } as any)}
             style={{ 
               width: '100%', 

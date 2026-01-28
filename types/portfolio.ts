@@ -1,4 +1,4 @@
-import { Property } from "./property";
+import { Property, PropertyToken } from "./property";
 
 export interface Investment {
   id: string;
@@ -9,5 +9,9 @@ export interface Investment {
   roi: number;
   rentalYield: number;
   monthlyRentalIncome: number;
+  certificatePath?: string | null; // Single certificate path shared by all investments for this property
+  propertyToken?: PropertyToken | null; // Token type for this investment
+  propertyTokenId?: string | null; // Token ID for this investment
+
 }
 

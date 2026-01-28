@@ -11,6 +11,8 @@ export interface UserInfo {
   profileImage?: string | null;
   role: string;
   isActive: boolean;
+  customerTypeEnum?: 'kyc' | 'nonkyc'; // User type: kyc = traditional KYC users, nonkyc = wallet-only users
+  walletAddress?: string | null; // Wallet address for non-KYC users
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +56,13 @@ export interface UpdateProfileDto {
   profileImage?: string;
 }
 
+export interface UploadProfileImageResponse {
+  success: boolean;
+  message: string;
+  url: string;
+  path: string;
+}
+
 export const profileApi = {
   getProfile: async (): Promise<ProfileResponse> => {
     return apiClient.get<ProfileResponse>('/api/mobile/profile');
@@ -61,6 +70,14 @@ export const profileApi = {
 
   updateProfile: async (dto: UpdateProfileDto): Promise<ProfileResponse> => {
     return apiClient.patch<ProfileResponse>('/api/mobile/profile', dto);
+  },
+
+  uploadProfileImage: async (fileData: string, fileName: string, mimeType: string): Promise<UploadProfileImageResponse> => {
+    return apiClient.post<UploadProfileImageResponse>('/api/mobile/profile/upload-image', {
+      fileData,
+      fileName,
+      mimeType,
+    });
   },
 };
 

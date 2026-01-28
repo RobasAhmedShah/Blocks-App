@@ -38,10 +38,10 @@ export default function PlanSavedScreen() {
     router.push('/portfolio/guidance/guidance-two');
   };
 
-  const handleReturnToWallet = () => {
-    console.log("Return to Wallet");
+  const handleReturnToPortfolio = () => {
+    console.log("Return to Portfolio");
     // Navigate first, then reset plan to avoid triggering effects in unmounting screens
-    router.replace("/(tabs)/wallet");
+    router.replace("/(tabs)/portfolio");
     // Reset plan after a short delay to allow navigation to complete
     setTimeout(() => {
       resetPlan();
@@ -78,7 +78,7 @@ export default function PlanSavedScreen() {
                 borderRadius: 9999,
                 // backgroundColor: `${colors.primary}33`,
               }}>
-                <Ionicons name="checkmark-circle" size={48}  />
+                <Ionicons name="checkmark-circle" size={48} color={colors.textPrimary} />
               </View>
             </View>
 
@@ -158,7 +158,7 @@ export default function PlanSavedScreen() {
           <View style={{ flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
             {/* Return to Wallet Button */}
             <TouchableOpacity
-              onPress={handleReturnToWallet}
+              onPress={handleReturnToPortfolio}
               style={{
                 height: 56,
                 alignItems: 'center',
@@ -169,7 +169,7 @@ export default function PlanSavedScreen() {
               activeOpacity={0.8}
             >
               <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: 'bold' }}>
-                Go to Wallet
+                Go to portfolio
               </Text>
             </TouchableOpacity>
 

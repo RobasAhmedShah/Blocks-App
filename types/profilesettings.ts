@@ -61,12 +61,20 @@ interface TermsSection {
 
 // Personal Information
 interface UserInfo {
+  id: string;
+  displayCode: string;
   fullName: string;
   email: string;
-  phone: string;
-  dob: string;
-  address: string;
-  profileImage: string;
+  phone?: string | null;
+  dob?: string | null;
+  address?: string | null;
+  profileImage?: string | null;
+  role?: string;
+  isActive?: boolean;
+  customerTypeEnum?: 'kyc' | 'nonkyc'; // User type: kyc = traditional KYC users, nonkyc = wallet-only users
+  walletAddress?: string | null; // Wallet address for non-KYC users
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Security Settings

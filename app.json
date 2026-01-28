@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blocks",
     "slug": "Blocks",
-    "version": "1.0.0",
+    "version": "1.1.31",
     "scheme": "blocks",
     "platforms": [
       "ios",
@@ -11,11 +11,10 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/blocks-icon-128px.png"
     },
     "plugins": [
       "expo-router",
-      "expo-dev-client",
       "expo-secure-store",
       "expo-font",
       [
@@ -27,21 +26,42 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/blocks-icon-128px.png",
           "color": "#ffffff",
           "sounds": []
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos so you can upload images.",
+          "cameraPermission": "The app needs access to your camera so you can take photos."
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1016447845766-24stah4d5r1j3q6rd17hgh7gnppfifvl"
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
       ]
+   
     ],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
     },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/blocks-icon-128px.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/blocks-icon-128px.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -52,22 +72,33 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.intelik.Blocks",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Allow this app to use Face ID to sign you in securely."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/blocks-icon-128px.png",
+        "backgroundColor": "#000000"
       },
-      "package": "com.intelik.Blocks"
+      "package": "com.intelik.Blocks",
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 142,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDNmbakkExapYfPx7hwQZU3ajVsC-xamAs"
+        }
+      }
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "ead54695-f47e-4652-809f-4d7992799c28"
       },
-      "apiUrl": "http://192.168.1.142:3000"
+      "apiUrl": "https://blocks-backend.vercel.app"
     },
     "owner": "robas",
     "runtimeVersion": {

@@ -4,11 +4,13 @@ export interface WalletBalance {
   totalInvested?: number;
   totalEarnings?: number;
   pendingDeposits?: number;
+  complianceStatus?: 'clear' | 'restricted' | string; // Primary check: 'clear' allows actions, 'restricted' blocks
+  blockedReason?: string | null; // Reason for blocking if complianceStatus is 'restricted'
 }
 
 export interface Transaction {
   id: string;
-  type: 'deposit' | 'withdraw' | 'investment' | 'rental_income' | 'rental' | 'transfer';
+  type: 'deposit' | 'withdraw' | 'investment' | 'rental_income' | 'rental' | 'transfer' | 'reward';
   amount: number;
   date: string;
   description: string;
@@ -16,6 +18,13 @@ export interface Transaction {
   currency?: 'USDC' | 'PKR';
   propertyId?: string;
   propertyTitle?: string;
+  proofUrl?: string; // For bank transfer deposits (frontend-only)
+  bankDetails?: any; // For bank transfer withdrawals (frontend-only)
+  metadata?: {
+    bankTransactionId?: string; // Bank transaction ID from admin (for withdrawals)
+    bankWithdrawalRequestId?: string;
+    [key: string]: any;
+  };
 }
 
 export interface DepositMethod {

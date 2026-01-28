@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,30 +6,84 @@ import {
   StatusBar,
   ScrollView,
   Image,
-  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useWallet } from '@/services/useWallet';
 import * as Clipboard from 'expo-clipboard';
 import { blockchainNetworks, defaultWalletAddress } from '@/data/mockWallet';
+import { AppAlert } from '@/components/AppAlert';
 
 export default function OnChainDepositScreen() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { balance } = useWallet();
   const [selectedNetwork, setSelectedNetwork] = useState('polygon');
+
+  // Alert state for AppAlert
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // Check account restrictions on mount
+  useEffect(() => {
+    const restrictions = balance.restrictions;
+    if (restrictions) {
+      if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
+        setAlertState({
+          visible: true,
+          title: 'Deposit Blocked',
+          message: 'Your deposits have been blocked kindly contact blocks team',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+            router.back();
+          },
+        });
+      }
+    }
+  }, [balance.restrictions]);
 
   const walletAddress = defaultWalletAddress;
   const networks = blockchainNetworks;
 
   const handleCopyAddress = async () => {
     await Clipboard.setStringAsync(walletAddress);
-    Alert.alert('Copied!', 'Wallet address copied to clipboard');
+    setAlertState({
+      visible: true,
+      title: 'Copied!',
+      message: 'Wallet address copied to clipboard',
+      type: 'success',
+      onConfirm: () => {
+        setAlertState(prev => ({ ...prev, visible: false }));
+      },
+    });
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={isDarkColorScheme ? 'light-content' : 'dark-content'} />
+
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
 
       {/* Header */}
       <View

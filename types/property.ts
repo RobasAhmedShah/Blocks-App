@@ -1,16 +1,20 @@
 export interface Property {
+  createdAt: number;
   id: string;
   displayCode?: string; // Database display code like "PROP-000018"
   title: string;
   location: string;
   city: string;
+  country?: string; // Optional country field
+  slug?: string; // Optional slug field
+  type?: string; // Property type: 'residential' | 'commercial' | 'mixed'
   valuation: number | string; // Can be number (PKR) or string (formatted)
   price?: string; // Optional, for backward compatibility
   image?: string; // Optional, for backward compatibility (use images array instead)
   estReturn?: number; // Optional, for backward compatibility (use estimatedROI instead)
   fundingProgress?: number; // Optional, calculated from soldTokens/totalTokens
   tokenSymbol?: string; // Optional
-  
+
   tokenPrice: number;
   minInvestment: number;
   totalTokens: number;
@@ -18,7 +22,7 @@ export interface Property {
   estimatedROI: number;
   estimatedYield: number;
   completionDate: string;
-  
+
   status: 'funding' | 'construction' | 'completed' | 'generating-income';
   images: string[];
   description: string;
@@ -53,6 +57,27 @@ export interface Property {
     lastDistribution: string;
     nextDistribution: string;
   };
+  tokens?: PropertyToken[];
+}
+
+export interface PropertyToken {
+  id: string;
+  displayCode: string;
+  propertyId: string;
+  name: string;
+  color: string;
+  tokenSymbol: string;
+  pricePerTokenUSDT: number;
+  totalTokens: number;
+  availableTokens: number;
+  expectedROI: number;
+  apartmentType?: string | null;
+  apartmentFeatures?: any | null;
+  description?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface UserInvestment {
@@ -74,4 +99,3 @@ export interface UserInvestment {
 
 // Wallet types moved to @types/wallet.ts
 // Import from there: import { WalletBalance, Transaction } from "@/types/wallet";
-

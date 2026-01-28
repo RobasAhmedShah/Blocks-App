@@ -1,84 +1,64 @@
-import React, { useState, useRef } from "react";
+// PropertyDetailHero.tsx (Expo + React Native + NativeWind)
+// Requires:
+//   expo install expo-blur expo-linear-gradient
+//   (NativeWind already set up in your project)
+// Uses @expo/vector-icons (comes with Expo)
+
+import React, { useState } from "react";
 import {
-  ScrollView,
-  Text,
   View,
-  TouchableOpacity,
-  Image,
-  Dimensions,
-  Alert,
+  Text,
+  ImageBackground,
+  Pressable,
   Platform,
-  Share,
+  useWindowDimensions,
   ActivityIndicator,
+  Share,
+  Alert,
+  Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProperty } from "@/services/useProperty";
-import { useWallet } from "@/services/useWallet";
-import { useColorScheme } from "@/lib/useColorScheme";
+import { normalizePropertyImages } from "@/utils/propertyUtils";
 import { useApp } from "@/contexts/AppContext";
-import * as Linking from "expo-linking";
-import * as Clipboard from "expo-clipboard";
-import InvestScreen from "@/app/invest/[id]";
 import PropertyChatbot from "@/components/chatbot/PropertyChatbot";
+import * as Linking from "expo-linking";
+import EmeraldLoader from "@/components/EmeraldLoader";
 
-const { width } = Dimensions.get("window");
-
-export default function PropertyDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function PropertyDetailHero() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { property, loading, error } = useProperty(id || "");
-  const { balance } = useWallet();
   const { toggleBookmark, isBookmarked } = useApp();
-  const [activeTab, setActiveTab] = useState("Financials");
-  const [imageIndex, setImageIndex] = useState(0);
-  const [showInvestModal, setShowInvestModal] = useState(false);
   const [showChatbot, setShowChatbot] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const { colors, isDarkColorScheme } = useColorScheme();
   
-  const bookmarked = id ? isBookmarked(id) : false;
-  
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background }} className="items-center justify-center">
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.textSecondary }} className="mt-4 text-base">
-          Loading property...
-        </Text>
-      </View>
-    );
-  }
-
-  if (error || !property) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background }} className="items-center justify-center px-4">
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
-        <Text style={{ color: colors.textSecondary }} className="mt-4 text-base text-center">
-          {error || 'Property not found'}
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ backgroundColor: colors.primary }}
-          className="mt-6 px-6 py-3 rounded-full"
-        >
-          <Text className="text-white font-semibold">Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const handleInvest = () => {
-    const minRequired = property.minInvestment;
-    if (balance.usdc < minRequired) {
-      router.push({
-        pathname: "/wallet/deposit/debit-card",
-        params: { requiredAmount: minRequired.toString() },
-      } as any);
-    } else {
-      setShowInvestModal(true);
+  // Get property image - use first image from array or fallback
+  const getPropertyImageUrl = (images: any): string => {
+    const normalized = normalizePropertyImages(images);
+    if (normalized && normalized.length > 0) {
+      return normalized[0];
     }
+    // Fallback image
+    return "https://lh3.googleusercontent.com/aida-public/AB6AXuBvSmTHsy4oFDiaqJhIGpSqaadP2VrkPJMgoIEtvm26eT3hoOC4icUzU21Q8rT_nYXuakvygLh8N0KARjz-t3P1sRGL3Es6y3rx-3shxpjLI4vtgQguOXkmXm7oKfitVhZjfuB71iFgSyt-PeYxe5kxyimxvU1KnraBtspDdAl1YZCpg3UEuwkIxAty7tenEkAvu2Sf9Bi6ZTg8zmSj562mMRd0E3BD64wgc27ab6Skf5M_02j95munj06saJYAeSwcZI4YlgzOh6U";
+  };
+
+  // Map property data to component props
+  const imageUrl = property ? getPropertyImageUrl(property.images) : "";
+  const title = property?.title || "Property";
+  const builderName = property?.builder?.name || property?.displayCode || "Property";
+  const builderLogo = property?.builder?.logo || "";
+  const rating = property?.builder?.rating || 5.0;
+  const reviews = property?.builder?.projectsCompleted || 0;
+  const location = property?.location || property?.city || "Location not available";
+  const bookmarked = id ? isBookmarked(id) : false;
+
+  // Navigation handlers
+  const handleBack = () => {
+    router.back();
   };
 
   const handleBookmark = async () => {
@@ -86,546 +66,333 @@ export default function PropertyDetailScreen() {
     try {
       await toggleBookmark(id);
     } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      Alert.alert('Error', 'Failed to update bookmark. Please try again.');
+      console.error("Error toggling bookmark:", error);
+      Alert.alert("Error", "Failed to update bookmark. Please try again.");
     }
   };
 
-  const handleShare = async () => {
+  const handleChatbotPress = () => {
+    if (property) {
+      setShowChatbot(true);
+    }
+  };
+
+  const handleSharePress = async () => {
     if (!id || !property) return;
-    
+
     try {
-      // Create a deep link URL to the property
       const propertyUrl = Linking.createURL(`/property/${id}`);
-      const shareMessage = `Check out ${property.title} - ${property.location}\n\nEstimated ROI: ${property.estimatedROI}%\nToken Price: $${property.tokenPrice.toFixed(2)}\n\nView property: ${propertyUrl}`;
-      
-      if (Platform.OS === 'web') {
-        // For web, try to use Web Share API
-        if (navigator.share) {
-          await navigator.share({
+      const shareMessage = `Check out ${property.title} - ${property.location}\n\nEstimated ROI: ${
+        property.estimatedROI
+      }%\nToken Price: $${property.tokenPrice.toFixed(2)}\n\nView property: ${propertyUrl}`;
+
+      if (Platform.OS === "web") {
+        if ((navigator as any).share) {
+          await (navigator as any).share({
             title: property.title,
             text: shareMessage,
             url: propertyUrl,
           });
         } else {
-          // Fallback: copy to clipboard
-          await Clipboard.setStringAsync(shareMessage);
-          Alert.alert('Copied!', 'Property link copied to clipboard.');
+          // Fallback for web browsers without share API
+          await navigator.clipboard.writeText(shareMessage);
+          Alert.alert("Copied!", "Property link copied to clipboard.");
         }
       } else {
-        // Use React Native Share API for native platforms
         const result = await Share.share({
           message: shareMessage,
           title: property.title,
-          url: propertyUrl, // iOS only, but doesn't hurt on Android
+          url: propertyUrl,
         });
-        
+
         if (result.action === Share.sharedAction) {
-          // User shared successfully
-          console.log('Shared successfully');
+          console.log("Shared successfully");
         } else if (result.action === Share.dismissedAction) {
-          // User dismissed share dialog
-          console.log('Share dismissed');
+          console.log("Share dismissed");
         }
       }
     } catch (error) {
-      console.error('Error sharing:', error);
-      // Don't show error alert if user cancelled
-      if (error instanceof Error && !error.message.includes('cancelled') && !error.message.includes('dismissed')) {
-        Alert.alert('Error', 'Failed to share property. Please try again.');
+      console.error("Error sharing:", error);
+      if (error instanceof Error && !error.message.includes("cancelled") && !error.message.includes("dismissed")) {
+        Alert.alert("Error", "Failed to share property. Please try again.");
       }
     }
   };
 
+  const handleBoltPress = () => {
+    // Quick invest action
+    if (property?.id) {
+      router.push(`/invest/${property.id}` as any);
+    }
+  };
+
+  // Check if property has tier tokens
+  const hasTierTokens = property?.tokens && property.tokens.length > 0 && 
+    property.tokens.some(token => token.isActive !== false);
+
+  const handleTakeTourPress = () => {
+    // Navigate based on whether property has tiers
+    if (property?.id) {
+      if (hasTierTokens) {
+        // Property has tiers - navigate to tier selection screen
+        router.push(`/property/tier/${property.id}` as any);
+      } else {
+        // Property has no tiers - navigate directly to details screen
+        router.push(`/property/details/${property.id}` as any);
+      }
+    }
+  };
+  const { width, height } = useWindowDimensions();
+
+  // Responsive sizing (keeps a "hero card" feel on tablets too)
+  const maxW = Math.min(430, Math.max(360, width));
+  const heroH = Math.min(932, Math.max(720, height));
+
+  const iconBtn = 48;
+  const bigBtn = 56;
+
+  // Loading state
+  if (loading) {
+    return (
+      <View className="flex-1 bg-[#0B1220] items-center justify-center">
+        <EmeraldLoader />
+        <Text className="text-white/60 mt-4 text-sm">Loading property...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !property) {
+    return (
+      <View className="flex-1 bg-black items-center justify-center px-6">
+        <MaterialIcons name="error-outline" size={64} color="#ef4444" />
+        <Text className="text-white text-lg font-semibold mt-4 text-center">
+          {error || "Property not found"}
+        </Text>
+        <Pressable
+          onPress={handleBack}
+          className="mt-6 px-6 py-3 rounded-full"
+          style={{ backgroundColor: "#D97706" }}
+        >
+          <Text className="text-white font-semibold">Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View className="flex-1 bg-[#f6f8f8]" style={{ backgroundColor: colors.background }}>
-      <ScrollView showsVerticalScrollIndicator={false} ref={scrollViewRef}>
-        {/* Image Gallery */}
-        <View className="relative h-[60vh]">
-          {property.images && property.images.length > 0 ? (
-            <>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={(e) => {
-                  const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                  setImageIndex(index);
-                }}
-                scrollEventThrottle={16}
-              >
-                {property.images.map((img, idx) => (
-                  <Image
-                    key={idx}
-                    source={{ uri: img }}
-                    style={{ width, height: '100%' }}
-                    resizeMode="cover"
-                    defaultSource={require('@/assets/blank.png')}
-                  />
-                ))}
-              </ScrollView>
-
-              {/* Image Indicators */}
-              {property.images.length > 1 && (
-                <View className="absolute bottom-4 left-0 right-0 flex-row justify-center gap-2">
-                  {property.images.map((_, idx) => (
-                    <View
-                      key={idx}
-                      className={`h-1.5 rounded-full ${
-                        imageIndex === idx ? 'bg-white w-6' : 'bg-white/50 w-1.5'
-                      }`}
-                    />
-                  ))}
-                </View>
-              )}
-            </>
-          ) : (
-            <View className="w-full h-full items-center justify-center bg-gray-200">
-              <Ionicons name="image-outline" size={64} color={colors.textMuted} />
-              <Text style={{ color: colors.textMuted }} className="mt-4 text-base">
-                No images available
-              </Text>
-            </View>
-          )}
-
-          {/* Header Buttons */}
-          <View className="absolute top-12 left-0 right-0 px-4 flex-row justify-between">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="bg-white/1 p-2 rounded-full"
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{
-              backgroundColor: isDarkColorScheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.7)',
-              padding: 8,
-              borderRadius: 9999,
-            }}>
-              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Dark gradient overlay for better text visibility */}
+    <View className="flex-1 bg-black items-center justify-center">
+      <View
+        style={{ width: maxW, height: '100%' }}
+        className="overflow-hidden bg-black"
+      >
+        <ImageBackground
+          source={{ uri: imageUrl }}
+          resizeMode="cover"
+          style={{ width: "100%", height: "100%" }}
+        >
+          {/* Gradient overlay */}
           <LinearGradient
-            colors={['transparent', 'rgba(0, 0, 0, 0.7)']}
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '50%',
-            }}
+            colors={["rgba(0,0,0,0.35)", "rgba(0,0,0,0.05)", "rgba(0,0,0,0.85)"]}
+            locations={[0, 0.55, 1]}
+            style={{ position: "absolute", inset: 0 }}
           />
 
-          {/* Property Info Overlay with Glassmorphism */}
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
-            <View style={{
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-              borderRadius: 9999,
-              alignSelf: 'flex-start',
-              marginBottom: 8,
-              backgroundColor: 
-                property.status === 'funding' ? `${colors.primary}E6` :
-                property.status === 'construction' ? 'rgba(59, 130, 246, 0.9)' :
-                property.status === 'completed' ? 'rgba(168, 85, 247, 0.9)' :
-                `${colors.primary}E6`,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
-              elevation: 3,
-            }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>
-                {property.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </Text>
-            </View>
-            <Text 
-              style={{
-                color: '#FFFFFF',
-                fontSize: 30,
-                fontWeight: 'bold',
-                marginBottom: 4,
-                textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                textShadowOffset: { width: 0, height: 2 },
-                textShadowRadius: 8,
-              }}
-            >
-              {property.title}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <Ionicons name="location" size={18} color={colors.primarySoft} />
-              <Text 
+          <SafeAreaView className="flex-1">
+            {/* Top bar with back button */}
+            <View className="px-6 pt-2 flex-row items-center justify-between">
+              <Pressable
+                onPress={handleBack}
+                className="items-center justify-center rounded-full"
                 style={{
-                  color: '#FFFFFF',
-                  marginLeft: 6,
-                  fontWeight: '500',
-                  textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                  textShadowOffset: { width: 0, height: 1 },
-                  textShadowRadius: 4,
+                  width: 40,
+                  height: 40,
+                  backgroundColor: "rgba(0,0,0,0.5)",
                 }}
               >
-                {property.location}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View>
-                <Text 
-                  style={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: 14,
-                    fontWeight: '500',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 4,
-                  }}
-                >
-                  Annual ROI
-                </Text>
-                <Text 
-                  style={{
-                    color: colors.primarySoft,
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 6,
-                  }}
-                >
-                  {property.estimatedROI}%
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text 
-                  style={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: 14,
-                    fontWeight: '500',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 4,
-                  }}
-                >
-                  Token Price
-                </Text>
-                <Text 
-                  style={{
-                    color: '#FFFFFF',
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 6,
-                  }}
-                >
-                  ${property.tokenPrice.toFixed(2)}
-                </Text>
+                <MaterialIcons name="arrow-back" size={24} color="#fff" />
+              </Pressable>
+              <View className="flex-row items-center gap-3">
+                <GlassIconButton 
+                  size={iconBtn} 
+                  icon={bookmarked ? "bookmark" : "bookmark-border"} 
+                  onPress={handleBookmark} 
+                />
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* Main Content */}
-        <View className="-mt-3 bg-white rounded-t-3xl -ml-1 p-6" style={{ backgroundColor: colors.card }}>
-          {/* Key Stats */}
-          <View className="flex-row flex-wrap gap-6 mb-6" style={{ backgroundColor: colors.card }}>
-            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
-              <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Min. Investment</Text>
-              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                ${property.minInvestment.toLocaleString()}
-              </Text>
-            </View>
-            <View className="flex-1 min-w-[140px]" style={{ backgroundColor: colors.card }}>
-              <Text className="text-gray-500 text-sm" style={{ color: colors.textPrimary }}>Expected Yield</Text>
-              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                {property.estimatedYield}%
-              </Text>
-            </View>
-          </View>
+            {/* Notch pill (mock) */}
+            {/* <View className="absolute top-3 left-1/2 -translate-x-1/2 w-[120px] h-9 bg-black/80 rounded-full" /> */}
 
-          {/* Progress Bar */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text style={{ color: colors.textMuted, fontSize: 14 }}>Funding Progress</Text>
-              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                {Math.round((property.soldTokens / property.totalTokens) * 100)}%
-              </Text>
-            </View>
-            <View style={{ 
-              width: '100%', 
-              backgroundColor: colors.muted, 
-              borderRadius: 9999, 
-              height: 10 
-            }}>
-              <View 
-                style={{ 
-                  backgroundColor: colors.primary, 
-                  height: 10, 
-                  borderRadius: 9999,
-                  width: `${(property.soldTokens / property.totalTokens) * 100}%` 
-                }}
-              />
-            </View>
-            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 6, textAlign: 'right' }}>
-              {property.soldTokens.toLocaleString()} /{" "}
-              {property.totalTokens.toLocaleString()} Tokens
-            </Text>
-          </View>
-
-          {/* Tabs */}
-          <View style={{ 
-            flexDirection: 'row', 
-            borderBottomWidth: 1, 
-            borderBottomColor: colors.border, 
-            marginBottom: 24 
-          }}>
-            {["Financials", "Documents", "Location"].map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={{
-                  paddingBottom: 12,
-                  paddingHorizontal: 16,
-                  borderBottomWidth: activeTab === tab ? 2 : 0,
-                  borderBottomColor: activeTab === tab ? colors.primary : 'transparent',
-                }}
-              >
-                <Text 
+            {/* Header row */}
+            <View className="mt-10 px-6 flex-row items-center justify-between">
+              <View className="flex-row items-end justify-end gap-3">
+                <View
+                  className="items-center justify-center rounded-full"
                   style={{
-                    fontSize: 14,
-                    fontWeight: activeTab === tab ? '600' : '500',
-                    color: activeTab === tab ? colors.primary : colors.textMuted,
+                    width: bigBtn,
+                    height: bigBtn,
+                    backgroundColor: "#D97706",
+                    borderWidth: 2,
+                    borderColor: "rgba(255,255,255,0.18)",
+                    shadowColor: "#000",
+                    shadowOpacity: 0.25,
+                    shadowRadius: 10,
+                    shadowOffset: { width: 0, height: 8 },
+                    elevation: 8,
                   }}
                 >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Tab Content */}
-          {activeTab === "Financials" && (
-            <View>
-              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 12 }}>
-                Property Overview
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 16, lineHeight: 24, marginBottom: 24 }}>
-                {property.description}
-              </Text>
-
-              <View style={{ flexDirection: 'column', gap: 16, marginBottom: 64 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
-                  <View style={{ 
-                     
-                    padding: 10, 
-                    borderRadius: 12 
-                  }}>
-                    <Ionicons name="business" size={20} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>Developer</Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
-                      {property.builder.name}
-                    </Text>
-                  </View>
+                  {/* <MaterialIcons name="bar-chart" size={26} color="#fff" /> */}
+                  <Image
+                    source={{ uri: builderLogo }}
+                    className="w-12 h-12 rounded-full"
+                    resizeMode="cover"
+                  ></Image>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16 }}>
-                  <View style={{ 
-                     
-                    padding: 10, 
-                    borderRadius: 12 
-                  }}>
-                    <Ionicons name="calendar" size={20} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary }}>
-                      Completion Timeline
-                    </Text>
-                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>
-                      {property.completionDate}
-                    </Text>
+
+                <View>
+                  <Text className="text-white text-lg text-lg font-semibold leading-tight">
+                    {builderName}
+                  </Text>
+
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-white/75 text-xs font-medium">Verified agents</Text>
+                    <MaterialIcons name="verified" size={14} color="#D97706" />
                   </View>
                 </View>
               </View>
             </View>
-          )}
 
-          {activeTab === "Documents" && (
-            <View style={{ marginBottom: 64 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-                Documents & Verification
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ flexDirection: 'row', gap: 16 }}
+            {/* Middle content */}
+            <View className="flex-1 justify-end px-8 pb-32">
+              <Text
+                className="text-white font-bold leading-[1.05]"
+                style={{ fontSize: Math.max(38, Math.min(50, maxW * 0.115)) }}
               >
-                {property.documents.map((doc) => (
-                  <View
-                    key={doc.name}
+                {title}
+              </Text>
+
+              <View className="mt-3 gap-1">
+                <View className="flex-row items-center gap-2">
+                  <MaterialIcons name="star" size={14} color="#FACC15" />
+                  <Text className="text-white font-semibold">{rating.toFixed(1)}</Text>
+                  <Text className="text-white/60">•</Text>
+
+                  <Pressable onPress={() => {}}>
+                    <Text className="text-white font-semibold underline">
+                      {reviews} reviews
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <Text className="text-white/80 font-medium">{location}</Text>
+              </View>
+            </View>
+
+            {/* Bottom actions */}
+            <View className="px-6 pb-7">
+              <View className="flex-row items-center justify-between gap-3">
+                <View className="flex-row items-center gap-3">
+                  <GlassIconButton size={bigBtn} icon="chat-bubble" onPress={handleChatbotPress} />
+                  <GlassIconButton size={bigBtn} icon="share" onPress={handleSharePress} />
+                </View>
+
+                <View className="flex-row items-center gap-3 flex-1 justify-end">
+                  {/* <Pressable
+                    onPress={handleBoltPress}
+                    className="items-center justify-center rounded-full"
                     style={{
-                      width: 240,
-                      backgroundColor: colors.card,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      marginHorizontal: 8,
-                      padding: 20,
-                      shadowColor: colors.primary,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                      elevation: 3,
-                      alignItems: 'center',
-                      marginBottom: 64,
+                      width: bigBtn,
+                      height: bigBtn,
+                      backgroundColor: "#D97706",
+                      shadowColor: "#D97706",
+                      shadowOpacity: 0.35,
+                      shadowRadius: 16,
+                      shadowOffset: { width: 0, height: 10 },
+                      elevation: 10,
                     }}
                   >
-                    <Ionicons
-                      name="document-text-outline"
-                      size={42}
-                      color={colors.primary}
+                    <MaterialIcons name="bolt" size={24} color="#fff" />
+                  </Pressable> */}
+
+                  <Pressable
+                    onPress={handleTakeTourPress}
+                    className="flex-row items-center justify-center gap-2 rounded-full px-4"
+                    style={{
+                      height: bigBtn,
+                      minWidth: 140,
+                      maxWidth: 180,
+                      flexGrow: 1,
+                      backgroundColor: "rgba(255,255,255,0.85)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.12)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <MaterialIcons 
+                      name={hasTierTokens ? "token" : "info"} 
+                      size={20} 
+                      color="rgba(24,24,27,0.65)" 
                     />
-                    <Text style={{ fontWeight: '600', color: colors.textPrimary, marginTop: 8 }}>
-                      {doc.name}
+                    <Text className="text-zinc-900 font-extrabold">
+                      {hasTierTokens ? "View Appartments" : "View Details"}
                     </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                      {doc.verified ? 'Verified & On-Chain' : 'Pending Verification'}
-                    </Text>
-                    <TouchableOpacity style={{ 
-                      marginTop: 12, 
-                       
-                      paddingHorizontal: 16, 
-                      paddingVertical: 6, 
-                      borderRadius: 9999 
-                    }}>
-                      <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>
-                        View {doc.type}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {activeTab === "Location" && (
-            <View style={{ marginBottom: 64 }}>
-              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-                Location
-              </Text>
-              <View style={{ 
-                height: 192, 
-                width: '100%', 
-                backgroundColor: colors.muted, 
-                borderWidth: 1, 
-                borderColor: colors.border, 
-                borderRadius: 16, 
-                alignItems: 'center', 
-                justifyContent: 'center' 
-              }}>
-                <Ionicons name="map-outline" size={60} color={colors.primary} />
-                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-                  {property.location || "Location not available"}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                  (Map integration placeholder)
-                </Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          )}
-        </View>
-      </ScrollView>
 
-      {/* Bottom Action Bar */}
-      <View style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: isDarkColorScheme ? `${colors.card}E6` : `${colors.card}E6`,
-        padding: 12,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-      }}>
-        <TouchableOpacity
-          onPress={handleInvest}
-          style={{
-            flex: 1,
-            backgroundColor: colors.primary,
-            height: 48,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: 'bold' }}>
-            Invest
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleBookmark}
-          style={{
-            width: 48,
-            height: 48,
-            backgroundColor: bookmarked ? colors.primary : colors.muted,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons 
-            name={bookmarked ? "bookmark" : "bookmark-outline"} 
-            size={22} 
-            color={bookmarked ? colors.primaryForeground : colors.textMuted} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleShare}
-          style={{
-            width: 48,
-            height: 48,
-            backgroundColor: colors.muted,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="share-outline" size={22} color={colors.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowChatbot(true)}
-          style={{
-            width: 48,
-            height: 48,
-            backgroundColor: colors.muted,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="chatbubble-outline" size={22} color={colors.textMuted} />
-        </TouchableOpacity>
+              {/* Home indicator (mock) */}
+              {/* <View className="mt-5 items-center">
+                <View className="w-[134px] h-[5px] bg-white/35 rounded-full" />
+              </View> */}
+            </View>
+          </SafeAreaView>
+        </ImageBackground>
       </View>
 
-      {/* Investment Modal */}
-      {showInvestModal && (
-        <InvestScreen 
-          propertyId={id} 
-          onClose={() => setShowInvestModal(false)} 
-        />
-      )}
-
       {/* Chatbot Modal */}
-      {property && (
+      {/* {property && (
         <PropertyChatbot
           property={property}
           visible={showChatbot}
           onClose={() => setShowChatbot(false)}
         />
-      )}
+      )} */}
     </View>
+  );
+}
+
+function GlassIconButton({
+  size,
+  icon,
+  onPress,
+}: {
+  size: number;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  onPress?: () => void;
+}) {
+  const intensity = Platform.OS === "ios" ? 22 : 18;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="active:scale-95"
+      style={{ width: size, height: size, borderRadius: size / 2, overflow: "hidden" }}
+    >
+      <BlurView
+        intensity={intensity}
+        tint="dark"
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "rgba(0,0,0,0.35)",
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.12)",
+        }}
+      >
+        <MaterialIcons name={icon} size={22} color="#fff" />
+      </BlurView>
+    </Pressable>
   );
 }

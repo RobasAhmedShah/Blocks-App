@@ -16,43 +16,41 @@ const DND_START_HOUR = 22;
 const DND_END_HOUR = 8;
 
 /**
- * Check if current time is within Do Not Disturb window
- */
-function isInDoNotDisturbWindow(): boolean {
-  const now = new Date();
-  const currentHour = now.getHours();
-  return currentHour >= DND_START_HOUR || currentHour < DND_END_HOUR;
-}
-
-/**
  * Check if notification should be shown based on user settings
+ * Note: DND check is handled separately and only when DND is explicitly enabled
  */
 function shouldShowNotification(
   settings: NotificationSettings,
-  type?: keyof NotificationSettings
+  type?: keyof NotificationSettings,
+  isDndEnabled: boolean = false
 ): boolean {
   // Always show security alerts
-  if (type === 'securityAlerts' as keyof NotificationSettings) {
+  if (type === 'securityAlerts') {
     return true;
   }
 
   // If no type specified, check push notifications setting
   if (!type) {
-    return settings.pushNotifications && !(settings.pushNotifications && isInDoNotDisturbWindow());
+    return settings.pushNotifications === true;
   }
 
   // Check if notification type is enabled
-  if (!settings[type]) {
+  if (settings[type] !== true) {
     return false;
   }
 
-  // Check Do Not Disturb (if push notifications are enabled)
-  if (settings.pushNotifications && isInDoNotDisturbWindow()) {
-    // Still allow security alerts during DND
-    if (type === 'securityAlerts' as keyof NotificationSettings) {
-      return true;
+  // Only check DND if it's explicitly enabled AND push notifications are enabled
+  // DND check is done by checking if DND notifications are scheduled (handled externally)
+  if (isDndEnabled && settings.pushNotifications) {
+    // Check if we're in DND window (10 PM - 8 AM)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const isInDndWindow = currentHour >= DND_START_HOUR || currentHour < DND_END_HOUR;
+    
+    if (isInDndWindow) {
+      // Security alerts always go through, even during DND
+      return type === 'securityAlerts';
     }
-    return false;
   }
 
   return true;
@@ -77,16 +75,32 @@ export async function sendLocalNotification(
       return;
     }
 
+    // Check if DND is enabled by checking scheduled DND notifications
+    let isDndEnabled = false;
+    try {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      isDndEnabled = scheduled.some(n => n.identifier.startsWith('dnd-'));
+    } catch (error) {
+      // If we can't check, assume DND is not enabled
+      console.log('Could not check DND status, assuming disabled');
+    }
+
     // Check user settings if provided
     if (settings && notificationType) {
-      if (!shouldShowNotification(settings, notificationType)) {
-        console.log(`Notification type ${notificationType} is disabled or in DND window`);
+      if (!shouldShowNotification(settings, notificationType, isDndEnabled)) {
+        console.log(`Notification type ${notificationType} is disabled${isDndEnabled ? ' or in DND window' : ''}`);
         return;
       }
     }
 
-    // Determine if we should play sound (respect DND)
-    const shouldPlaySound = !(settings?.pushNotifications && isInDoNotDisturbWindow() && notificationType !== 'securityAlerts');
+    // Determine if we should play sound (respect DND only if enabled)
+    let shouldPlaySound = true;
+    if (isDndEnabled && settings?.pushNotifications && notificationType !== 'securityAlerts') {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const isInDndWindow = currentHour >= DND_START_HOUR || currentHour < DND_END_HOUR;
+      shouldPlaySound = !isInDndWindow;
+    }
 
     await Notifications.scheduleNotificationAsync({
       content: {

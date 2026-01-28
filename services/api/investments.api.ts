@@ -1,10 +1,12 @@
 import { apiClient } from './apiClient';
 import { Investment } from '@/types/portfolio';
+import { PropertyToken } from '@/types/property';
 
 export interface CreateInvestmentDto {
   propertyId: string;
   tokenCount: number;
   transactionFee?: number;
+  propertyTokenId?: string; // Token tier ID (optional)
 }
 
 export interface InvestmentResponse {
@@ -31,6 +33,8 @@ export interface InvestmentResponse {
   purchaseDate: string;
   createdAt: string;
   updatedAt: string;
+  certificatePath?: string | null;
+  propertyToken?: PropertyToken | null;
 }
 
 export interface InvestmentsListResponse {

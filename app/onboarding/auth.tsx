@@ -1,0 +1,1248 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  ImageBackground,
+  Dimensions,
+  ActivityIndicator,
+  Image,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "@/lib/useColorScheme";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/services/useNotifications";
+import { AppAlert } from "@/components/AppAlert";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  FadeIn,
+  FadeInDown,
+} from "react-native-reanimated";
+import { signInWithGoogle } from "@/src/lib/googleSignin";
+import { authApi, WalletAuthResponse } from "@/services/api/auth.api";
+import LottieView from "lottie-react-native";
+import EmeraldLoader from "@/components/EmeraldLoader";
+import { useWalletConnect } from "@/src/wallet/WalletConnectProvider";
+import { SvgXml } from "react-native-svg";
+import * as SecureStore from 'expo-secure-store';
+
+// Google SVG Logo
+const googleLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>`;
+
+const { width, height } = Dimensions.get("window");
+
+// Helper function to check if PIN exists and redirect to creation if needed
+const checkAndHandlePinSetup = async (
+  router: any,
+  token: string,
+  refreshToken: string
+): Promise<boolean> => {
+  try {
+    const storedPin = await SecureStore.getItemAsync('device_pin');
+    const pinEnabled = await SecureStore.getItemAsync('pin_enabled');
+    
+    // If no PIN exists, redirect to PIN creation screen
+    if (!storedPin || pinEnabled !== 'true') {
+      console.log('No PIN found, redirecting to PIN creation...');
+      router.replace({
+        pathname: '/onboarding/pin-verification' as any,
+        params: { 
+          mode: 'create',
+          token: token,
+          refreshToken: refreshToken,
+        },
+      });
+      return true; // Indicates PIN setup is needed
+    }
+    
+    return false; // PIN exists, no setup needed
+  } catch (error) {
+    console.error('Error checking PIN:', error);
+    return false;
+  }
+};
+
+// Helper function to convert error messages to user-friendly messages
+const getFriendlyErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const errorMessage = error.message.toLowerCase();
+  const errorString = error.message;
+
+  // Network/Connection errors
+  if (
+    errorMessage.includes('network request failed') ||
+    errorMessage.includes('failed to fetch') ||
+    errorMessage.includes('networkerror') ||
+    errorMessage.includes('connection')
+  ) {
+    return 'Unable to connect to the server. Please check your internet connection and try again.';
+  }
+
+  // HTTP Status Code errors
+  if (errorString.includes('HTTP 401') || errorMessage.includes('unauthorized') || errorMessage.includes('invalid credentials')) {
+    return 'Invalid email or password. Please check your credentials and try again.';
+  }
+
+  if (errorString.includes('HTTP 404') || errorMessage.includes('not found')) {
+    return 'Account not found. Please check your email address or sign up for a new account.';
+  }
+
+  if (errorString.includes('HTTP 500') || errorMessage.includes('internal server error')) {
+    return 'Our servers are experiencing issues. Please try again in a few moments.';
+  }
+
+  if (errorString.includes('HTTP 400') || errorMessage.includes('bad request')) {
+    return 'Invalid request. Please check your information and try again.';
+  }
+
+  if (errorString.includes('HTTP 403') || errorMessage.includes('forbidden')) {
+    return 'Access denied. Please contact support if you believe this is an error.';
+  }
+
+  if (errorString.includes('HTTP 429') || errorMessage.includes('too many requests')) {
+    return 'Too many sign-in attempts. Please wait a moment before trying again.';
+  }
+
+  // Specific error messages from backend
+  if (errorMessage.includes('invalid email') || errorMessage.includes('email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (errorMessage.includes('password') && errorMessage.includes('incorrect')) {
+    return 'Incorrect password. Please try again or use "Forgot Password" to reset it.';
+  }
+
+  if (errorMessage.includes('user not found') || errorMessage.includes('account')) {
+    return 'No account found with this email. Please sign up or check your email address.';
+  }
+
+  if (errorMessage.includes('account locked') || errorMessage.includes('suspended')) {
+    return 'Your account has been temporarily locked. Please contact support for assistance.';
+  }
+
+  // If error message is already user-friendly, use it
+  if (
+    !errorString.includes('HTTP') &&
+    !errorString.includes('404') &&
+    !errorString.includes('401') &&
+    !errorString.includes('500') &&
+    errorString.length < 100
+  ) {
+    return error.message;
+  }
+
+  // Default fallback
+  return 'Unable to sign in. Please check your credentials and try again.';
+};
+
+export default function AuthScreen() {
+  const router = useRouter();
+  const { colors, isDarkColorScheme } = useColorScheme();
+  const { signIn, enterGuestMode, isAuthenticated, isPinSet, unlockWithPin } = useAuth();
+  const { expoPushToken } = useNotifications();
+  const { connect, isConnected, address } = useWalletConnect();
+
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'otp' | null>(null);
+  const [isWalletConnecting, setIsWalletConnecting] = useState(false);
+  const [pendingWalletAuth, setPendingWalletAuth] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpTimer, setOtpTimer] = useState(60);
+  const [canResendOtp, setCanResendOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [pin, setPin] = useState('');
+  const [showPinEntry, setShowPinEntry] = useState(true);
+  const [isUnlockingPin, setIsUnlockingPin] = useState(false);
+  const [pinError, setPinError] = useState('');
+  
+  const contentOpacity = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+  const emailSlideX = useSharedValue(0);
+  const otpSlideX = useSharedValue(width);
+  
+  const scrollViewRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInput>(null);
+
+  // Alert state
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onConfirm?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
+
+  // Animate content on mount
+  useEffect(() => {
+    contentOpacity.value = withTiming(1, { duration: 600 });
+  }, []);
+
+  // OTP Timer countdown
+  useEffect(() => {
+    if (currentStep === 'otp' && otpTimer > 0) {
+      const interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResendOtp(true);
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentStep, otpTimer]);
+
+  // Auto-authenticate when wallet address becomes available after connection
+  useEffect(() => {
+    if (pendingWalletAuth && address && isConnected && !isAuthenticated) {
+      const authenticateWallet = async () => {
+        try {
+          setIsWalletConnecting(true);
+          console.log('[Wallet Auth] Authenticating with wallet address:', address);
+          
+          const response = await authApi.walletConnect({
+            walletAddress: address,
+            expoToken: expoPushToken || undefined,
+          });
+          
+          console.log('[Wallet Auth] Authentication successful, checking PIN...');
+          
+          // Check if PIN exists, redirect to creation if needed
+          const needsPinSetup = await checkAndHandlePinSetup(
+            router,
+            response.token,
+            response.refreshToken
+          );
+          
+          if (!needsPinSetup) {
+            // PIN exists, sign in normally
+            await signIn(response.token, response.refreshToken);
+          }
+          
+          setPendingWalletAuth(false);
+          
+          if (response.isNewUser && !needsPinSetup) {
+            setAlertState({
+              visible: true,
+              title: 'Welcome!',
+              message: 'Your wallet account has been created. You can now use all features without KYC.',
+              type: 'success',
+              onConfirm: () => {
+                setAlertState(prev => ({ ...prev, visible: false }));
+              },
+            });
+          }
+        } catch (error: any) {
+          console.error('[Wallet Auth] Authentication error:', error);
+          setPendingWalletAuth(false);
+          const friendlyMessage = getFriendlyErrorMessage(error);
+          setAlertState({
+            visible: true,
+            title: 'Wallet Authentication Failed',
+            message: friendlyMessage,
+            type: 'error',
+            onConfirm: () => {
+              setAlertState(prev => ({ ...prev, visible: false }));
+            },
+          });
+        } finally {
+          setIsWalletConnecting(false);
+        }
+      };
+      
+      // Small delay to ensure connection is fully established
+      const timer = setTimeout(() => {
+        authenticateWallet();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [address, isConnected, pendingWalletAuth, isAuthenticated, expoPushToken, signIn]);
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: (1 - contentOpacity.value) * 20 }],
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const emailAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: emailSlideX.value }],
+  }));
+
+  const otpAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: otpSlideX.value }],
+  }));
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    
+    try {
+      // Use native Google Sign-In (Android only)
+      const userInfo = await signInWithGoogle();
+      
+      // Extract idToken from the response
+      const idToken = userInfo.idToken;
+      
+      if (!idToken) {
+        throw new Error('No ID token received from Google');
+      }
+
+      console.log('✅ Google Sign-In userInfo:', {
+        email: userInfo.user.email,
+        name: userInfo.user.name,
+        id: userInfo.user.id,
+      });
+  
+      // Send ID token to backend for verification and session creation
+      const response = await authApi.googleLogin({
+        idToken: idToken,
+        expoToken: expoPushToken || undefined,
+      });
+  
+      // Check if PIN exists, redirect to creation if needed
+      const needsPinSetup = await checkAndHandlePinSetup(
+        router,
+        response.token,
+        response.refreshToken
+      );
+      
+      if (!needsPinSetup) {
+        // PIN exists, sign in normally
+        await signIn(response.token, response.refreshToken);
+      }
+    } catch (error: any) {
+      console.error('❌ Google login error:', error);
+      
+      // Handle user cancellation gracefully (not an error)
+      if (error.message === 'Sign-in was cancelled') {
+        setIsGoogleLoading(false);
+        return;
+      }
+      
+      // Check for Expo Go / native module errors
+      if (
+        error.message?.includes('TurboModuleRegistry') ||
+        error.message?.includes('RNGoogleSignin') ||
+        error.message?.includes('requires a dev build') ||
+        error.message?.includes('Expo Go does not support')
+      ) {
+        setAlertState({
+          visible: true,
+          title: 'Dev Build Required',
+          message:
+            'Google Sign-In requires a dev build and cannot run in Expo Go.\n\n' +
+            'To use this feature:\n' +
+            '1. Build a dev client:\n   eas build --profile development --platform android\n' +
+            '2. Install the APK on your device\n' +
+            '3. Run: expo start --dev-client\n\n' +
+            'Native modules like Google Sign-In are not available in Expo Go.',
+          type: 'error',
+          onConfirm: () => {
+            setAlertState(prev => ({ ...prev, visible: false }));
+          },
+        });
+        setIsGoogleLoading(false);
+        return;
+      }
+      
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Google Sign-In Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async () => {
+    try {
+      setIsVerifyingOtp(true);
+      await authApi.requestOtp({ email: email.trim() });
+
+      setAlertState({
+        visible: true,
+        title: 'Code Sent',
+        message: 'A 6-digit verification code has been sent to your email.',
+        type: 'success',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+
+      // Reset timer and enable countdown
+      setOtpTimer(60);
+      setCanResendOtp(false);
+    } catch (error: any) {
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Failed to Send Code',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      setAlertState({
+        visible: true,
+        title: 'Invalid Code',
+        message: 'Please enter the 6-digit verification code.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+      const response = await authApi.verifyOtp({
+        email: email.trim(),
+        otp: otp,
+        expoToken: expoPushToken || undefined,
+      });
+
+      // Non-existing user: OTP verified but no account; go to signup to create profile
+      if ('existingUser' in response && response.existingUser === false) {
+        router.replace({
+          pathname: '/onboarding/signup' as any,
+          params: { email: response.email },
+        });
+        return;
+      }
+
+      // Existing user: sign in with the received tokens
+      const authResponse = response as { user: any; token: string; refreshToken: string };
+      
+      // Check if PIN exists, redirect to creation if needed
+      const needsPinSetup = await checkAndHandlePinSetup(
+        router,
+        authResponse.token,
+        authResponse.refreshToken
+      );
+      
+      if (!needsPinSetup) {
+        // PIN exists, sign in normally
+        await signIn(authResponse.token, authResponse.refreshToken);
+      }
+    } catch (error: any) {
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      setAlertState({
+        visible: true,
+        title: 'Verification Failed',
+        message: friendlyMessage,
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleEmailNext = async () => {
+    // Validate email before proceeding
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setAlertState({
+        visible: true,
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address.',
+        type: 'error',
+        onConfirm: () => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        },
+      });
+      return;
+    }
+
+    // Use OTP flow instead of password
+    setAuthMode('otp');
+    emailSlideX.value = withTiming(-width, { duration: 300 });
+    otpSlideX.value = withTiming(0, { duration: 300 });
+    setCurrentStep('otp');
+    
+    // Automatically request OTP
+    await handleRequestOtp();
+  };
+
+  const handleOtpBack = () => {
+    otpSlideX.value = withTiming(width, { duration: 300 });
+    emailSlideX.value = withTiming(0, { duration: 300 });
+    setCurrentStep('email');
+    setOtp('');
+    setOtpTimer(60);
+    setCanResendOtp(false);
+  };
+
+  const handleUnlockPin = async () => {
+    if (pin.length !== 4) {
+      setPinError('Enter your 4-digit PIN');
+      return;
+    }
+    setIsUnlockingPin(true);
+    setPinError('');
+    try {
+      const ok = await unlockWithPin(pin);
+      if (!ok) {
+        setPinError('Incorrect PIN');
+      }
+    } finally {
+      setIsUnlockingPin(false);
+    }
+  };
+
+  const handleGuestMode = () => {
+    enterGuestMode();
+    router.replace('/(tabs)/home' as any);
+  };
+
+  const handleButtonPress = (callback: () => void) => {
+    buttonScale.value = withTiming(0.95, { duration: 100 }, () => {
+      buttonScale.value = withTiming(1, { duration: 100 });
+    });
+    callback();
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* App Alert */}
+      <AppAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onConfirm={alertState.onConfirm || (() => {
+          setAlertState(prev => ({ ...prev, visible: false }));
+        })}
+      />
+
+      {/* Full-Screen Background Image */}
+      {/* <ImageBackground
+        source={require("@/assets/house.jpg")}
+        style={{
+          width: width,
+          height: height,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+        resizeMode="cover"
+      > */}
+        {/* Dark Gradient Overlay */}
+        {/* <LinearGradient
+          colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)']}
+          locations={[0, 0.5, 1]}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        /> */}
+
+         {/* <LinearGradient
+          colors={['rgb(0, 0, 0)', 'rgb(0, 0, 0)', 'rgba(32, 134, 29, 0.78)', 'rgba(115, 194, 24, 0.92)']}
+          locations={[0, 0.5, 0.8, 1]}
+          style={{
+            position: 'absolute',
+            top: '0%',
+            left: '0%',
+            right: '0%',
+            bottom: '0%',
+          }}
+        /> */}
+
+          <LottieView
+            source={require("@/assets/Gradient-Animation.json")}
+            autoPlay
+            loop={true}
+            style={{
+              position: 'absolute',
+              width: height,
+              height: width,
+              top: (width - height),
+              left: (height - width) / 2,
+              transform: [
+                { rotate: '90deg' },
+                { scale: Math.max(width/100 , height/1000) }
+              ]
+            }}
+          />
+
+        {/* Content Container */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View
+              style={[
+                {
+                  flex: 1,
+                  minHeight: height - 100,
+                  justifyContent: 'flex-end',
+                },
+                contentAnimatedStyle,
+              ]}
+            >
+              {/* Top Section - Brand Area - Fixed */}
+              <View
+                style={{
+                  minHeight: 280,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  paddingTop: '20%',
+                  marginTop: '10%',
+                 
+                }}
+              >
+            <Animated.View
+              entering={FadeIn.delay(200).duration(600)}
+              style={{
+                alignItems: 'center',
+              }}
+            >
+
+              <View style={{ display:'flex', flexDirection:'row', justifyContent:'center', 
+               height:100,  alignItems:'center', padding: 10, backgroundColor: 'rgba(22, 22, 22, 0.9)', borderRadius: 20, marginBottom: 16 }}>
+              <Image 
+                source={require("@/assets/applogo.png")}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 20,
+            
+                  padding: 10,
+                  // backgroundColor: 'rgba(22, 22, 22, 0.42)',
+                  shadowColor: 'rgb(0, 0, 0)',
+                  shadowOffset: { width: 20, height: 20 },
+                  shadowOpacity: 1,
+                  shadowRadius: 4,
+   
+                }}
+                resizeMode="contain"
+              />
+
+
+
+              </View>
+              {/* Logo */}
+              
+
+              {/* App Name */}
+              <Text
+                style={{
+                  fontSize: 36,
+                  fontWeight: 'bold',
+                  color: '#FFFFFF',
+                  marginBottom: 8,
+                  letterSpacing: 0.5,
+                }}
+              >
+                Blocks
+              </Text>
+
+              {/* Tagline */}
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  textAlign: 'center',
+                  paddingHorizontal: 40,
+                  lineHeight: 22,
+                }}
+              >
+                Your gateway to real estate investing
+              </Text>
+            </Animated.View>
+          </View>
+
+
+
+
+          {/* Bottom Section - Authentication Actions - Moves with keyboard */}
+          <Animated.View
+             entering={FadeInDown.delay(400).duration(600)}
+             style={{
+               paddingBottom: 40,
+               gap: 12,
+               marginTop: '20%',
+             }}>
+             {/* PIN entry when user has set a device PIN */}
+             {isPinSet && showPinEntry && (
+               <View style={{ width: '100%', marginBottom: 16 }}>
+                 <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 8, textAlign: 'center' }}>
+                   Enter your 4-digit PIN to unlock
+                 </Text>
+                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                   <View
+                     style={{
+                       flex: 1,
+                       flexDirection: 'row',
+                       alignItems: 'center',
+                       backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                       borderRadius: 28,
+                       paddingHorizontal: 20,
+                       height: 56,
+                       borderWidth: 1,
+                       borderColor: pinError ? 'rgba(255,100,100,0.6)' : 'rgba(255, 255, 255, 0.2)',
+                     }}
+                   >
+                     <Ionicons name="keypad-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                     <TextInput
+                       value={pin}
+                       onChangeText={(t) => { setPin(t.replace(/[^0-9]/g, '').slice(0, 4)); setPinError(''); }}
+                       placeholder="PIN"
+                       placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                       maxLength={4}
+                       keyboardType="number-pad"
+                       secureTextEntry
+                       style={{ flex: 1, fontSize: 16, color: '#FFFFFF', letterSpacing: 8 }}
+                     />
+                   </View>
+                   <TouchableOpacity
+                     onPress={handleUnlockPin}
+                     disabled={pin.length !== 4 || isUnlockingPin}
+                     style={{
+                       backgroundColor: colors.primary,
+                       width: 56,
+                       height: 56,
+                       borderRadius: 28,
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       opacity: pin.length === 4 && !isUnlockingPin ? 1 : 0.5,
+                     }}
+                   >
+                     {isUnlockingPin ? (
+                       <ActivityIndicator size="small" color={colors.primaryForeground} />
+                     ) : (
+                       <Ionicons name="lock-open-outline" size={24} color={colors.primaryForeground} />
+                     )}
+                   </TouchableOpacity>
+                 </View>
+                 {pinError ? (
+                   <Text style={{ fontSize: 12, color: 'rgba(255,150,150,0.9)', marginTop: 6, textAlign: 'center' }}>{pinError}</Text>
+                 ) : null}
+                 <TouchableOpacity
+                   onPress={() => setShowPinEntry(false)}
+                   style={{ marginTop: 12, paddingVertical: 8 }}
+                 >
+                   <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600', textAlign: 'center' }}>
+                     Use OTP instead
+                   </Text>
+                 </TouchableOpacity>
+               </View>
+             )}
+
+             {/* Email/OTP Input Section */}
+             <View
+               style={{
+                flexDirection:'column',
+                width: '100%',
+                marginBottom: 12,
+               }}
+             >
+            <Animated.View style={emailAnimatedStyle}>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: 28,
+                    paddingHorizontal: 20,
+                    height: 56,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  }}
+                >
+                  <Ionicons name="mail-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                  <TextInput
+                    ref={emailInputRef}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Enter your email"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    maxLength={255}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={{
+                      flex: 1,
+                      fontSize: 16,
+                      color: '#FFFFFF',
+                    }}
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={handleEmailNext}
+                  disabled={!email.trim()}
+                  style={{
+                    backgroundColor: colors.primary,
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: email.trim() ? 1 : 0.5,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 5,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-forward" size={24} color={colors.primaryForeground} />
+                </TouchableOpacity>
+              </View>
+              <Text style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.6)', textAlign: 'center', marginTop: 8 }}>We’ll check if you already have an account.</Text>
+            </Animated.View>
+
+            {/* OTP Input - Slides in from Right */}
+            <Animated.View style={otpAnimatedStyle}>
+              <View style={{ marginTop: -80 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={handleOtpBack}
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderRadius: 28,
+                      paddingHorizontal: 20,
+                      height: 56,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    }}
+                  >
+                    <Ionicons name="shield-checkmark-outline" size={22} color="#FFFFFF" style={{ marginRight: 12 }} />
+                    <TextInput
+                      value={otp}
+                      onChangeText={(text) => {
+                        // Only allow numbers and limit to 6 digits
+                        const numericText = text.replace(/[^0-9]/g, '').slice(0, 6);
+                        setOtp(numericText);
+                      }}
+                      placeholder="Enter 6-digit code"
+                      placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={{
+                        flex: 1,
+                        fontSize: 16,
+                        color: '#FFFFFF',
+                        letterSpacing: 4,
+                      }}
+                    />
+                  </View>
+                  
+                  <TouchableOpacity
+                    onPress={handleVerifyOtp}
+                    disabled={otp.length !== 6 || isVerifyingOtp}
+                    style={{
+                      backgroundColor: colors.primary,
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: otp.length === 6 && !isVerifyingOtp ? 1 : 0.5,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 4,
+                      elevation: 5,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {isVerifyingOtp ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Ionicons name="checkmark" size={24} color={colors.primaryForeground} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Timer and Resend */}
+                <View style={{ marginTop: 12, alignItems: 'center' }}>
+                  {!canResendOtp ? (
+                    <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.6)' }}>
+                      Resend code in {otpTimer}s
+                    </Text>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleRequestOtp}
+                      disabled={isVerifyingOtp}
+                      style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+                    >
+                      <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>
+                        Resend Code
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.5)', marginTop: 4, textAlign: 'center' }}>
+                    Check your email for the verification code
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+               </View>
+             {/* Primary Button - Continue with Google */}
+             
+            <Animated.View style={buttonAnimatedStyle}>
+              <TouchableOpacity
+                onPress={() => handleButtonPress(handleGoogleLogin)}
+                disabled={isGoogleLoading}
+                style={{
+                  backgroundColor: '#000000',
+                  height: 56,
+                  borderRadius: 28,
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  flexDirection: 'row',
+                  paddingHorizontal: 20,
+                  borderWidth: 1,
+                  borderColor: '#000000',
+                  opacity: isGoogleLoading ? 0.7 : 1,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+                activeOpacity={0.8}
+              >
+                {isGoogleLoading ? (
+                  <View style={{ flex: 1, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <>
+                    <SvgXml xml={googleLogoSvg} width={24} height={24} />
+                    <Text
+                      style={{
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        letterSpacing: 0.3,
+                        marginLeft: 12,
+                        flex: 1,
+                        textAlign: 'center',
+                        marginRight: 36,
+                      }}
+                    >
+                      Sign in with Google
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Connect Wallet Button (No KYC Required) */}
+            <Animated.View style={buttonAnimatedStyle}>
+              <TouchableOpacity
+                onPress={async () => {
+                  console.log('[Auth] Connect Wallet button pressed');
+                  console.log('[Auth] Current state:', { isConnected, address: address ? `${address.slice(0, 10)}...` : null });
+                  
+                  try {
+                    // If already connected, authenticate immediately
+                    if (isConnected && address) {
+                      console.log('[Auth] Already connected, authenticating...');
+                      setIsWalletConnecting(true);
+                      
+                      try {
+                        console.log('[Auth] Calling walletConnect API with address:', address);
+                        const response = await Promise.race([
+                          authApi.walletConnect({
+                            walletAddress: address,
+                            expoToken: expoPushToken || undefined,
+                          }),
+                          new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000)
+                          ),
+                        ]) as WalletAuthResponse;
+                        
+                        console.log('[Auth] API response received:', { 
+                          hasToken: !!response.token, 
+                          isNewUser: response.isNewUser 
+                        });
+                        
+                        console.log('[Auth] Checking PIN...');
+                        
+                        // Check if PIN exists, redirect to creation if needed
+                        const needsPinSetup = await checkAndHandlePinSetup(
+                          router,
+                          response.token,
+                          response.refreshToken
+                        );
+                        
+                        if (!needsPinSetup) {
+                          // PIN exists, sign in normally
+                          console.log('[Auth] Signing in with token...');
+                          await signIn(response.token, response.refreshToken);
+                          console.log('[Auth] Sign in successful');
+                        }
+                        
+                        if (response.isNewUser && !needsPinSetup) {
+                          setAlertState({
+                            visible: true,
+                            title: 'Welcome!',
+                            message: 'Your wallet account has been created. You can now use all features without KYC.',
+                            type: 'success',
+                            onConfirm: () => {
+                              setAlertState(prev => ({ ...prev, visible: false }));
+                            },
+                          });
+                        }
+                        setIsWalletConnecting(false);
+                        return;
+                      } catch (apiError: any) {
+                        console.error('[Auth] Authentication API error:', apiError);
+                        setIsWalletConnecting(false);
+                        throw apiError; // Re-throw to be caught by outer catch
+                      }
+                    }
+                    
+                    // Set flag to trigger authentication when wallet connects
+                    // Do this BEFORE opening modal so useEffect can catch the connection
+                    setPendingWalletAuth(true);
+                    
+                    // Simply open WalletConnect modal (same as wallet screen)
+                    console.log('[Auth] Opening WalletConnect modal...');
+                    await connect();
+                    console.log('[Auth] WalletConnect modal opened');
+                    // Note: Authentication will happen automatically via useEffect when address becomes available
+                  } catch (error: any) {
+                    console.error('[Auth] Wallet connect error:', error);
+                    console.error('[Auth] Error details:', {
+                      message: error?.message,
+                      stack: error?.stack,
+                      name: error?.name,
+                    });
+                    setPendingWalletAuth(false);
+                    setIsWalletConnecting(false);
+                    
+                    // Show all errors to help debug
+                    const errorMessage = error?.message || 'Unknown error occurred';
+                    setAlertState({
+                      visible: true,
+                      title: 'Wallet Connection Failed',
+                      message: `Failed to open wallet connection: ${errorMessage}\n\nPlease try again or check your wallet app.`,
+                      type: 'error',
+                      onConfirm: () => {
+                        setAlertState(prev => ({ ...prev, visible: false }));
+                      },
+                    });
+                  }
+                }}
+                disabled={isWalletConnecting || pendingWalletAuth}
+                style={{
+                  height: 56,
+                  borderRadius: 28,
+                  marginTop: 12,
+                  opacity: (isWalletConnecting || pendingWalletAuth) ? 0.6 : 1,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                  overflow: 'hidden',
+                }}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#3b82f6', '#60a5fa', '#93c5fd']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    flex: 1,
+                    height: 56,
+                    borderRadius: 28,
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    flexDirection: 'row',
+                  paddingHorizontal: 20,
+                  }}
+                >
+                  {(isWalletConnecting || pendingWalletAuth) ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 16,
+                          fontWeight: '600',
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        {pendingWalletAuth ? 'Connecting...' : 'Authenticating...'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Ionicons name="wallet-outline" size={24} color="#FFFFFF" />
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 16,
+                          fontWeight: '600',
+                          letterSpacing: 0.3,
+                          marginLeft: 12,
+                          flex: 1,
+                          textAlign: 'center',
+                          marginRight: 36,
+                        }}
+                      >
+                        Continue With Wallet
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Tertiary Button - Create an account */}
+          {/*  <TouchableOpacity
+            onPress={() => router.push("/onboarding/signup")}
+              style={{
+                backgroundColor: 'transparent',
+                height: 56,
+                borderRadius: 28,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={{
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                Create an account
+              </Text>
+            </TouchableOpacity>
+            */}
+
+            {/* Optional - Continue as Guest */}
+            <TouchableOpacity
+              onPress={() => handleButtonPress(handleGuestMode)}
+              style={{
+                backgroundColor: 'transparent',
+                height: 48,
+                borderRadius: 24,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 8,
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: 15,
+                  fontWeight: '500',
+                }}
+              >
+                Continue as Guest
+              </Text>
+            </TouchableOpacity>
+
+            {/* Legal / Footer Text */}
+            <Text
+              style={{
+                fontSize: 11,
+                color: 'rgba(255, 255, 255, 0.6)',
+                textAlign: 'center',
+                marginTop: 24,
+                paddingHorizontal: 20,
+                lineHeight: 16,
+              }}
+            >
+              By continuing, you agree to our{' '}
+              <Text style={{ textDecorationLine: 'underline' }}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={{ textDecorationLine: 'underline' }}>Privacy Policy</Text>
+            </Text>
+          </Animated.View>
+          </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      {/* </ImageBackground> */}
+    </View>
+  );
+}

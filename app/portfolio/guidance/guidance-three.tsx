@@ -13,6 +13,10 @@ import { useRouter } from "expo-router";
 import { useGuidance } from "@/contexts/GuidanceContext";
 import { useColorScheme } from "@/lib/useColorScheme";
 
+// In the current backend, tokenPrice and minInvestment are already "real" prices.
+// No more /10 scaling.
+const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
+
 export default function ConfirmInvestmentScreen() {
   const router = useRouter();
   const { investmentPlan, updateInvestmentPlan } = useGuidance();
@@ -91,6 +95,7 @@ export default function ConfirmInvestmentScreen() {
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
+        marginTop: 35,
         paddingVertical: 16,
         backgroundColor: colors.background,
       }}>
@@ -117,11 +122,17 @@ export default function ConfirmInvestmentScreen() {
       {/* Content */}
       <ScrollView 
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ 
+          paddingHorizontal: 16, 
+          paddingVertical: 32, 
+          paddingBottom: 24,
+          alignItems: 'center',
+        }}
         showsVerticalScrollIndicator={false}
+        bounces={true}
+        nestedScrollEnabled={true}
       >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 32 }}>
-          <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
+        <View style={{ flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', maxWidth: 384 }}>
             {/* Property Image and Info */}
             <View style={{ flexDirection: 'column', alignItems: 'center', gap: 16 }}>
               {property.images && property.images.length > 0 ? (
@@ -187,7 +198,7 @@ export default function ConfirmInvestmentScreen() {
                   Tokens to Purchase
                 </Text>
                 <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '600' }}>
-                  {(investmentAmount / property.tokenPrice).toFixed(2)} tokens
+                  {(investmentAmount / getEffectiveTokenPrice(property.tokenPrice)).toFixed(2)} tokens
                 </Text>
               </View>
 
@@ -239,7 +250,7 @@ export default function ConfirmInvestmentScreen() {
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
                 You're investing <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>${investmentAmount.toLocaleString()}</Text> to purchase{' '}
-                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{Math.floor(investmentAmount / property.tokenPrice)} tokens</Text> of{' '}
+                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{Math.floor(investmentAmount / getEffectiveTokenPrice(property.tokenPrice))} tokens</Text> of{' '}
                 <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{property.title}</Text>.{'\n\n'}
                 This property has an estimated annual ROI of{' '}
                 <Text style={{ color: colors.primary, fontWeight: '600' }}>{roi.toFixed(1)}%</Text>, meaning you could earn approximately{' '}
@@ -253,7 +264,6 @@ export default function ConfirmInvestmentScreen() {
               By confirming, you agree to the Terms of Service. This is a non-binding intent to invest.
             </Text>
           </View>
-        </View>
       </ScrollView>
 
       {/* Bottom Buttons */}

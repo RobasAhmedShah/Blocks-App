@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Property } from '@/types/property';
 import { WalletBalance, Transaction } from '@/types/wallet';
 import { Investment } from '@/types/portfolio';
@@ -9,12 +9,15 @@ import { mockInvestments } from '@/data/mockPortfolio';
 import { mockUserInfo, mockSecuritySettings, mockNotificationSettings, } from '@/data/mockProfile';
 import { professionalBankAccounts } from '@/data/mockProfile';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationHelper } from '@/services/notificationHelper';
 import { propertiesApi } from '@/services/api/properties.api';
 import { profileApi, ProfileResponse } from '@/services/api/profile.api';
 import { walletApi } from '@/services/api/wallet.api';
 import { transactionsApi } from '@/services/api/transactions.api';
-import { investmentsApi } from '@/services/api/investments.api';
+import { investmentsApi, InvestmentResponse } from '@/services/api/investments.api';
+import { useAuth } from './AuthContext';
+import { normalizePropertyImages } from '@/utils/propertyUtils';
 
 interface AppState {
   // Wallet State
@@ -50,10 +53,12 @@ interface AppContextType {
   loadTransactions: () => Promise<void>;
   deposit: (amount: number, paymentMethodId?: string) => Promise<void>;
   withdraw: (amount: number) => Promise<void>;
-  
+  addBankTransferDeposit: (amount: number, proofUrl: string) => Promise<void>;
+  addBankTransferWithdrawal: (amount: number, bankDetails: any) => Promise<void>;
+
   // Investment Actions
   loadInvestments: () => Promise<void>;
-  invest: (amount: number, propertyId: string, tokenCount: number) => Promise<void>;
+  invest: (amount: number, propertyId: string, tokenCount: number, propertyTokenId?: string) => Promise<void>;
   
   // Property Actions
   getProperty: (id: string) => Property | undefined;
@@ -79,13 +84,21 @@ interface AppContextType {
   toggleBookmark: (propertyId: string) => Promise<void>;
   isBookmarked: (propertyId: string) => boolean;
   getBookmarkedProperties: () => Property[];
+  
+  // Modal Visibility
+  isFilterModalVisible: boolean;
+  setFilterModalVisible: (visible: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const BOOKMARKS_STORAGE_KEY = 'bookmarked_property_ids';
+const BANK_TRANSFER_DEPOSITS_KEY = 'bank_transfer_deposits';
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+  const currentUserIdRef = useRef<string | null>(null);
+  
   const [state, setState] = useState<AppState>({
     balance: { ...initialBalance },
     transactions: [...mockTransactions],
@@ -100,6 +113,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+  const { isGuest } = useAuth();
+
+  // Function to clear all user-specific data
+  const clearUserData = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      balance: { ...initialBalance },
+      transactions: [],
+      investments: [],
+      userInfo: { ...mockUserInfo },
+      securitySettings: { ...mockSecuritySettings },
+      notificationSettings: { ...mockNotificationSettings },
+      bankAccounts: [],
+      bookmarkedPropertyIds: [],
+    }));
+    currentUserIdRef.current = null;
+  }, []);
 
   // Fetch properties from API
   const fetchProperties = useCallback(async () => {
@@ -124,16 +155,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
       
+      // Helper function to ensure documents have URLs with fallback
+      const ensureDocumentsWithUrls = (documents: Property['documents'] | null | undefined): Property['documents'] => {
+        // If documents is null, undefined, or empty array, return fallback documents
+        if (!documents || !Array.isArray(documents) || documents.length === 0) {
+          return [
+            { 
+              name: 'Property Deed', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Appraisal Report', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+            { 
+              name: 'Legal Opinion', 
+              type: 'PDF', 
+              verified: true,
+              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            },
+          ];
+        }
+        // Ensure all existing documents have URLs (fallback to placeholder if missing)
+        return documents.map(doc => ({
+          name: doc.name || 'Document',
+          type: doc.type || 'PDF',
+          verified: doc.verified !== undefined ? doc.verified : true,
+          url: doc.url || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        }));
+      };
+
       // Transform API properties to match app structure
       const transformedProperties: Property[] = allProperties.map(prop => ({
         ...prop,
+        // Normalize images to handle both array and object formats
+        images: normalizePropertyImages(prop.images) || [],
         // Ensure completionDate is a string (can be null from API)
         completionDate: prop.completionDate || '',
-        // Ensure documents and updates arrays exist (API doesn't return these yet)
-        documents: prop.documents || [],
+        // Ensure documents have URLs (add default documents if none exist)
+        documents: ensureDocumentsWithUrls(prop.documents),
         updates: prop.updates || [],
         // Ensure rentalIncome exists for generating-income properties
         rentalIncome: prop.rentalIncome || (prop.status === 'generating-income' ? undefined : undefined),
+        // Preserve tokens if they exist in the API response (though list endpoint doesn't include them)
+        tokens: prop.tokens || undefined,
       }));
       
       setState(prev => ({
@@ -173,39 +242,288 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadBookmarks();
   }, []);
 
+  // Load bank transfer transactions (deposits and withdrawals) from AsyncStorage on mount
+  useEffect(() => {
+    const loadBankTransferTransactions = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedTransactions: Transaction[] = JSON.parse(stored);
+          
+          setState(prev => {
+            // Merge persisted transactions with existing transactions
+            // Avoid duplicates by checking transaction IDs
+            const existingIds = new Set(prev.transactions.map(tx => tx.id));
+            const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
+            
+            // Calculate pending deposits only from NEW deposit transactions (not duplicates)
+            const newPendingAmount = newTransactions
+              .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            
+            // Calculate balance adjustments from withdrawals
+            const withdrawalAmount = newTransactions
+              .filter(tx => tx.type === 'withdraw')
+              .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+            
+            return {
+              ...prev,
+              transactions: [...newTransactions, ...prev.transactions],
+              balance: {
+                ...prev.balance,
+                usdc: prev.balance.usdc - withdrawalAmount,
+                pendingDeposits: (prev.balance.pendingDeposits || 0) + newPendingAmount,
+              },
+            };
+          });
+        }
+      } catch (error) {
+        console.error('Error loading bank transfer transactions:', error);
+      }
+    };
+    loadBankTransferTransactions();
+  }, []);
+
   // Wallet Actions
   const loadWallet = useCallback(async () => {
+    if(isGuest){
+      return;
+    }
     try {
+      // FIRST: Load bank transfer transactions from AsyncStorage to ensure we have the latest
+      let persistedTransactions: Transaction[] = [];
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          persistedTransactions = JSON.parse(stored);
+        }
+      } catch (storageError) {
+        console.error('Error loading bank transactions in loadWallet:', storageError);
+      }
+      
+      // THEN: Load backend wallet balance
       const walletBalance = await walletApi.getWallet();
-      setState(prev => ({
-        ...prev,
-        balance: {
-          usdc: walletBalance.usdc,
-          totalValue: walletBalance.totalValue,
-          totalInvested: walletBalance.totalInvested,
-          totalEarnings: walletBalance.totalEarnings,
-          pendingDeposits: walletBalance.pendingDeposits,
-        },
-      }));
+      
+      // Load backend transactions to check for approved bank transfers
+      let approvedBankTransfers: Transaction[] = [];
+      try {
+        const transactionsResponse = await transactionsApi.getTransactions({
+          page: 1,
+          limit: 50,
+        });
+        approvedBankTransfers = transactionsResponse.data.filter(tx => 
+          tx.type === 'deposit' && 
+          tx.status === 'completed' &&
+          (tx.description?.includes('Bank transfer deposit approved') || 
+           tx.description?.includes('bank transfer deposit approved'))
+        );
+      } catch (error) {
+        console.error('Error loading transactions in loadWallet:', error);
+      }
+      
+      // Remove local pending transactions that match approved backend transactions
+      let updatedPersistedTransactions = [...persistedTransactions];
+      approvedBankTransfers.forEach(approvedTx => {
+        const matchingPending = persistedTransactions.find(pendingTx => 
+          pendingTx.status === 'pending' &&
+          pendingTx.type === 'deposit' &&
+          Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
+        );
+        
+        if (matchingPending) {
+          updatedPersistedTransactions = updatedPersistedTransactions.filter(tx => tx.id !== matchingPending.id);
+        }
+      });
+      
+      // Update AsyncStorage if any deposits were removed
+      if (updatedPersistedTransactions.length !== persistedTransactions.length) {
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedTransactions));
+      }
+      
+      // Calculate pending deposits from updated AsyncStorage (source of truth for bank transfers)
+      const bankTransferPendingDeposits = updatedPersistedTransactions
+        .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Calculate withdrawals from AsyncStorage
+      const bankTransferWithdrawals = persistedTransactions
+        .filter(tx => tx.type === 'withdraw')
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      
+      // Also check current transactions for any other pending deposits
+      setState(prev => {
+        const otherPendingDeposits = prev.transactions
+          .filter(tx => 
+            tx.type === 'deposit' && 
+            tx.status === 'pending' && 
+            !tx.id.startsWith('tx-bank-') // Exclude bank transfers (already counted)
+          )
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        
+        // Merge backend pending deposits with bank transfer pending deposits
+        const totalPendingDeposits = (walletBalance.pendingDeposits || 0) + bankTransferPendingDeposits + otherPendingDeposits;
+        
+        // Adjust USDC balance for bank transfer withdrawals
+        const adjustedUsdc = walletBalance.usdc - bankTransferWithdrawals;
+        
+        return {
+          ...prev,
+          balance: {
+            usdc: adjustedUsdc,
+            totalValue: walletBalance.totalValue,
+            totalInvested: walletBalance.totalInvested,
+            totalEarnings: walletBalance.totalEarnings,
+            pendingDeposits: totalPendingDeposits,
+            complianceStatus: walletBalance.complianceStatus, // Include compliance status
+            blockedReason: walletBalance.blockedReason, // Include blocked reason if available
+          },
+        };
+      });
     } catch (error) {
       console.error('Error loading wallet:', error);
-      // Keep existing state on error
+      // On error, calculate balance adjustments from AsyncStorage
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedTransactions: Transaction[] = JSON.parse(stored);
+          const bankTransferPendingDeposits = persistedTransactions
+            .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+          
+          const bankTransferWithdrawals = persistedTransactions
+            .filter(tx => tx.type === 'withdraw')
+            .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+          
+          setState(prev => {
+            const otherPendingDeposits = prev.transactions
+              .filter(tx => 
+                tx.type === 'deposit' && 
+                tx.status === 'pending' && 
+                !tx.id.startsWith('tx-bank-')
+              )
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            
+            return {
+              ...prev,
+              balance: {
+                ...prev.balance,
+                usdc: prev.balance.usdc - bankTransferWithdrawals,
+                pendingDeposits: bankTransferPendingDeposits + otherPendingDeposits,
+              },
+            };
+          });
+        } else {
+          // No stored transactions, calculate from transactions only
+          setState(prev => {
+            const frontendPendingDeposits = prev.transactions
+              .filter(tx => tx.type === 'deposit' && tx.status === 'pending')
+              .reduce((sum, tx) => sum + tx.amount, 0);
+            
+            return {
+              ...prev,
+              balance: {
+                ...prev.balance,
+                pendingDeposits: frontendPendingDeposits,
+              },
+            };
+          });
+        }
+      } catch (storageError) {
+        console.error('Error loading bank transactions on wallet error:', storageError);
+      }
     }
-  }, []);
+  }, [isGuest]);
 
   const loadTransactions = useCallback(async () => {
     try {
+      // FIRST: Load bank transfer transactions from AsyncStorage (always do this first)
+      let persistedTransactions: Transaction[] = [];
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          persistedTransactions = JSON.parse(stored);
+        }
+      } catch (storageError) {
+        console.error('Error loading bank transfer transactions from storage:', storageError);
+      }
+      
+      // THEN: Load backend transactions
       const response = await transactionsApi.getTransactions({
         page: 1,
         limit: 50, // Load more transactions for the wallet screen
       });
-      setState(prev => ({
-        ...prev,
-        transactions: response.data,
-      }));
+      
+      // Check for approved bank transfer transactions and remove matching pending local transactions
+      const approvedBankTransfers = response.data.filter(tx => 
+        tx.type === 'deposit' && 
+        tx.status === 'completed' &&
+        (tx.description?.includes('Bank transfer deposit approved') || 
+         tx.description?.includes('bank transfer deposit approved'))
+      );
+      
+      // Remove local pending transactions that match approved backend transactions
+      let updatedPersistedTransactions = [...persistedTransactions];
+      const depositsToRemove: string[] = [];
+      
+      approvedBankTransfers.forEach(approvedTx => {
+        // Find matching pending local transaction by amount (within 0.01 tolerance)
+        const matchingPending = persistedTransactions.find(pendingTx => 
+          pendingTx.status === 'pending' &&
+          pendingTx.type === 'deposit' &&
+          Math.abs(pendingTx.amount - approvedTx.amount) < 0.01
+        );
+        
+        if (matchingPending) {
+          depositsToRemove.push(matchingPending.id);
+          updatedPersistedTransactions = updatedPersistedTransactions.filter(tx => tx.id !== matchingPending.id);
+        }
+      });
+      
+      // Update AsyncStorage if any deposits were removed
+      if (depositsToRemove.length > 0) {
+        await AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(updatedPersistedTransactions));
+        console.log(`[AppContext] Removed ${depositsToRemove.length} pending bank transfer deposit(s) that were approved`);
+      }
+      
+      // FINALLY: Merge bank deposits with backend transactions
+      setState(prev => {
+        // Get all bank deposit IDs from updated AsyncStorage (source of truth)
+        const bankDepositIds = new Set(updatedPersistedTransactions.map(tx => tx.id));
+        
+        // Remove any bank transactions from backend response (to avoid duplicates)
+        const backendTransactionsWithoutBankTransactions = response.data.filter(
+          tx => !bankDepositIds.has(tx.id)
+        );
+        
+        // Merge: bank deposits first, then backend transactions
+        const mergedTransactions = [...updatedPersistedTransactions, ...backendTransactionsWithoutBankTransactions];
+        
+        return {
+          ...prev,
+          transactions: mergedTransactions,
+        };
+      });
     } catch (error) {
       console.error('Error loading transactions:', error);
-      // Keep existing state on error
+      // On error, still try to preserve bank transactions from AsyncStorage
+      try {
+        const stored = await AsyncStorage.getItem(BANK_TRANSFER_DEPOSITS_KEY);
+        if (stored) {
+          const persistedTransactions: Transaction[] = JSON.parse(stored);
+          setState(prev => {
+            // Keep existing transactions but ensure bank transactions are included
+            const existingIds = new Set(prev.transactions.map(tx => tx.id));
+            const newTransactions = persistedTransactions.filter(tx => !existingIds.has(tx.id));
+            
+            return {
+              ...prev,
+              transactions: [...newTransactions, ...prev.transactions],
+            };
+          });
+        }
+      } catch (storageError) {
+        console.error('Error loading bank transactions on transaction error:', storageError);
+      }
     }
   }, []);
 
@@ -221,11 +539,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setState(prev => ({
         ...prev,
         balance: {
+          ...prev.balance, // Preserve all existing balance fields including complianceStatus
           usdc: response.wallet.usdc,
           totalValue: response.wallet.totalValue,
           totalInvested: response.wallet.totalInvested,
           totalEarnings: response.wallet.totalEarnings,
           pendingDeposits: response.wallet.pendingDeposits,
+          complianceStatus: response.wallet.complianceStatus || prev.balance.complianceStatus, // Preserve compliance status
+          blockedReason: response.wallet.blockedReason || prev.balance.blockedReason, // Preserve blocked reason
         },
       }));
 
@@ -284,53 +605,268 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await NotificationHelper.withdrawalSuccess(amount, notificationSettings);
   }, []);
 
+  const addBankTransferDeposit = useCallback(async (amount: number, proofUrl: string) => {
+    // Create pending deposit transaction (frontend-only)
+    const newTransaction: Transaction = {
+      id: `tx-bank-deposit-${Date.now()}`,
+      type: 'deposit',
+      amount: amount,
+      currency: 'USDC',
+      status: 'pending',
+      date: new Date().toISOString(),
+      description: 'Bank Transfer Deposit (Pending Verification)',
+      proofUrl: proofUrl, // Store proof URL in transaction
+    };
+
+    setState(prev => {
+      const currentPending = prev.balance.pendingDeposits || 0;
+      const newBalance: WalletBalance = {
+        ...prev.balance,
+        pendingDeposits: currentPending + amount,
+      };
+
+      // Get all bank transfer transactions (deposits and withdrawals)
+      const allBankTransactions = [
+        ...prev.transactions.filter(tx => tx.id.startsWith('tx-bank-')),
+        newTransaction,
+      ];
+
+      // Save to AsyncStorage
+      AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankTransactions)).catch(error => {
+        console.error('Error saving bank transfer transactions to storage:', error);
+      });
+
+      return {
+        ...prev,
+        balance: newBalance,
+        transactions: [newTransaction, ...prev.transactions],
+      };
+    });
+  }, []);
+
+  const addBankTransferWithdrawal = useCallback(async (amount: number, bankDetails: any) => {
+    // Create pending withdrawal transaction (frontend-only)
+    const newTransaction: Transaction = {
+      id: `tx-bank-withdraw-${Date.now()}`,
+      type: 'withdraw',
+      amount: -amount, // Negative for withdrawal
+      currency: 'USDC',
+      status: 'pending',
+      date: new Date().toISOString(),
+      description: 'Bank Transfer Withdrawal (Pending Processing)',
+      bankDetails: bankDetails, // Store bank details in transaction
+    };
+
+    setState(prev => {
+      const newBalance: WalletBalance = {
+        ...prev.balance,
+        usdc: prev.balance.usdc - amount, // Deduct from available balance
+      };
+
+      // Get all bank transfer transactions (deposits and withdrawals)
+      const allBankTransactions = [
+        ...prev.transactions.filter(tx => tx.id.startsWith('tx-bank-')),
+        newTransaction,
+      ];
+
+      // Save to AsyncStorage
+      AsyncStorage.setItem(BANK_TRANSFER_DEPOSITS_KEY, JSON.stringify(allBankTransactions)).catch(error => {
+        console.error('Error saving bank transfer transactions to storage:', error);
+      });
+
+      return {
+        ...prev,
+        balance: newBalance,
+        transactions: [newTransaction, ...prev.transactions],
+      };
+    });
+  }, []);
+
   // Investment Actions
   const loadInvestments = useCallback(async () => {
+    if(isGuest){
+      return;
+               }
     try {
       const investments = await investmentsApi.getMyInvestments();
       
-      // Transform API investments to app format
-      const transformedInvestments: Investment[] = investments.map((inv) => {
-        // Find property from state or create minimal property object
-        const propertyData = state.properties.find(p => p.id === inv.property.id) || {
-          id: inv.property.id,
-          displayCode: inv.property.displayCode,
-          title: inv.property.title,
-          images: inv.property.images || [],
-          tokenPrice: inv.property.tokenPrice,
-          status: inv.property.status as any,
-          city: inv.property.city,
-          country: inv.property.country,
-        } as Property;
+      // Debug: Log certificatePath from API
+      console.log('[AppContext] Investments loaded:', investments.length);
+      investments.forEach((inv, idx) => {
+        console.log(`[AppContext] Investment ${idx + 1}:`, {
+          id: inv.id,
+          propertyId: inv.property?.id,
+          certificatePath: inv.certificatePath,
+        });
+      });
+      
+      // Filter out investments with zero or very small token counts (< 0.001)
+      // These shouldn't appear in the portfolio
+      const validInvestments = investments.filter(inv => (inv.tokens || 0) >= 0.001);
+      
+      console.log(`[AppContext] Filtered investments: ${validInvestments.length} valid out of ${investments.length} total`);
+      
+      // Group investments by property token ID
+      const investmentsByProperty = new Map<string, InvestmentResponse[]>();
+      
+      validInvestments.forEach((inv) => {
+        // Use propertyTokenId if available, otherwise use propertyId
+        const propertyTokenId = inv.propertyToken?.id || inv.property.id;
+        if (!investmentsByProperty.has(propertyTokenId)) {
+          investmentsByProperty.set(propertyTokenId, []);
+        }
+        investmentsByProperty.get(propertyTokenId)!.push(inv);
+      });
+      
+      // Merge investments for the same property
+      const mergedInvestments: Investment[] = Array.from(investmentsByProperty.entries()).map(([propertyId, propertyInvestments]) => {
+        // Sort by purchase date (earliest first) to keep the first investment's metadata
+        const sortedInvestments = [...propertyInvestments].sort((a, b) => {
+          const dateA = new Date(a.purchaseDate || a.createdAt).getTime();
+          const dateB = new Date(b.purchaseDate || b.createdAt).getTime();
+          return dateA - dateB;
+        });
+        
+        const firstInvestment = sortedInvestments[0];
+        
+        // Sum up all values with full precision (no rounding until final result)
+        const totalTokens = sortedInvestments.reduce((sum, inv) => sum + inv.tokens, 0);
+        const totalInvestedAmount = sortedInvestments.reduce((sum, inv) => sum + inv.investedAmount, 0);
+        const totalMonthlyRentalIncome = sortedInvestments.reduce((sum, inv) => sum + inv.monthlyRentalIncome, 0);
+        
+        // Find property from state - it should exist since properties are loaded first
+        const propertyData = state.properties.find(p => p.id === firstInvestment.property.id);
+        
+        // Calculate currentValue for each investment with full precision, then sum
+        // This ensures we sum before rounding to avoid decimal precision issues
+        const totalCurrentValue = sortedInvestments.reduce((sum, inv) => {
+          // Calculate each investment's currentValue: tokens × property.tokenPrice
+          // Use the property token price from the investment or property data
+          const tokenPrice = inv.property?.tokenPrice || propertyData?.tokenPrice || 0;
+          const investmentCurrentValue = inv.tokens * tokenPrice;
+          // Sum with full precision (no rounding)
+          return sum + investmentCurrentValue;
+        }, 0);
+        
+        // Debug logs for property merge calculation
+        console.log('=== Property Merge Debug ===');
+        console.log('Property ID:', propertyId);
+        console.log('Property Title:', firstInvestment.property?.title || propertyData?.title);
+        console.log('Token Price (from propertyData):', propertyData?.tokenPrice);
+        console.log('Token Prices (from inv.property):', sortedInvestments.map(inv => ({
+          invId: inv.id,
+          tokenPrice: inv.property?.tokenPrice,
+          tokens: inv.tokens,
+          calculatedValue: inv.tokens * (inv.property?.tokenPrice || 0)
+        })));
+        console.log('Total Tokens:', totalTokens);
+        console.log('Calculated totalCurrentValue:', totalCurrentValue);
+        console.log('Total Invested Amount:', totalInvestedAmount);
+        console.log('Manual verification (totalTokens × tokenPrice):', totalTokens * (propertyData?.tokenPrice || firstInvestment.property?.tokenPrice || 0));
+        console.log('Difference:', totalCurrentValue - (totalTokens * (propertyData?.tokenPrice || firstInvestment.property?.tokenPrice || 0)));
+        
+        // Recalculate ROI based on merged totals
+        const mergedROI = totalInvestedAmount > 0 
+          ? ((totalCurrentValue - totalInvestedAmount) / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Recalculate rental yield based on merged totals
+        const mergedRentalYield = totalInvestedAmount > 0 
+          ? (totalMonthlyRentalIncome * 12 / totalInvestedAmount) * 100 
+          : 0;
+        
+        // Get the shared certificate path for this property
+        // All investments for the same property share the same certificatePath
+        // The backend regenerates the certificate when tokens change (buy/sell),
+        // overwriting the file at the fixed path: ownership/{userId}/{propertyId}.pdf
+        const certificatePath = sortedInvestments
+          .map((inv) => inv.certificatePath)
+          .find((path): path is string => {
+            return !!path && typeof path === 'string' && path.trim() !== '';
+          }) || null;
+        
+        if (certificatePath) {
+          console.log(`[AppContext] Property ${propertyId}: Found shared certificate path from ${sortedInvestments.length} investment(s): ${certificatePath}`);
+          console.log(`[AppContext] Property ${propertyId}: Total tokens aggregated: ${totalTokens.toFixed(3)} (certificate should reflect this total)`);
+        } else {
+          console.log(`[AppContext] Property ${propertyId}: No certificate path found for ${sortedInvestments.length} investment(s)`);
+        }
+        
+        // Get propertyToken from the first investment that has one
+        // If multiple investments have different tokens, use the first one's token
+        const propertyToken = sortedInvestments
+          .map((inv) => inv.propertyToken)
+          .find((token) => token !== null && token !== undefined) || null;
+        
+        if (!propertyData) {
+          console.warn(`Property ${firstInvestment.property.id} not found in state. Using minimal property data.`);
+          // If property not found, we'll need to fetch it or use a minimal version
+          // For now, we'll skip this investment or use a fallback
+          // This shouldn't happen in normal flow since properties are loaded first
+        }
+        
+        // Use property from state if available, otherwise create minimal fallback
+        const property: Property = propertyData || {
+          id: firstInvestment.property.id,
+          displayCode: firstInvestment.property.displayCode,
+          title: firstInvestment.property.title,
+          location: `${firstInvestment.property.city}, ${firstInvestment.property.country}`,
+          city: firstInvestment.property.city,
+          country: firstInvestment.property.country,
+          images: firstInvestment.property.images || [],
+          tokenPrice: firstInvestment.property.tokenPrice,
+          status: firstInvestment.property.status as any,
+          valuation: 0,
+          minInvestment: firstInvestment.property.tokenPrice,
+          totalTokens: 0,
+          soldTokens: 0,
+          estimatedROI: 0,
+          estimatedYield: 0,
+          completionDate: '',
+          description: '',
+          amenities: [],
+          builder: {
+            name: '',
+            rating: 0,
+            projectsCompleted: 0,
+          },
+          features: {},
+          documents: [],
+          updates: [],
+        } as unknown as Property;
 
         return {
-          id: inv.id,
-          property: propertyData,
-          tokens: inv.tokens,
-          investedAmount: inv.investedAmount,
-          currentValue: inv.currentValue,
-          roi: inv.roi,
-          rentalYield: inv.rentalYield,
-          monthlyRentalIncome: inv.monthlyRentalIncome,
+          id: firstInvestment.id, // Use the first investment's ID
+          property: property,
+          tokens: totalTokens,
+          investedAmount: totalInvestedAmount,
+          currentValue: totalCurrentValue, // Sum of individual currentValues calculated with full precision
+          roi: mergedROI,
+          rentalYield: mergedRentalYield,
+          monthlyRentalIncome: totalMonthlyRentalIncome,
+          certificatePath: certificatePath, // Single certificate path shared by all investments for this property
+          propertyToken: propertyToken, // Property token from the first investment that has one
+          
         };
       });
 
       setState(prev => ({
         ...prev,
-        investments: transformedInvestments,
+        investments: mergedInvestments,
       }));
     } catch (error) {
       console.error('Error loading investments:', error);
       // Keep existing state on error
     }
-  }, [state.properties]);
+  }, [state.properties, isGuest]);
 
-  const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number) => {
+  const invest = useCallback(async (amount: number, propertyId: string, tokenCount: number, propertyTokenId?: string) => {
     try {
       // Call backend API to create investment
       const investment = await investmentsApi.createInvestment({
         propertyId,
         tokenCount,
+        propertyTokenId,
       });
 
       // Reload wallet balance and transactions after investment
@@ -399,32 +935,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (idx === existingInvestmentIndex) {
             const newTokens = inv.tokens + tokenCount;
             const newInvestedAmount = inv.investedAmount + amount;
-            const estimatedValue = newTokens * property!.tokenPrice * 1.15; // 15% growth estimate
-            const newROI = ((estimatedValue - newInvestedAmount) / newInvestedAmount) * 100;
+            // Holdings based on property's current value (no instant ROI)
+            const currentValue = newTokens * property!.tokenPrice;
             
             return {
               ...inv,
               tokens: newTokens,
               investedAmount: newInvestedAmount,
-              currentValue: estimatedValue,
-              roi: newROI,
-              monthlyRentalIncome: (estimatedValue * property!.estimatedYield / 100) / 12,
+              currentValue: currentValue,
+              // ROI will be updated from rewards DB, not auto-calculated
+              roi: inv.roi, // Keep existing ROI (will be updated from rewards DB)
+              // Monthly rental income will come from rewards DB
+              monthlyRentalIncome: inv.monthlyRentalIncome, // Keep existing (will be updated from rewards DB)
             };
           }
           return inv;
         });
       } else {
         // Create new investment
-        const estimatedValue = tokenCount * property.tokenPrice * 1.15;
+        // Holdings based on property's current value (no instant ROI)
+        const currentValue = tokenCount * property.tokenPrice;
         const newInvestment: Investment = {
           id: `inv-${Date.now()}`,
           property: updatedProperties.find(p => p.id === propertyId)!,
           tokens: tokenCount,
           investedAmount: amount,
-          currentValue: estimatedValue,
-          roi: ((estimatedValue - amount) / amount) * 100,
+          currentValue: currentValue,
+          // ROI starts at 0, will be updated from rewards DB
+          roi: 0,
           rentalYield: property.estimatedYield,
-          monthlyRentalIncome: (estimatedValue * property.estimatedYield / 100) / 12,
+          // Monthly rental income starts at 0, will be updated from rewards DB
+          monthlyRentalIncome: 0,
         };
         updatedInvestments = [...prev.investments, newInvestment];
       }
@@ -456,6 +997,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
 
       const newBalance: WalletBalance = {
+        ...prev.balance,
         usdc: prev.balance.usdc - amount,
         totalValue: (prev.balance.totalValue || prev.balance.usdc) - amount,
         totalInvested: totalInvestedAmount,
@@ -535,6 +1077,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async () => {
     try {
       const profile = await profileApi.getProfile();
+      const userId = profile.userInfo.id;
+      
+      // Check if this is a different user
+      if (userId && currentUserIdRef.current && currentUserIdRef.current !== userId) {
+        // Different user signed in - clear old data first
+        clearUserData();
+      }
+      
+      // Update user ID reference
+      currentUserIdRef.current = userId;
+      
       setState(prev => ({
         ...prev,
         userInfo: profile.userInfo as UserInfo,
@@ -545,47 +1098,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Error loading profile:', error);
       // Keep existing state on error
     }
-  }, []);
+  }, [clearUserData]);
 
-  // Load profile on mount if authenticated
+  // Watch for authentication changes and clear/reload data accordingly
   useEffect(() => {
-    const checkAndLoadProfile = async () => {
-      const token = await SecureStore.getItemAsync('auth_token');
-      if (token) {
+    if (!isAuthenticated) {
+      // User signed out - clear all user data
+      clearUserData();
+      return;
+    }
+
+    // User is authenticated - load data
+    const loadUserData = async () => {
+      try {
+        // Load profile first to get user ID
         await loadProfile();
-      }
-    };
-    
-    // Check immediately
-    checkAndLoadProfile();
-    
-    // Also check after a short delay in case token was just set (e.g., after sign up)
-    const timeout = setTimeout(checkAndLoadProfile, 2000);
-    
-    return () => clearTimeout(timeout);
-  }, [loadProfile]);
-
-  // Load wallet and investments on mount if authenticated
-  useEffect(() => {
-    const checkAndLoadData = async () => {
-      const token = await SecureStore.getItemAsync('auth_token');
-      if (token) {
+        
+        // Then load other user-specific data
         await Promise.all([
           loadWallet(),
           loadTransactions(),
           loadInvestments(),
         ]);
+      } catch (error) {
+        console.error('Error loading user data:', error);
       }
     };
-    
-    // Check immediately
-    checkAndLoadData();
-    
-    // Also check after a short delay in case token was just set (e.g., after sign up)
-    const timeout = setTimeout(checkAndLoadData, 2000);
-    
-    return () => clearTimeout(timeout);
-  }, [loadWallet, loadTransactions, loadInvestments]);
+
+    loadUserData();
+  }, [isAuthenticated, loadProfile, loadWallet, loadTransactions, loadInvestments, clearUserData]);
 
   // Profile Actions
   const updateUserInfo = useCallback(async (updates: Partial<UserInfo>) => {
@@ -702,6 +1243,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loadTransactions,
         deposit,
         withdraw,
+        addBankTransferDeposit,
+        addBankTransferWithdrawal,
         loadInvestments,
         invest,
         getProperty,
@@ -721,6 +1264,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleBookmark,
         isBookmarked,
         getBookmarkedProperties,
+        isFilterModalVisible,
+        setFilterModalVisible,
       }}
     >
       {children}

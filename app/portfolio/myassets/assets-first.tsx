@@ -1,273 +1,241 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   SafeAreaView,
-  Dimensions,
+  FlatList,
+  ViewToken,
   Animated,
   PanResponder,
+  BackHandler,
   Share,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { usePortfolio } from '@/services/usePortfolio';
+import { PropertyCard } from '@/components/assets/PropertyCard';
+import { AssetDetailModal } from '@/components/assets/AssetDetailModal';
+import { ASSETS_CONSTANTS } from '@/components/assets/constants';
+import { formatCurrency } from '@/components/assets/utils';
+import EmeraldLoader from '@/components/EmeraldLoader';
+import { useKycCheck } from '@/hooks/useKycCheck';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const getTierInfo = (roi: number) => {
-  if (roi >= 15) {
-    return {
-      tier: 'Sapphire Tier',
-      tierColor: '#66B2FC',
-      glowColor: 'rgba(102, 178, 252, 0.2)',
-    };
-  } else if (roi >= 10) {
-    return {
-      tier: 'Emerald Tier',
-      tierColor: '#66FCF1',
-      glowColor: 'rgba(102, 252, 241, 0.2)',
-    };
-  } else {
-    return {
-      tier: 'Ruby Tier',
-      tierColor: '#FC6666',
-      glowColor: 'rgba(252, 102, 102, 0.2)',
-    };
-  }
-};
+const { SCREEN_HEIGHT, CARD_WIDTH, SPACING } = ASSETS_CONSTANTS;
 
 export default function AssetsFirstScreen() {
   const router = useRouter();
+  const routeParams = useLocalSearchParams<{ id?: string; propertyId?: string }>();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { investments, loading } = usePortfolio();
-  
-  const [currentIndex, setCurrentIndex] = useState(0);
-  
-  // Simple animation values that get created fresh each time
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const scaleValue = useRef(new Animated.Value(1)).current;
-  const rotateValue = useRef(new Animated.Value(0)).current;
-  const verticalValue = useRef(new Animated.Value(0)).current;
-  const opacityValue = useRef(new Animated.Value(1)).current;
+  const { isVerified, handleInvestPress } = useKycCheck();
+  const flatListRef = useRef<FlatList>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [hasScrolledToProperty, setHasScrolledToProperty] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedInvestment, setSelectedInvestment] = useState<any>(null);
+  const [isModalAtTop, setIsModalAtTop] = useState(true);
+  const [selectedRange, setSelectedRange] = useState('6M');
 
-  const currentInvestment = investments[currentIndex];
+  // Modal animations
+  const modalTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const modalBackgroundOpacity = useRef(new Animated.Value(0)).current;
+  const modalScale = useRef(new Animated.Value(0.95)).current;
+  const modalScrollY = useRef(new Animated.Value(0)).current;
+  const modalHeaderOpacity = useRef(new Animated.Value(0)).current;
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, gesture) => {
-      return Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5;
-    },
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+      setActiveIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  const openModal = (investment: any) => {
+    setSelectedInvestment(investment);
+    setIsModalVisible(true);
+    setIsModalAtTop(true);
     
-    onPanResponderMove: (_, gesture) => {
-      const isHorizontal = Math.abs(gesture.dx) > Math.abs(gesture.dy);
-      const isVertical = Math.abs(gesture.dy) > Math.abs(gesture.dx);
-      
-      if (isHorizontal) {
-        // Horizontal swipe
-        animatedValue.setValue(gesture.dx);
-        const rotation = (gesture.dx / SCREEN_WIDTH) * 15;
-        rotateValue.setValue(rotation);
-        const scale = 1 - (Math.abs(gesture.dx) / SCREEN_WIDTH) * 0.1;
-        scaleValue.setValue(Math.max(scale, 0.9));
-      } else if (isVertical && gesture.dy < 0) {
-        // Vertical swipe up
-        verticalValue.setValue(gesture.dy);
-        const progress = Math.min(Math.abs(gesture.dy) / 150, 1);
-        opacityValue.setValue(1 - progress * 0.3);
-        scaleValue.setValue(1 - progress * 0.1);
-      }
-    },
-    
-    onPanResponderRelease: (_, gesture) => {
-      const threshold = SCREEN_WIDTH * 0.25;
-      const verticalThreshold = -80; // Swipe up threshold
-      const isHorizontal = Math.abs(gesture.dx) > Math.abs(gesture.dy);
-      const isVertical = Math.abs(gesture.dy) > Math.abs(gesture.dx);
-      
-      // Check for vertical swipe up first
-      if (isVertical && gesture.dy < verticalThreshold) {
-        console.log('Swiping up to details page');
-        
         Animated.parallel([
-          Animated.timing(verticalValue, {
-            toValue: -SCREEN_HEIGHT,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacityValue, {
+      Animated.spring(modalTranslateY, {
             toValue: 0,
-            duration: 300,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.timing(scaleValue, {
-            toValue: 0.85,
-            duration: 300,
+      Animated.spring(modalScale, {
+            toValue: 1,
+            tension: 70,
+            friction: 11,
+            useNativeDriver: true,
+          }),
+      Animated.timing(modalBackgroundOpacity, {
+            toValue: 1,
+        duration: 350,
+            useNativeDriver: true,
+          }),
+        ]).start();
+  };
+
+  // Header opacity based on scroll
+  useEffect(() => {
+    if (!isModalVisible) return;
+    
+    const listenerId = modalScrollY.addListener(({ value }) => {
+      const opacity = Math.min(value / 100, 1);
+      modalHeaderOpacity.setValue(opacity);
+    });
+
+    return () => {
+      if (isModalVisible) {
+        modalScrollY.removeListener(listenerId);
+      }
+    };
+  }, [isModalVisible]);
+
+  const closeModal = () => {
+        Animated.parallel([
+      Animated.spring(modalTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        tension: 55,
+        friction: 10,
+            useNativeDriver: true,
+          }),
+      Animated.timing(modalBackgroundOpacity, {
+            toValue: 0,
+        duration: 280,
+            useNativeDriver: true,
+          }),
+      Animated.timing(modalScale, {
+        toValue: 0.88,
+        duration: 280,
             useNativeDriver: true,
           }),
         ]).start(() => {
-          // Navigate to assets second page
-          router.push({
-            pathname: '/portfolio/myassets/assets-second',
-            params: { investmentId: currentInvestment?.id },
-          } as any);
+      setIsModalVisible(false);
+      setSelectedInvestment(null);
+      modalTranslateY.setValue(SCREEN_HEIGHT);
+      modalScale.setValue(0.95);
+      modalBackgroundOpacity.setValue(0);
+      modalHeaderOpacity.setValue(0);
+        });
+  };
+
+  // Handle back button press
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isModalVisible) {
+        closeModal();
+        return true;
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [isModalVisible]);
+
+  // Scroll to specific property when navigating from confirmation screen
+  useEffect(() => {
+    if (!loading && investments.length > 0 && (routeParams.id || routeParams.propertyId) && !hasScrolledToProperty) {
+      // Find the investment index that matches the property ID
+      const propertyId = routeParams.propertyId || routeParams.id;
+      const investmentIndex = investments.findIndex(
+        (inv) => inv.property?.id === propertyId
+      );
+
+      if (investmentIndex !== -1 && investmentIndex !== activeIndex) {
+        setActiveIndex(investmentIndex);
+        setHasScrolledToProperty(true);
+
+        // Scroll to the investment after a short delay to ensure FlatList is ready
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: investmentIndex,
+            animated: true,
+            viewPosition: 0.5, // Center the item
+          });
+        }, 300);
+      } else if (investmentIndex === -1) {
+        // Property not found, mark as scrolled to prevent infinite loops
+        setHasScrolledToProperty(true);
+      }
+    }
+  }, [loading, investments, routeParams.id, routeParams.propertyId, activeIndex, hasScrolledToProperty]);
+
+  // Pan responder for swipe down to close modal
+  const modalPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return (
+            isModalAtTop &&
+            gestureState.dy > 5 &&
+            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) &&
+            gestureState.dy > 0
+          );
+        },
+        onPanResponderGrant: () => {
+          // Prevent ScrollView from scrolling when we start the drag
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0 && isModalAtTop) {
+            const progress = Math.min(gestureState.dy / SCREEN_HEIGHT, 1);
+            modalTranslateY.setValue(gestureState.dy);
+            modalBackgroundOpacity.setValue(1 - progress * 0.8);
+            const scale = 1 - progress * 0.08;
+            modalScale.setValue(Math.max(scale, 0.92));
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (!isModalAtTop) return;
           
-          // Reset values after navigation
-          setTimeout(() => {
-            verticalValue.setValue(0);
-            opacityValue.setValue(1);
-            scaleValue.setValue(1);
-          }, 100);
-        });
-        return;
-      }
-      
-      if (!isHorizontal) {
-        // Reset if not enough vertical swipe
-        Animated.parallel([
-          Animated.spring(animatedValue, {
-            toValue: 0,
-            useNativeDriver: true,
-          }),
-          Animated.spring(verticalValue, {
-            toValue: 0,
-            useNativeDriver: true,
-          }),
-          Animated.spring(scaleValue, {
-            toValue: 1,
-            useNativeDriver: true,
-          }),
-          Animated.spring(rotateValue, {
-            toValue: 0,
-            useNativeDriver: true,
-          }),
-          Animated.spring(opacityValue, {
-            toValue: 1,
-            useNativeDriver: true,
-          }),
-        ]).start();
-        return;
-      }
-      
-      // Check if we should change card
-      if (gesture.dx > threshold && currentIndex > 0) {
-        // Swipe right - go to previous
-        console.log('Swiping to previous:', currentIndex - 1);
-        
-        Animated.parallel([
-          Animated.timing(animatedValue, {
-            toValue: SCREEN_WIDTH,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleValue, {
-            toValue: 0.8,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(rotateValue, {
-            toValue: 20,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          console.log('Animation complete, changing index');
-          // Reset values immediately
-          animatedValue.setValue(0);
-          scaleValue.setValue(1);
-          rotateValue.setValue(0);
-          // Change index
-          setCurrentIndex(prev => prev - 1);
-        });
-        
-      } else if (gesture.dx < -threshold && currentIndex < investments.length - 1) {
-        // Swipe left - go to next
-        console.log('Swiping to next:', currentIndex + 1);
-        
-        Animated.parallel([
-          Animated.timing(animatedValue, {
-            toValue: -SCREEN_WIDTH,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleValue, {
-            toValue: 0.8,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(rotateValue, {
-            toValue: -20,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          console.log('Animation complete, changing index');
-          // Reset values immediately
-          animatedValue.setValue(0);
-          scaleValue.setValue(1);
-          rotateValue.setValue(0);
-          // Change index
-          setCurrentIndex(prev => prev + 1);
-        });
-        
+          const threshold = 120;
+          if (gestureState.dy > threshold || gestureState.vy > 0.65) {
+            closeModal();
       } else {
-        // Snap back
-        console.log('Snapping back to center');
         Animated.parallel([
-          Animated.spring(animatedValue, {
+              Animated.spring(modalTranslateY, {
             toValue: 0,
-            tension: 40,
-            friction: 7,
+                velocity: gestureState.vy,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(scaleValue, {
+              Animated.spring(modalScale, {
             toValue: 1,
-            tension: 40,
-            friction: 7,
+            tension: 70,
+            friction: 11,
             useNativeDriver: true,
           }),
-          Animated.spring(rotateValue, {
-            toValue: 0,
-            tension: 40,
-            friction: 7,
+              Animated.timing(modalBackgroundOpacity, {
+                toValue: 1,
+                duration: 200,
             useNativeDriver: true,
           }),
         ]).start();
       }
     },
-  });
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [isModalAtTop, closeModal]
+  );
 
-  const handleIncreaseInvestment = () => {
-    if (currentInvestment) {
-      router.push({
-        pathname: '/invest/[id]',
-        params: { id: currentInvestment.property.id },
-      } as any);
-    }
-  };
-
-  const handleViewDetails = () => {
-    if (currentInvestment) {
-      router.push({
-        pathname: '/portfolio/myassets/assets-second',
-        params: { investmentId: currentInvestment.id },
-      } as any);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!currentInvestment) return;
+  const handleShare = async (investment: any) => {
+    if (!investment) return;
     
-    const property = currentInvestment.property;
-    const ownershipPercentage = ((currentInvestment.tokens / property.totalTokens) * 100).toFixed(2);
+    const property = investment.property;
+    const ownershipPercentage = ((investment.tokens / property.totalTokens) * 100);
     
     try {
       const result = await Share.share({
-        message: `Check out my investment in ${property.title}! 🏢\n\nOwnership: ${ownershipPercentage}%\nCurrent Value: $${currentInvestment.currentValue.toLocaleString()}\nROI: ${currentInvestment.roi.toFixed(1)}%\n\nInvest in real estate with Blocks!`,
+        message: `Check out my investment in ${property.title}! 🏢\n\nOwnership: ${ownershipPercentage}%\nCurrent Value: ${formatCurrency(investment.currentValue)}\nROI: ${investment.roi.toFixed(1)}%\n\nInvest in real estate with Blocks!`,
         title: `My Investment: ${property.title}`,
       });
       
@@ -280,443 +248,273 @@ export default function AssetsFirstScreen() {
     }
   };
 
-  const navigateToProperty = (direction: 'prev' | 'next') => {
-    if (direction === 'prev' && currentIndex > 0) {
-      console.log('Button: Going to previous');
-      Animated.parallel([
-        Animated.timing(animatedValue, {
-          toValue: SCREEN_WIDTH,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleValue, {
-          toValue: 0.8,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        animatedValue.setValue(0);
-        scaleValue.setValue(1);
-        rotateValue.setValue(0);
-        setCurrentIndex(prev => prev - 1);
+  const handleModalShare = async () => {
+    if (!selectedInvestment) return;
+    const prop = selectedInvestment.property;
+    if (!prop) return;
+    
+    const ownershipPercentage = ((selectedInvestment.tokens / prop.totalTokens) * 100).toFixed(2);
+    
+    try {
+      const result = await Share.share({
+        message: `📊 My Investment Performance:\n\n🏢 ${prop.title}\n📍 ${prop.location}\n\n💰 Current Value: ${formatCurrency(selectedInvestment.currentValue)}\n📈 ROI: ${selectedInvestment.roi.toFixed(1)}%\n💵 Monthly Income: $${selectedInvestment.monthlyRentalIncome.toFixed(2)}\n🎯 Ownership: ${ownershipPercentage}%\n\nInvest in real estate with Blocks!`,
+        title: `Investment Performance: ${prop.title}`,
       });
-    } else if (direction === 'next' && currentIndex < investments.length - 1) {
-      console.log('Button: Going to next');
-      Animated.parallel([
-        Animated.timing(animatedValue, {
-          toValue: -SCREEN_WIDTH,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleValue, {
-          toValue: 0.8,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        animatedValue.setValue(0);
-        scaleValue.setValue(1);
-        rotateValue.setValue(0);
-        setCurrentIndex(prev => prev + 1);
-      });
+      
+      if (result.action === Share.sharedAction) {
+        Alert.alert('Success', 'Investment details shared successfully!');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share investment details');
+      console.error('Share error:', error);
     }
   };
 
-  if (loading || investments.length === 0) {
+  const handleModalScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    modalScrollY.setValue(offsetY);
+    setIsModalAtTop(offsetY <= 10);
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    return (
+      <PropertyCard
+        item={item}
+        colors={colors}
+        isDarkColorScheme={isDarkColorScheme}
+        openModal={openModal}
+      />
+    );
+  };
+
+  const renderDots = () => {
+    if (investments.length <= 1) return null;
+    
+    return (
+      <View className="flex-row justify-center items-center py-2 gap-2">
+        {investments.map((_, index) => (
+      <View 
+            key={index}
+            className="h-2 rounded"
+            style={{
+              backgroundColor: index === activeIndex ? colors.primary : colors.muted,
+              width: index === activeIndex ? 24 : 8,
+            }}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  if (loading) {
     return (
       <View 
-        style={{ backgroundColor: colors.background }} 
-        className="flex-1 items-center justify-center"
-      >
-        <Text style={{ color: colors.textSecondary }}>
-          {loading ? 'Loading assets...' : 'No investments found'}
-        </Text>
-        {!loading && (
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 8 }}
-          >
-            <Text style={{ color: colors.primaryForeground, fontWeight: 'bold' }}>Go Back</Text>
-          </TouchableOpacity>
-        )}
+        className="flex-1 justify-center items-center px-8"
+        style={{ backgroundColor: colors.background }} >
+      <EmeraldLoader size={48} color={colors.primary} />
       </View>
     );
   }
 
-  const rotateYInterpolate = rotateValue.interpolate({
-    inputRange: [-20, 0, 20],
-    outputRange: ['-20deg', '0deg', '20deg'],
-  });
+  if (investments.length === 0) {
+    return (
+      <View 
+        className="flex-1 justify-center items-center px-8"
+        style={{ backgroundColor: colors.background }}
+      >
+        <Ionicons name="briefcase-outline" size={64} color={colors.textMuted} />
+        <Text 
+          className="text-2xl font-bold mt-6 mb-2"
+          style={{ color: colors.textPrimary }}
+        >
+          No Investments Yet
+        </Text>
+        <Text 
+          className="text-base text-center mb-8"
+          style={{ color: colors.textSecondary }}
+        >
+          Start investing to see your assets here
+        </Text>
+          <TouchableOpacity 
+            onPress={() => router.back()}
+          className="px-8 py-4 rounded-xl"
+              style={{ backgroundColor: colors.primary }}
+          >
+          <Text 
+            className="text-base font-semibold"
+            style={{ color: colors.primaryForeground }}
+          >
+            Explore Properties
+              </Text>
+          </TouchableOpacity>
+      </View>
+    );
+  }
 
-  console.log('Current index:', currentIndex);
+  const currentInvestment = investments[activeIndex];
+
+ 
 
   return (
-    <View style={{ backgroundColor: colors.background }} className="flex-1">
+    <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <SafeAreaView className="flex-1">
-        {/* Header */}
-        <View className="flex-row justify-between items-center px-4 pt-4 pb-2 z-30">
-          <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-2">
+        {/* Fixed Header */}
+        <View 
+          className="flex-row justify-between items-center px-6 mt-[1rem] h-[10vh]"
+          style={{ 
+            backgroundColor: colors.background,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            paddingTop: 12,
+            paddingBottom: 16,
+          }}
+        >
+            <TouchableOpacity 
+            onPress={() => router.push('/portfolio')} 
+            className="flex-row items-center"
+            style={{ flex: 1 }}
+          >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-            <Text style={{ color: colors.textPrimary }} className="text-base font-semibold">
+            <Text 
+              className="text-lg w-full text-center font-semibold"
+              style={{ color: colors.textPrimary }}
+            >
               My Assets
             </Text>
           </TouchableOpacity>
+          
           <View 
+            className="px-4 py-2 rounded-full border"
             style={{ 
               backgroundColor: colors.muted,
-              borderColor: colors.border,
+              borderColor: colors.border 
             }}
-            className="px-3 py-1.5 rounded-full border"
           >
-            <Text style={{ color: colors.textPrimary }} className="text-sm font-semibold">
-              {currentIndex + 1} / {investments.length}
+            <Text 
+              className="text-sm font-semibold"
+              style={{ color: colors.textPrimary }}
+            >
+              {activeIndex + 1} / {investments.length}
             </Text>
           </View>
         </View>
 
-        {/* Main Card */}
-        <View className="flex-1 items-center justify-center py-4">
-          <Animated.View
-            style={{
-              transform: [
-                { translateX: animatedValue },
-                { translateY: verticalValue },
-                { scale: scaleValue },
-                { perspective: 1000 },
-                { rotateY: rotateYInterpolate },
-              ],
-              opacity: opacityValue,
+        {/* Content Area - with padding for fixed header */}
+        <View className="flex-1" style={{ paddingTop: 20, marginTop: 26 }}>
+        {/* Carousel */}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center',height: '200%' }}>
+          <FlatList
+            ref={flatListRef}
+            data={investments}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.propertyToken?.id || item.property.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={CARD_WIDTH + SPACING * 2}
+            decelerationRate="fast"
+            contentContainerStyle={{ 
+              paddingHorizontal: SPACING,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-            className="w-full items-center"
-            {...panResponder.panHandlers}
-          >
-            <PropertyCardComponent 
-              investment={currentInvestment} 
-              colors={colors}
-              isDarkColorScheme={isDarkColorScheme}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            getItemLayout={(data, index) => ({
+              length: CARD_WIDTH + SPACING * 2,
+              offset: (CARD_WIDTH + SPACING * 2) * index,
+              index,
+            })}
+            onScrollToIndexFailed={(info) => {
+              // Handle scroll to index failure gracefully
+              const wait = new Promise(resolve => setTimeout(resolve, 500));
+              wait.then(() => {
+                flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+              });
+            }}
             />
-          </Animated.View>
         </View>
 
-        {/* Navigation Arrows */}
-        {currentIndex > 0 && (
+        {/* Pagination Dots */}
+        {renderDots()}
+
+        {/* Action Buttons */}
+        <View className="flex-row px-4 pt-2 pb-2 gap-3">
           <TouchableOpacity
-            onPress={() => navigateToProperty('prev')}
-            className="absolute left-4 top-1/2 z-50"
-            style={{
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: 1,
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-              transform: [{ translateY: -24 }],
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
-
-        {currentIndex < investments.length - 1 && (
-          <TouchableOpacity
-            onPress={() => navigateToProperty('next')}
-            className="absolute right-4 top-1/2 z-50"
-            style={{
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              borderWidth: 1,
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-              transform: [{ translateY: -24 }],
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-forward" size={28} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
-
-        {/* Footer */}
-        <View className="w-full px-4 pb-6 items-center z-30">
-          <View className="flex-col items-center gap-1 mb-4">
-            <Ionicons name="chevron-up" size={24} color={colors.textMuted} />
-            <Text style={{ color: colors.textMuted }} className="text-xs font-medium">
-              Swipe up for details
-            </Text>
-          </View>
-
-          <View className="flex-row gap-3 w-full max-w-md mb-3">
-            <TouchableOpacity 
-              onPress={handleIncreaseInvestment}
+            className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-2xl"
               style={{ backgroundColor: colors.primary }}
-              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg"
+            onPress={() => {
+              if (currentInvestment) {
+                handleInvestPress(() => {
+                  // Navigate to invest screen instead of showing modal
+                  router.push({
+                    pathname: `/invest/${currentInvestment.property.id}` as any,
+                  });
+                });
+              }
+            }}
               activeOpacity={0.8}
             >
-              <Ionicons name="add-circle-outline" size={28} color={colors.primaryForeground} />
-              <Text style={{ color: colors.primaryForeground }} className="text-xs font-medium">
-                Invest More
+            <Ionicons name="add-circle" size={24} color={colors.primaryForeground} />
+            <Text 
+              className="text-[15px] font-semibold"
+              style={{ color: colors.primaryForeground }}
+            >
+                {isVerified ? 'Invest More':'Submit KYC to Invest More'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              onPress={handleViewDetails}
+            className="flex-1 flex-row items-center justify-center gap-2 py-4 rounded-2xl border"
               style={{ 
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
+              backgroundColor: colors.card, 
+              borderColor: colors.border 
               }}
-              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg border"
+            onPress={() => handleShare(currentInvestment)}
               activeOpacity={0.8}
             >
-              <Ionicons name="document-text-outline" size={28} color={colors.textPrimary} />
-              <Text style={{ color: colors.textPrimary }} className="text-xs font-medium">
-                Full Details
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              onPress={handleShare}
-              style={{ 
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
-              }}
-              className="flex-1 flex-col items-center justify-center gap-1.5 py-3 rounded-lg border"
-              activeOpacity={0.8}
+            <Ionicons name="share-social" size={24} color={colors.textPrimary} />
+            <Text 
+              className="text-[15px] font-semibold"
+              style={{ color: colors.textPrimary }}
             >
-              <Ionicons name="share-outline" size={28} color={colors.textPrimary} />
-              <Text style={{ color: colors.textPrimary }} className="text-xs font-medium">
                 Share
               </Text>
             </TouchableOpacity>
           </View>
 
-          <View className="flex-row items-center gap-2">
+        {/* Navigation Hint */}
+        <View className="flex-row items-center justify-center gap-2 py-2">
             <Ionicons name="chevron-back" size={16} color={colors.textMuted} />
-            <Text style={{ color: colors.textMuted }} className="text-xs">
-              Swipe to navigate • Index: {currentIndex}
+          <Text 
+            className="text-[13px] font-medium"
+            style={{ color: colors.textMuted }}
+          >
+              Swipe to navigate
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-          </View>
         </View>
-      </SafeAreaView>
-    </View>
-  );
-}
+                  </View>
+                </SafeAreaView>
 
-// Property Card Component (unchanged from before)
-interface PropertyCardComponentProps {
-  investment: any;
-  colors: any;
-  isDarkColorScheme: boolean;
-}
+      {/* Asset Detail Modal */}
+      <AssetDetailModal
+        visible={isModalVisible}
+        investment={selectedInvestment}
+        colors={colors} 
+        isDarkColorScheme={isDarkColorScheme}
+        selectedRange={selectedRange}
+        onClose={closeModal}
+        onShare={handleModalShare}
+        onRangeChange={setSelectedRange}
+      />
 
-function PropertyCardComponent({ 
-  investment, 
-  colors,
-  isDarkColorScheme 
-}: PropertyCardComponentProps) {
-  if (!investment) return null;
-
-  const tierInfo = getTierInfo(investment.roi);
-  const property = investment.property;
-  const ownershipPercentage = (investment.tokens / property.totalTokens) * 100;
-
-  return (
-    <View className="w-full max-w-md items-center justify-center px-4">
-      <View className="relative w-full aspect-square">
-        <View
-          style={{
-            backgroundColor: tierInfo.glowColor,
-            position: 'absolute',
-            width: '95%',
-            height: '95%',
-            borderRadius: 9999,
-            opacity: 0.4,
-            top: '2.5%',
-            left: '2.5%',
-          }}
-          className="blur-3xl"
-        />
-        <View
-          style={{
-            backgroundColor: tierInfo.glowColor,
-            position: 'absolute',
-            width: '85%',
-            height: '85%',
-            borderRadius: 9999,
-            opacity: 0.6,
-            top: '7.5%',
-            left: '7.5%',
-          }}
-          className="blur-2xl"
-        />
-
-        <View
-          style={{
-            width: '85%',
-            height: '85%',
-            position: 'absolute',
-            top: '7.5%',
-            left: '7.5%',
-            shadowColor: isDarkColorScheme ? '#000' : tierInfo.tierColor,
-            shadowOffset: { width: 0, height: 20 },
-            shadowOpacity: isDarkColorScheme ? 0.6 : 0.4,
-            shadowRadius: 30,
-            elevation: 20,
-          }}
-        >
-          <Image
-            source={{ uri: property.images[0] || property.image }}
-            className="w-full h-full rounded-full"
-            style={{ position: 'absolute' }}
-            resizeMode="cover"
-          />
-
-          {/* <LinearGradient
-            colors={[
-              'transparent',
-              'rgba(0, 0, 0, 0.3)',
-              'rgba(0, 0, 0, 0.7)',
-            ]}
-            className="absolute inset-0 rounded-full"
-          />
-
-          <LinearGradient
-            colors={[
-              'rgba(255, 255, 255, 0.3)',
-              'transparent',
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 0.3 }}
-            className="absolute inset-0 rounded-full"
-            style={{ opacity: 0.5 }}
-          /> */}
-
-          <View className="absolute inset-0 items-center justify-center px-6">
-            <View className="w-full">
-              <Text 
-                style={{ 
-                  color: '#ffffff',
-                  textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                  textShadowOffset: { width: 0, height: 2 },
-                  textShadowRadius: 8,
-                }}
-                className="text-3xl font-bold text-center leading-tight"
-                numberOfLines={2}
-              >
-                {property.title}
-              </Text>
-
-              <Text 
-                style={{ 
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  textShadowColor: 'rgba(0, 0, 0, 0.5)',
-                  textShadowOffset: { width: 0, height: 1 },
-                  textShadowRadius: 4,
-                }}
-                className="text-sm text-center mt-1"
-                numberOfLines={1}
-              >
-                📍 {property.location}
-              </Text>
-
-              <View className="mt-16">
-                <Text
-                  style={{ 
-                    color: tierInfo.tierColor,
-                    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 4,
-                  }}
-                  className="text-xs font-bold uppercase tracking-widest text-center"
-                >
-                  {investment.tokens.toLocaleString()} Tokens
-                </Text>
-
-                <Text 
-                  style={{ 
-                    color: '#ffffff',
-                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 8,
-                  }}
-                  className="text-5xl font-bold text-center leading-tight mt-2"
-                >
-                  {ownershipPercentage.toFixed(2)}%
-                </Text>
-                <Text 
-                  style={{ 
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 4,
-                  }}
-                  className="text-sm text-center"
-                >
-                  Ownership
-                </Text>
-
-                <Text 
-                  style={{ 
-                    color: '#ffffff',
-                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 8,
-                  }}
-                  className="text-2xl font-bold text-center leading-tight mt-3"
-                >
-                  ${investment.currentValue.toLocaleString()}
-                </Text>
-
-                <View className="items-center mt-4">
-                  <LinearGradient
-                    colors={[
-                      `${tierInfo.tierColor}40`,
-                      `${tierInfo.tierColor}20`,
-                    ]}
-                    className="px-5 py-2 rounded-full"
-                    style={{
-                      borderColor: tierInfo.tierColor,
-                      borderWidth: 1.5,
-                      shadowColor: tierInfo.tierColor,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.6,
-                      shadowRadius: 8,
-                      elevation: 8,
-                    }}
-                  >
-                    <Text 
-                      style={{ 
-                        color: tierInfo.tierColor,
-                        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-                        textShadowOffset: { width: 0, height: 1 },
-                        textShadowRadius: 2,
-                      }} 
-                      className="text-sm font-bold"
-                    >
-                      {tierInfo.tier} • {investment.roi.toFixed(1)}% ROI
-                    </Text>
-                  </LinearGradient>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
+      
     </View>
   );
 }

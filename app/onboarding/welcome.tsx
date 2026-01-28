@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,21 +57,16 @@ export default function WelcomeScreen() {
         {/* Top Section */}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           {/* Logo */}
-          <View
+          <Image
+            source={require("@/assets/icon.png")}
             style={{
               width: 100,
               height: 100,
               borderRadius: 25,
-              backgroundColor: isDarkColorScheme ? "rgba(13, 165, 165, 0.2)" : `${colors.primary}20`,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 2,
-              borderColor: colors.primary,
               marginBottom: 24,
             }}
-          >
-            <Ionicons name="apps" size={50} color={colors.primary} />
-          </View>
+            resizeMode="contain"
+          />
 
           {/* Welcome Text */}
           <Text
@@ -101,7 +97,7 @@ export default function WelcomeScreen() {
         {/* Bottom Buttons */}
         <View style={{ paddingBottom: 40, gap: 16 }}>
           <TouchableOpacity
-            onPress={() => router.push("/onboarding/signup" as any)}
+            onPress={() => router.push("/onboarding/auth" as any)}
             style={{
               backgroundColor: colors.primary,
               height: 56,
@@ -123,30 +119,31 @@ export default function WelcomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push("/onboarding/signin" as any)}
+          {/* Info Note */}
+          <View
             style={{
-              backgroundColor: "transparent",
-              height: 56,
-              borderRadius: 16,
+              backgroundColor: isDarkColorScheme
+                ? "rgba(13, 165, 165, 0.1)"
+                : "rgba(13, 165, 165, 0.05)",
+              borderRadius: 12,
+              padding: 16,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 2,
-              borderColor: colors.primary,
+              gap: 12,
             }}
-            activeOpacity={0.8}
           >
+            <Ionicons name="information-circle" size={20} color={colors.primary} />
             <Text
               style={{
-                color: colors.primary,
-                fontSize: 16,
-                fontWeight: "bold",
-                letterSpacing: 0.5,
+                flex: 1,
+                fontSize: 13,
+                color: colors.textSecondary,
+                lineHeight: 20,
               }}
             >
-              I Already Have an Account
+              No signup needed! Simply enter your email and we'll send you a secure login code.
             </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* Terms */}
           <Text

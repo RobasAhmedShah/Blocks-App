@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useWallet } from "@/services/useWallet";
+import LottieView from 'lottie-react-native';
 
 const { width } = Dimensions.get("window");
 
@@ -21,10 +22,26 @@ export default function DepositConfirmationLight() {
   const router = useRouter();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { transactions } = useWallet();
-  const { amount, method, cardLast4 } = useLocalSearchParams<{
+  const { 
+    amount, 
+    method, 
+    cardLast4,
+    returnTo,
+    returnPropertyId,
+    returnTokenCount,
+    returnTotalAmount,
+    returnTransactionFee,
+    returnTotalInvestment,
+  } = useLocalSearchParams<{
     amount?: string;
     method?: string;
     cardLast4?: string;
+    returnTo?: string;
+    returnPropertyId?: string;
+    returnTokenCount?: string;
+    returnTotalAmount?: string;
+    returnTransactionFee?: string;
+    returnTotalInvestment?: string;
   }>();
 
   // Get the latest deposit transaction
@@ -64,18 +81,24 @@ export default function DepositConfirmationLight() {
     Alert.alert('Copied!', 'Transaction ID copied to clipboard');
   };
 
+  // Truncate transaction ID if too long (max 10 characters + ...)
+  const displayTransactionId = transactionId.length > 10 
+    ? `${transactionId.substring(0, 10)}...` 
+    : transactionId;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 32,
         padding: 16,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
       }}>
         <TouchableOpacity onPress={() => router.push('/(tabs)/wallet')}>
-          <Ionicons name="close" size={28} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{
           flex: 1,
@@ -100,28 +123,14 @@ export default function DepositConfirmationLight() {
         }}
       >
         {/* Check Icon */}
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <View style={{ position: 'relative' }}>
-            <View style={{
-              height: 80,
-              width: 80,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 9999,
-              backgroundColor: `${colors.primary}33`,
-            }}>
-              <View style={{
-                height: 56,
-                width: 56,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 9999,
-                backgroundColor: colors.primary,
-              }}>
-                <Ionicons name="checkmark" size={32} color={colors.primaryForeground} />
-              </View>
-            </View>
-          </View>
+        <View style={{ alignItems: 'center'}}>
+          {/* <Ionicons name="checkmark" size={32} color={colors.primaryForeground} /> */}
+          <LottieView
+            source={require("@/assets/Checked.json")}
+            autoPlay
+            loop={false}
+            style={{ width: 220, height: 220,marginBottom: -20 }}
+          />
         </View>
 
         {/* Title & Description */}
@@ -175,7 +184,7 @@ export default function DepositConfirmationLight() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
             <Text style={{ color: colors.textMuted, fontSize: 14 }}>Transaction ID</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{transactionId}</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>{displayTransactionId}</Text>
               <TouchableOpacity onPress={handleCopyTransactionId}>
                 <Ionicons name="copy-outline" size={16} color={colors.textMuted} />
               </TouchableOpacity>
@@ -206,49 +215,96 @@ export default function DepositConfirmationLight() {
         elevation: 4,
       }}>
         <View style={{ maxWidth: 448, width: '100%', alignSelf: 'center', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/wallet')}
-            style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primarySoft]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ borderRadius: 9999 }}
-            >
-              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-                <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+          {/* If returnTo exists, show "Continue Investment" button, otherwise show default buttons */}
+          {returnTo && returnPropertyId ? (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  // Navigate back to investment screen with all the preserved params
+                  router.replace({
+                    pathname: returnTo as any,
+                    params: {
+                      id: returnPropertyId,
+                      tokenCount: returnTokenCount || '',
+                      totalAmount: returnTotalAmount || '',
+                      transactionFee: returnTransactionFee || '',
+                      totalInvestment: returnTotalInvestment || '',
+                    },
+                  } as any);
+                }}
+                style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primarySoft]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: 9999 }}
+                >
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+                      Continue Investment
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => router.push('/(tabs)/wallet')}
+                style={{
+                  width: '100%',
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
                   View Wallet
                 </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/wallet')}
+                style={{ width: '100%', borderRadius: 9999, overflow: 'hidden' }}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primarySoft]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ borderRadius: 9999 }}
+                >
+                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ color: colors.primaryForeground, fontWeight: 'bold', fontSize: 16 }}>
+                      View Wallet
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={() => router.push('/(tabs)/home')}
-            style={{
-              width: '100%',
-              borderRadius: 9999,
-              borderWidth: 1,
-              borderColor: colors.primary,
-              paddingVertical: 12,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
-              Return to Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => router.push('../wallet/deposit/card')}>
-            <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginTop: 4 }}>
-              Make Another Deposit
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => router.push('/(tabs)/home')}
+                style={{
+                  width: '100%',
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
+                  Return to Home
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>
- 
+
   );
 }
 

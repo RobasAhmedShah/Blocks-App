@@ -9,6 +9,7 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +34,7 @@ const suggestedPrompts = [
 ];
 
 // Loading dots animation component
-const LoadingDots = () => {
+const LoadingDots = ({ colors }: { colors: any }) => {
   const dot1 = useRef(new Animated.Value(0.6)).current;
   const dot2 = useRef(new Animated.Value(0.6)).current;
   const dot3 = useRef(new Animated.Value(0.6)).current;
@@ -93,7 +94,7 @@ const LoadingDots = () => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: '#00F2C3',
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot1),
         ]}
@@ -104,7 +105,7 @@ const LoadingDots = () => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: '#00F2C3',
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot2),
         ]}
@@ -115,7 +116,7 @@ const LoadingDots = () => {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: '#00F2C3',
+            backgroundColor: 'rgb(249, 250, 251)',
           },
           getDotStyle(dot3),
         ]}
@@ -125,9 +126,12 @@ const LoadingDots = () => {
 };
 
 // Message bubble component
-const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: boolean }) => {
-  const { colors } = useColorScheme();
-
+const MessageBubble = ({ message, isUser, colors, isDarkColorScheme }: { 
+  message: ChatMessage; 
+  isUser: boolean;
+  colors: any;
+  isDarkColorScheme: boolean;
+}) => {
   if (isUser) {
     return (
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -136,7 +140,7 @@ const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: bool
             style={{
               fontSize: 14,
               fontWeight: '500',
-              color: 'rgba(255, 255, 255, 0.8)',
+              color: 'rgb(209, 213, 219)',
               marginBottom: 4,
             }}
           >
@@ -144,14 +148,14 @@ const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: bool
           </Text>
           <View
             style={{
-              backgroundColor: '#2C2C2E',
+              backgroundColor: 'rgb(249, 250, 251)',
               borderRadius: 16,
               borderBottomRightRadius: 4,
               paddingHorizontal: 16,
               paddingVertical: 12,
             }}
           >
-            <Text style={{ color: '#E8ECEF', fontSize: 16, lineHeight: 22 }}>
+            <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22 }}>
               {message.content}
             </Text>
           </View>
@@ -160,29 +164,32 @@ const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: bool
     );
   }
 
-  // AI message with gradient border effect
+  // AI message
   return (
-    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-end' }}>
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-end',
+      zIndex: 1000,
+      position: 'relative',
+     }}>
       <View
         style={{
           width: 32,
           height: 32,
           borderRadius: 16,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgb(249, 250, 251)',
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1,
-          borderColor: 'rgba(0, 221, 168, 0.5)',
+          borderColor: 'rgb(249, 250, 251)',
         }}
       >
-        <Ionicons name="shield-checkmark" size={18} color="#00DDA8" />
+        <Ionicons name="shield-checkmark" size={18} color='rgb(14, 19, 18)' />
       </View>
       <View style={{ flex: 1, maxWidth: '80%' }}>
         <Text
           style={{
             fontSize: 14,
             fontWeight: '500',
-            color: 'rgba(255, 255, 255, 0.8)',
+            color: 'rgb(209, 213, 219)',
             marginBottom: 4,
           }}
         >
@@ -194,15 +201,15 @@ const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: bool
               borderRadius: 16,
               borderBottomLeftRadius: 4,
               borderWidth: 1,
-              borderColor: 'rgba(255, 138, 0, 0.5)',
-              backgroundColor: 'rgba(127, 29, 29, 0.2)',
+              borderColor: 'rgb(239, 68, 68)',
+              backgroundColor: 'rgb(254, 242, 242, 0.8)',
               paddingHorizontal: 16,
               paddingVertical: 12,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Ionicons name="warning" size={20} color="#FFB84D" />
-              <Text style={{ color: '#E8ECEF', fontSize: 16, lineHeight: 22, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="warning" size={20} color="#EF4444" />
+              <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22, flex: 1 }}>
                 {message.content}
               </Text>
             </View>
@@ -213,18 +220,18 @@ const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: bool
               borderRadius: 16,
               borderBottomLeftRadius: 4,
               borderWidth: 1,
-              borderColor: 'rgba(0, 242, 195, 0.5)',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              borderColor: 'rgb(249, 250, 251)',
+              backgroundColor: 'rgb(249, 250, 251)',
               paddingHorizontal: 16,
               paddingVertical: 12,
-              shadowColor: '#00F2C3',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 4,
+              shadowColor: 'rgb(14, 19, 18)',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 2,
             }}
           >
-            <Text style={{ color: '#E8ECEF', fontSize: 16, lineHeight: 22 }}>
+            <Text style={{ color: 'rgb(14, 19, 18)', fontSize: 16, lineHeight: 22 }}>
               {message.content}
             </Text>
           </View>
@@ -244,7 +251,6 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
 
   useEffect(() => {
     if (messages.length > 0 && scrollViewRef.current) {
-      // Use requestAnimationFrame for more reliable scrolling
       requestAnimationFrame(() => {
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -253,7 +259,6 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
     }
   }, [messages, isLoading]);
 
-  // Reset scroll position when modal opens
   useEffect(() => {
     if (visible && scrollViewRef.current) {
       setTimeout(() => {
@@ -262,13 +267,11 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
     }
   }, [visible]);
 
-
   const handleSend = () => {
     if (input.trim() && !isLoading) {
       sendMessage(input);
       setInput('');
       clearError();
-      // Scroll to bottom after sending
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 200);
@@ -278,14 +281,12 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
   const handleSuggestedPrompt = (prompt: string) => {
     sendMessage(prompt);
     clearError();
-    // Scroll to bottom after sending
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 200);
   };
 
   const handleClose = () => {
-    // Reset scroll position before closing
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ y: 0, animated: false });
     }
@@ -298,11 +299,10 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
       onSwipeComplete={handleClose}
       swipeDirection="down"
       propagateSwipe={true}
-      style={{ justifyContent: 'flex-end', margin: 0 }}
+      style={{ justifyContent: 'flex-end', margin: 0}}
       avoidKeyboard={true}
       onBackdropPress={handleClose}
       onModalHide={() => {
-        // Reset scroll position when modal closes
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollTo({ y: 0, animated: false });
         }
@@ -315,266 +315,303 @@ export default function PropertyChatbot({ property, visible, onClose }: Property
       <View
         style={{
           height: SCREEN_HEIGHT * 0.9,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backgroundColor: 'rgb(0, 0, 0)',
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           borderTopWidth: 1,
-          borderTopColor: 'rgba(255, 255, 255, 0.1)',
+          borderTopColor: 'rgb(249, 250, 251)',
           overflow: 'hidden',
         }}
       >
-        <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
-            {/* Handle */}
-            <View
+        {/* Handle */}
+        <View
+          style={{
+            height: 40,
+            width: '100%',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingTop: 8,
+            paddingBottom: 8,
+            backgroundColor: 'rgb(0, 0, 0)',
+          }}
+        >
+          <View
+            style={{
+              height: 6,
+              width: 40,
+              borderRadius: 3,
+              backgroundColor: 'rgb(249, 250, 251)',
+              opacity: 0.5,
+            }}
+          />
+        </View>
+
+        {/* Header */}
+        <View 
+          style={{ 
+            paddingHorizontal: 16, 
+            paddingBottom: 16,
+            backgroundColor: 'rgb(0, 0, 0)',
+            borderBottomWidth: 1,
+            borderBottomColor: 'rgb(249, 250, 251)',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: 'rgb(249, 250, 251)',
+              textAlign: 'center',
+              marginBottom: 4,
+            }}
+          >
+            Ask about this Property
+          </Text>
+          <View className="flex-row items-center justify-center gap-2">
+            <Text
               style={{
-                height: 40,
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingTop: 8,
-                paddingBottom: 8,
+                fontSize: 12,
+                color: 'rgb(249, 250, 251)',
+                textAlign: 'center',
               }}
             >
+              Powered by
+            </Text>
+            <View 
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                backgroundColor: isDarkColorScheme ? 'rgba(22, 163, 74, 0.15)' : 'rgba(22, 163, 74, 0.1)',
+                borderRadius: 4,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: '#34d399',
+                  fontWeight: '600',
+                }}
+              >
+                Gemini AI
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Messages */}
+        <ScrollView
+          ref={scrollViewRef}
+          style={{ flex: 1, backgroundColor: 'rgb(0, 0, 0)' }}
+          contentContainerStyle={{ 
+            paddingHorizontal: 16, 
+            paddingBottom: 100,
+            paddingTop: 16,
+          }}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="never"
+          nestedScrollEnabled={true}
+        >
+          {messages.map((message, index) => (
+            <MessageBubble
+              key={index}
+              message={message}
+              isUser={message.role === 'user'}
+              colors={colors}
+              isDarkColorScheme={isDarkColorScheme}
+            />
+          ))}
+
+          {/* Loading indicator */}
+          {isLoading && (
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-end' }}>
               <View
                 style={{
-                  height: 6,
-                  width: 40,
-                  borderRadius: 3,
-                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgb(249, 250, 251)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#34d399',
                 }}
-              />
-            </View>
-
-              {/* Header */}
-              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              >
+                <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, maxWidth: '80%' }}>
                 <Text
                   style={{
-                    fontSize: 20,
-                    fontWeight: 'bold',
-                    color: '#FFFFFF',
-                    textAlign: 'center',
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: 'rgb(249, 250, 251)',
                     marginBottom: 4,
                   }}
                 >
-                  Ask about this Property
+                  Blocks AI
                 </Text>
-                <Text
+                <View
                   style={{
-                    fontSize: 12,
-                    color: 'rgba(255, 193, 7, 0.8)',
-                    textAlign: 'center',
+                    borderRadius: 16,
+                    borderBottomLeftRadius: 4,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: 'rgb(14, 19, 18)',
+                    paddingHorizontal: 16,
+                    paddingVertical: 18,
                   }}
                 >
-                  Powered by Gemini
-                </Text>
+                  <LoadingDots colors={{ textPrimary: 'rgb(249, 250, 251)', textSecondary: 'rgb(209, 213, 219)' }} />
+                </View>
               </View>
+            </View>
+          )}
 
-              {/* Messages */}
-              <ScrollView
-                ref={scrollViewRef}
-                style={{ flex: 1 }}
-                contentContainerStyle={{ 
-                  paddingHorizontal: 16, 
-                  paddingBottom: 100, // Extra padding to ensure content isn't cut off
-                  paddingTop: 8,
-                }}
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled={true}
-              >
-                {messages.map((message, index) => (
-                  <MessageBubble
-                    key={index}
-                    message={message}
-                    isUser={message.role === 'user'}
-                  />
-                ))}
+          {/* Suggested prompts */}
+          {messages.length === 1 && !isLoading && (
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 8,
+                marginLeft: 44,
+                marginBottom: 16,
+              }}
+            >
+              {suggestedPrompts.map((prompt, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => handleSuggestedPrompt(prompt)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                        backgroundColor: 'rgb(0, 0, 0)',
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '500' }}>
+                    {prompt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-                {/* Loading indicator */}
-                {isLoading && (
-                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-end' }}>
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: 1,
-                        borderColor: 'rgba(0, 221, 168, 0.5)',
-                      }}
-                    >
-                      <Ionicons name="shield-checkmark" size={18} color="#00DDA8" />
-                    </View>
-                    <View style={{ flex: 1, maxWidth: '80%' }}>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: '500',
-                          color: 'rgba(255, 255, 255, 0.8)',
-                          marginBottom: 4,
-                        }}
-                      >
-                        Blocks AI
-                      </Text>
-                      <View
-                        style={{
-                          borderRadius: 16,
-                          borderBottomLeftRadius: 4,
-                          borderWidth: 1,
-                          borderColor: 'rgba(0, 242, 195, 0.5)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                          paddingHorizontal: 16,
-                          paddingVertical: 18,
-                        }}
-                      >
-                        <LoadingDots />
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* Suggested prompts (only show on first message) */}
-                {messages.length === 1 && !isLoading && (
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                      marginLeft: 44,
-                      marginBottom: 16,
-                    }}
-                  >
-                    {suggestedPrompts.map((prompt, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => handleSuggestedPrompt(prompt)}
-                        style={{
-                          paddingHorizontal: 16,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: 'rgba(255, 255, 255, 0.2)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        }}
-                      >
-                        <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '500' }}>
-                          {prompt}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {/* Error retry buttons */}
-                {error && messages[messages.length - 1]?.error && (
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      gap: 8,
-                      marginLeft: 44,
-                      marginTop: 8,
-                    }}
-                  >
-                    <TouchableOpacity
-                      onPress={retryLastMessage}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      }}
-                    >
-                      <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '500' }}>
-                        Try Again
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      }}
-                    >
-                      <Ionicons name="help-circle" size={16} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '500' }}>
-                        Support
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Input area */}
-              <View
+          {/* Error retry buttons */}
+          {error && messages[messages.length - 1]?.error && (
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 8,
+                marginLeft: 44,
+                marginTop: 8,
+              }}
+            >
+              <TouchableOpacity
+                onPress={retryLastMessage}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 8,
-                  padding: 16,
-                  borderTopWidth: 1,
-                  borderTopColor: 'rgba(255, 255, 255, 0.1)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.muted,
                 }}
+                activeOpacity={0.7}
               >
-                <TextInput
-                  value={input}
-                  onChangeText={setInput}
-                  placeholder="Ask me anything..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                  style={{
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 12,
-                    backgroundColor: '#1F2937',
-                    color: '#FFFFFF',
-                    paddingHorizontal: 16,
-                    fontSize: 16,
-                  }}
-                  multiline={false}
-                  onSubmitEditing={handleSend}
-                  returnKeyType="send"
-                  editable={!isLoading}
-                />
-                <TouchableOpacity
-                  onPress={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={['#00F2C3', '#00B894']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      opacity: input.trim() && !isLoading ? 1 : 0.5,
-                    }}
-                  >
-                    <Ionicons name="send" size={22} color="#000000" />
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </BlurView>
+                <Ionicons name="refresh" size={16} color={colors.textPrimary} />
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '500' }}>
+                  Try Again
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onClose}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.muted,
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="help-circle" size={16} color={colors.textPrimary} />
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '500' }}>
+                  Support
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Input area */}
+        <View
+        // className='bg-red-400 border-t border-border'
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            padding: 16,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            backgroundColor: 'rgb(0, 0, 0)',
+          }}
+        >
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask me anything..."
+            placeholderTextColor='rgb(249, 250, 251)'
+            style={{
+              flex: 1,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: 'rgb(0, 0, 0)',
+              color: 'rgb(249, 250, 251)',
+              paddingHorizontal: 16,
+              fontSize: 16,
+              borderWidth: 1,
+              borderColor: 'rgb(249, 250, 251)',
+            }}
+            multiline={false}
+            onSubmitEditing={() => {
+              handleSend();
+              Keyboard.dismiss();
+            }}
+            returnKeyType="send"
+            editable={!isLoading}
+            blurOnSubmit={true}
+          />
+          <TouchableOpacity
+            onPress={handleSend}
+            disabled={!input.trim() || isLoading}
+            activeOpacity={0.7}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgb(249, 250, 251)',
+                opacity: input.trim() && !isLoading ? 1 : 0.5,
+              }}
+            >
+              <Ionicons name="send" size={22} color='rgb(14, 19, 18)' />
+            </View>
+          </TouchableOpacity>
         </View>
+      </View>
     </Modal>
   );
 }
-

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -29,18 +29,18 @@ const slides = [
     key: "home",
     gradient: ["#000000", "#0E1A00", "#305701"],
     sentences: [
-      { text: "Welcome to Blocks", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
-      { text: "Your gateway to real estate investing", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
-      { text: "Build wealth through fractional ownership", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
+      { text: "Welcome to Blocks", media: { type: "image" as const, source: require("@/assets/Welcome_Blocks.png") } },
+      { text: "Your gateway to real estate investing", media: { type: "video" as const, source: require("@/assets/Guidance_2.mp4") } },
+      { text: "Build wealth through fractional ownership", media: { type: "video" as const, source: require("@/assets/Guidance_3.mp4") } },
     ],
   },
   {
     key: "portfolio",
     gradient: ["#020617", "#020617", "#1E293B"],
     sentences: [
-      { text: "Your portfolio lives here", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
-      { text: "Track growth, returns, and performance", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
-      { text: "All updated in real time", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
+      { text: "Your portfolio lives here", media: { type: "image" as const, source: require("@/assets/Portfolio_1.png") } },
+      { text: "Track growth, returns, and performance", media: { type: "video" as const, source: require("@/assets/Portfolio_2.mp4") } },
+      { text: "All updated in real time", media: { type: "video" as const, source: require("@/assets/Portfolio_3.mp4") } },
     ],
   },
   {
@@ -56,9 +56,9 @@ const slides = [
     key: "marketplace",
     gradient: ["#020617", "#1E1B4B", "#312E81"],
     sentences: [
-      { text: "The marketplace gives you flexibility", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
-      { text: "Buy and sell property tokens", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
-      { text: "Anytime, at transparent prices", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
+      { text: "The marketplace gives you flexibility", media: { type: "image" as const, source: require("@/assets/Marketplace.png") } },
+      { text: "Buy and sell property tokens", media: { type: "video" as const, source: require("@/assets/Marketplace_Buy.mp4") } },
+      { text: "Anytime, at transparent prices", media: { type: "video" as const, source: require("@/assets/Marketplace_Sell.mp4") } },
     ],
   },
   {
@@ -90,12 +90,22 @@ export default function OnboardingScreen() {
   const isVideoStep = currentStep.media.type === "video";
   const videoSource = isVideoStep ? currentStep.media.source : VIDEO_FALLBACK;
 
-  const videoPlayer = useVideoPlayer(videoSource, (player) => {
+  const videoPlayer = useVideoPlayer(VIDEO_FALLBACK, (player) => {
     player.loop = false;
     player.muted = true;
     player.playbackRate = 1.5;
-    player.play();
   });
+
+  // When slide or sentence changes, load and play the correct video for this step
+  useEffect(() => {
+    if (isVideoStep) {
+      videoPlayer.replaceAsync(videoSource).then(() => {
+        videoPlayer.play();
+      });
+    } else {
+      videoPlayer.pause();
+    }
+  }, [sectionIndex, sentenceIndex]);
 
   useEventListener(videoPlayer, "playingChange", ({ isPlaying }) => {
     if (!isPlaying && videoPlayer.duration > 0 && videoPlayer.currentTime >= videoPlayer.duration - 0.5) {
@@ -150,17 +160,33 @@ export default function OnboardingScreen() {
 
       {/* MEDIA: image or video per sentence step */}
       <View style={styles.animationContainer}>
-        <Image
-          source={require("@/assets/demoblocks.gif")}
-          style={[
-            styles.animation,
-            {
-              width: width,
-              height: height * 0.6, // Takes 50% of screen height,
-            },
-          ]}
-          resizeMode="contain"
-        />
+        {currentStep.media.type === "image" ? (
+          <Image
+            source={currentStep.media.source}
+            style={[
+              styles.animation,
+              {
+                width: width,
+                height: height * 0.6,
+              },
+            ]}
+            resizeMode="contain"
+          />
+        ) : (
+          <VideoView
+            key={`video-${sectionIndex}-${sentenceIndex}`}
+            player={videoPlayer}
+            style={[
+              styles.animation,
+              {
+                width: width,
+                height: height * 0.6,
+              },
+            ]}
+            contentFit="contain"
+            nativeControls={false}
+          />
+        )}
       </View>
 
       {/* SKIP */}

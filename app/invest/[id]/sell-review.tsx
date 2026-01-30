@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import EmeraldLoader from '@/components/EmeraldLoader';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 export default function SellReviewScreen() {
     const { id, tokenCount, propertyId, propertyTitle, pricePerToken } = useLocalSearchParams<{

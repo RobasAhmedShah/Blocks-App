@@ -13,7 +13,7 @@ import { useRestrictionModal } from '@/hooks/useRestrictionModal';
 import { RestrictionModal } from '@/components/restrictions/RestrictionModal';
 import EmeraldLoader from '@/components/EmeraldLoader';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 export default function PublishScreen() {
     const { id, tokenCount, propertyId, propertyTitle, pricePerToken, totalValue } = useLocalSearchParams<{

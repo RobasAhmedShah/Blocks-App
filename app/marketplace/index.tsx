@@ -43,7 +43,7 @@ export default function MarketplaceScreen() {
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   
-  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
   // Helper function to get property image URL
   const getPropertyImageUrl = (images: any): string | null => {

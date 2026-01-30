@@ -1,3 +1,13 @@
+export interface AccountRestrictions {
+  blockDeposits: boolean;
+  blockWithdrawals: boolean;
+  blockTokenTransfers: boolean;
+  blockTrading: boolean;
+  isUnderReview: boolean;
+  isRestricted: boolean;
+  restrictionReason?: string | null;
+}
+
 export interface WalletBalance {
   usdc: number;
   totalValue?: number; // For backward compatibility
@@ -6,6 +16,7 @@ export interface WalletBalance {
   pendingDeposits?: number;
   complianceStatus?: 'clear' | 'restricted' | string; // Primary check: 'clear' allows actions, 'restricted' blocks
   blockedReason?: string | null; // Reason for blocking if complianceStatus is 'restricted'
+  restrictions?: AccountRestrictions | null; // Granular restriction flags (e.g. blockTokenTransfers)
 }
 
 export interface Transaction {

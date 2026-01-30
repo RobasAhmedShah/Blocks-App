@@ -381,7 +381,6 @@ export default function CryptoPaymentScreen() {
         recipient: adminAddress, // Tokens will be sent to this address
         data: transferData,
         tokenAmount: finalTokenAmount,
-        recipient: adminAddress,
         gasLimit: parseInt(gasLimit, 16),
         gasPrice: parseInt(gasPrice, 16),
       });

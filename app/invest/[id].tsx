@@ -59,7 +59,7 @@ export default function BuyTokensScreen() {
   const { isVerified, kycLoading } = useKycCheck();
   const { isConnected, address, provider, connect } = useWalletConnect();
   
-  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
   
   // Payment method: 'wallet' (USD) or 'crypto' (ETH)
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'crypto'>('wallet');

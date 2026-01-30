@@ -36,7 +36,7 @@ import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
 import { AccountRestrictedScreen } from '@/components/restrictions/AccountRestrictedScreen';
 
 const { width, height } = Dimensions.get('window');
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 // Glass Button Component
 const GlassButton = ({ onPress, icon, size = 36 }: { onPress: () => void; icon: string; size?: number }) => (

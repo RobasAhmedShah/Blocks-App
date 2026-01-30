@@ -22,6 +22,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { useApp } from '@/contexts/AppContext';
 import { bankWithdrawalsAPI, BankWithdrawalRequest } from '@/services/api/bank-withdrawals.api';
+import { getTokenBalance, POLYGON_AMOY_CHAIN_ID } from '@/services/api/etherscan.api';
+import { propertiesApi } from '@/services/api/properties.api';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { Pressable } from 'react-native';
 import { useRestrictionGuard } from '@/hooks/useAccountRestrictions';
@@ -345,6 +347,17 @@ export default function WalletScreen() {
   const isLoadingBalanceRef = React.useRef(false);
   // Token symbol - always USDC
   const [tokenSymbol, setTokenSymbol] = useState<string>('USDC');
+
+  // Property token holdings (ERC-20 from property_tokens) - all tokens from table with Etherscan balance
+  const [propertyTokenHoldings, setPropertyTokenHoldings] = useState<Array<{
+    id: string;
+    name: string;
+    tokenSymbol: string;
+    tokenAddress: string;
+    balance: number;
+    propertyTitle: string;
+  }>>([]);
+  const [loadingPropertyTokens, setLoadingPropertyTokens] = useState(false);
   
   // Format large numbers for display (e.g., 99999836.87 -> "99.99M")
   const formatBalance = (balance: string): string => {
@@ -374,9 +387,15 @@ export default function WalletScreen() {
     }
   };
   
-  // Polygon Amoy Token Contract Address
+  // Polygon Amoy USDC (top balance) – property tokens shown below in their own section
   const POLYGON_AMOY_TOKEN_ADDRESS = '0x5dAe3dA171CFEA728CB7042860Ab31BAbD5E9385';
   const [tokenDecimals, setTokenDecimals] = React.useState<number>(6); // Default to 6 (USDC standard), will be fetched from contract
+
+  // Fallback property token contracts when backend token-contracts fails (Etherscan URL used for each)
+  const FALLBACK_PROPERTY_TOKEN_CONTRACTS: Array<{ id: string; name: string; tokenSymbol: string; tokenAddress: string; propertyTitle: string }> = [
+    { id: 'pt-1', name: 'Property Token', tokenSymbol: 'PT', tokenAddress: '0xF4EbB768F26C450B116A6571d000F24691531Fb7', propertyTitle: 'Property' },
+    // Add more from property_tokens table as needed
+  ];
 
   // Get RPC URL based on detected chain
   // Since we only support Polygon Amoy Testnet, default to it when chainId is null
@@ -518,6 +537,70 @@ export default function WalletScreen() {
     }
   }, [isGuest, isAuthenticated]);
 
+  // Load property token balances: token list from backend (or fallback), then Etherscan API for each address – show below USDC
+  const loadPropertyTokenBalances = React.useCallback(async () => {
+    if (!address) {
+      setPropertyTokenHoldings([]);
+      return;
+    }
+    setLoadingPropertyTokens(true);
+    let tokensWithAddress: Array<{ id: string; name: string; tokenSymbol: string; tokenAddress: string; propertyTitle: string }> = [];
+    try {
+      const fromApi = await propertiesApi.getPropertyTokenContracts();
+      tokensWithAddress = fromApi.map((t) => ({
+        id: t.id,
+        name: t.name,
+        tokenSymbol: t.tokenSymbol,
+        tokenAddress: t.tokenAddress ?? '',
+        propertyTitle: t.propertyTitle,
+      })).filter((t) => t.tokenAddress);
+      if (__DEV__) console.log('[Property Tokens] Backend returned', tokensWithAddress.length, 'token contract(s)');
+    } catch (error) {
+      console.warn('[Property Tokens] Backend failed, using fallback list:', error);
+      tokensWithAddress = FALLBACK_PROPERTY_TOKEN_CONTRACTS;
+      if (__DEV__) console.log('[Property Tokens] Using fallback:', tokensWithAddress.length, 'contract(s)');
+    }
+    const holdings: Array<{ id: string; name: string; tokenSymbol: string; tokenAddress: string; balance: number; propertyTitle: string }> = [];
+    for (const token of tokensWithAddress) {
+      if (!token.tokenAddress) continue;
+      try {
+        // Etherscan: chainid=80002&module=account&action=tokenbalance&contractaddress=...&address=...
+        let result = await getTokenBalance(
+          token.tokenAddress,
+          address,
+          POLYGON_AMOY_CHAIN_ID,
+          18,
+        );
+        if (result.balance > 0 && result.balance < 1e-6) {
+          const r6 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 6);
+          const r0 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 0);
+          if (r6.balance >= result.balance && r6.balance >= r0.balance) result = r6;
+          else if (r0.balance >= result.balance && r0.balance >= r6.balance) result = r0;
+        }
+        holdings.push({
+          id: token.id,
+          name: token.name,
+          tokenSymbol: token.tokenSymbol,
+          tokenAddress: token.tokenAddress,
+          balance: result.balance,
+          propertyTitle: token.propertyTitle,
+        });
+      } catch (err) {
+        if (__DEV__) console.warn('[Property Tokens] Etherscan failed for', token.tokenAddress, err);
+        holdings.push({
+          id: token.id,
+          name: token.name,
+          tokenSymbol: token.tokenSymbol,
+          tokenAddress: token.tokenAddress,
+          balance: 0,
+          propertyTitle: token.propertyTitle,
+        });
+      }
+    }
+    setPropertyTokenHoldings(holdings);
+    setLoadingPropertyTokens(false);
+  }, [address]);
+
   // Load crypto wallet balance
   const loadCryptoBalance = React.useCallback(async (showLoading = false) => {
     console.log('[Crypto Balance] loadCryptoBalance called', { 
@@ -558,35 +641,17 @@ export default function WalletScreen() {
       let balance: string = '0x0';
       let formattedBalance: string = '0.0000';
       
-      // ALWAYS fetch token balance - we only support Polygon Amoy Testnet
-      // No need to check chainId, just always fetch token when connected
-      console.log('[Crypto Balance] Fetching token balance (Polygon Amoy only):', {
-        chainId,
-        isOnPolygonAmoy,
-        isConnected,
-        rpcUrl
-      });
-      
-      // Always fetch token balance - we only support Polygon Amoy
-      console.log('[Crypto Balance] Fetching token balance on Polygon Amoy...');
+      // Top balance = USDC (RPC eth_call)
+      console.log('[Crypto Balance] Fetching USDC balance on Polygon Amoy...');
       console.log('[Crypto Balance] Wallet address:', address);
-      console.log('[Crypto Balance] Token contract:', POLYGON_AMOY_TOKEN_ADDRESS);
+      console.log('[Crypto Balance] Token contract (USDC):', POLYGON_AMOY_TOKEN_ADDRESS);
       console.log('[Crypto Balance] RPC URL:', rpcUrl);
       setTokenSymbol('USDC');
         
-      // ERC-20 balanceOf function signature: 0x70a08231
-      // Then pad the address to 32 bytes (64 hex chars)
       const balanceOfFunction = '0x70a08231';
       const walletAddress = address.startsWith('0x') ? address.slice(2).toLowerCase() : address.toLowerCase();
       const paddedAddress = walletAddress.padStart(64, '0');
       const data = balanceOfFunction + paddedAddress;
-      
-      console.log('[Crypto Balance] ERC-20 call data:', {
-        function: balanceOfFunction,
-        walletAddress,
-        paddedAddress,
-        fullData: data
-      });
         
       try {
         const requestBody = {
@@ -602,80 +667,42 @@ export default function WalletScreen() {
           id: 1,
         };
         
-        console.log('[Crypto Balance] RPC request:', JSON.stringify(requestBody, null, 2));
-        
         const rpcResponse = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
         
-        console.log('[Crypto Balance] RPC response status:', rpcResponse.status);
-        
         if (!rpcResponse.ok) {
           const errorText = await rpcResponse.text();
-          console.error('[Crypto Balance] RPC response error text:', errorText);
           throw new Error(`RPC request failed with status ${rpcResponse.status}: ${errorText}`);
         }
         
         const rpcData = await rpcResponse.json();
-        console.log('[Crypto Balance] RPC response data:', JSON.stringify(rpcData, null, 2));
         
         if (rpcData.error) {
-          console.error('[Crypto Balance] RPC error:', rpcData.error);
           throw new Error(rpcData.error.message || 'RPC error');
         }
         
         if (rpcData.result) {
-          console.log('[Crypto Balance] Token balance response:', rpcData.result);
           balance = rpcData.result;
-          
-          // Handle "0x" result (zero balance)
           if (balance === '0x' || balance === '0x0') {
-            console.log('[Crypto Balance] Zero token balance detected');
             formattedBalance = '0.00';
           } else {
-            // Convert from token units using decimals (6 for this token)
             const balanceHex = balance === '0x' || balance === '0x0' ? '0' : balance;
             const tokenBalanceRaw = BigInt(balanceHex);
-            const decimals = tokenDecimals || 6; // This token uses 6 decimals
-            
-            console.log('[Crypto Balance] Raw balance:', {
-              hex: balance,
-              decimal: tokenBalanceRaw.toString(),
-              decimals: decimals,
-            });
-            
-            // Simple division: raw balance / 10^decimals
-            // For 100 million tokens with 6 decimals:
-            // 100,000,000 * 10^6 = 100,000,000,000,000
-            // 100,000,000,000,000 / 10^6 = 100,000,000
+            const decimals = tokenDecimals || 6;
             const divisor = Math.pow(10, decimals);
             const tokenBalance = Number(tokenBalanceRaw) / divisor;
-            
-            console.log('[Crypto Balance] Balance conversion:', { 
-              rawDecimal: tokenBalanceRaw.toString(),
-              decimals: decimals,
-              divisor: divisor,
-              tokenBalance: tokenBalance,
-            });
-            
-            // Format the balance nicely (e.g., 100M, 1.5K, etc.)
             formattedBalance = formatBalance(tokenBalance.toString());
-            
-            console.log('[Crypto Balance] Final formatted balance:', formattedBalance);
           }
         } else {
-          console.error('[Crypto Balance] No result in RPC response');
           throw new Error('No result from RPC');
         }
-        } catch (rpcError: any) {
-          console.error('[Crypto Balance] Polygon Amoy token RPC query failed:', rpcError);
-          console.error('[Crypto Balance] Error stack:', rpcError.stack);
-          // Don't throw - set balance to 0 and let user know
-          formattedBalance = '0.00';
-          console.warn('[Crypto Balance] Setting balance to 0.00 due to error');
-        }
+      } catch (rpcError: any) {
+        console.error('[Crypto Balance] USDC RPC query failed:', rpcError);
+        formattedBalance = '0.00';
+      }
       
       console.log('[Crypto Balance] Setting balance to:', formattedBalance);
       setCryptoBalance(formattedBalance);
@@ -695,7 +722,7 @@ export default function WalletScreen() {
         setRefreshingBalance(false);
       }
     }
-  }, [isConnected, address, provider, chainId, isOnPolygonAmoy]);
+  }, [isConnected, address, provider, chainId, isOnPolygonAmoy, tokenDecimals]);
 
   // Fetch token symbol and decimals from contract when connected
   React.useEffect(() => {
@@ -886,6 +913,15 @@ export default function WalletScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainId]); // Only trigger when chainId changes
+
+  // Load property token holdings when wallet is connected (fetches ALL token contracts from backend)
+  React.useEffect(() => {
+    if (isConnected && address) {
+      loadPropertyTokenBalances();
+    } else {
+      setPropertyTokenHoldings([]);
+    }
+  }, [isConnected, address, loadPropertyTokenBalances]);
 
 
   // Refresh wallet balance and transactions when screen comes into focus
@@ -1661,6 +1697,7 @@ export default function WalletScreen() {
                           <Pressable
                             onPress={async () => {
                               await loadCryptoBalance(true);
+                              if (address) loadPropertyTokenBalances();
                             }}
                             disabled={refreshingBalance}
                             style={{ 
@@ -1701,7 +1738,73 @@ export default function WalletScreen() {
               </View>
             
             </View>
-            
+
+            {/* Property tokens (ERC-20 from property_tokens) - show when connected and tokens available */}
+            {walletTab === 'crypto' && isConnected && address && (
+              <View style={{ marginTop: 20, marginHorizontal: 16 }}>
+                <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>
+                  Property tokens
+                </Text>
+                {loadingPropertyTokens ? (
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>Loading token holdings...</Text>
+                  </View>
+                ) : propertyTokenHoldings.length === 0 ? (
+                  <View style={{
+                    padding: 20,
+                    borderRadius: 16,
+                    backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.8)',
+                    borderWidth: 1,
+                    borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.15)',
+                  }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}>
+                      No property tokens in this wallet
+                    </Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+                      Invest in a property to receive tokens here
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ gap: 10 }}>
+                    {propertyTokenHoldings.map((holding) => (
+                      <View
+                        key={holding.id}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: 16,
+                          borderRadius: 12,
+                          backgroundColor: isDarkColorScheme ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.8)',
+                          borderWidth: 1,
+                          borderColor: isDarkColorScheme ? 'rgba(34, 197, 94, 0.25)' : 'rgba(34, 197, 94, 0.15)',
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
+                            {holding.name}
+                          </Text>
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                            {holding.propertyTitle}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '700' }}>
+                            {holding.balance >= 1000000
+                              ? (holding.balance / 1000000).toFixed(2) + 'M'
+                              : holding.balance >= 1000
+                                ? (holding.balance / 1000).toFixed(2) + 'K'
+                                : holding.balance.toFixed(2)}
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 12 }}>{holding.tokenSymbol}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Categories and Recent Transactions Heading - Normal flow */}
         {/* Hide Custody transactions UI for non-KYC users */}

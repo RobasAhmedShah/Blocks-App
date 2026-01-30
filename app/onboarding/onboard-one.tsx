@@ -15,55 +15,59 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { MotiView, AnimatePresence } from "moti";
 import { LinearGradient } from "expo-linear-gradient";
+import { useEventListener } from "expo";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 /* =========================
    ONBOARDING DATA MODEL
 ========================= */
+
+const VIDEO_FALLBACK = require("@/assets/Deposit_2.mp4");
 
 const slides = [
   {
     key: "home",
     gradient: ["#000000", "#0E1A00", "#305701"],
     sentences: [
-      "Welcome to Blocks",
-      "Your gateway to real estate investing",
-      "Build wealth through fractional ownership",
+      { text: "Welcome to Blocks", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
+      { text: "Your gateway to real estate investing", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
+      { text: "Build wealth through fractional ownership", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
     ],
   },
   {
     key: "portfolio",
     gradient: ["#020617", "#020617", "#1E293B"],
     sentences: [
-      "Your portfolio lives here",
-      "Track growth, returns, and performance",
-      "All updated in real time",
+      { text: "Your portfolio lives here", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
+      { text: "Track growth, returns, and performance", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
+      { text: "All updated in real time", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
     ],
   },
   {
     key: "properties",
     gradient: ["#020617", "#022C22", "#064E3B"],
     sentences: [
-      "Explore premium properties",
-      "Invest fractionally with confidence",
-      "Starting from as low as $100",
+      { text: "Explore premium properties", media: { type: "image" as const, source: require("@/assets/Properties_1.png") } },
+      { text: "Invest fractionally with confidence", media: { type: "video" as const, source: require("@/assets/Properties_2.mp4") } },
+      { text: "Starting from as low as $100", media: { type: "video" as const, source: require("@/assets/Properties_3.mp4") } },
     ],
   },
   {
     key: "marketplace",
     gradient: ["#020617", "#1E1B4B", "#312E81"],
     sentences: [
-      "The marketplace gives you flexibility",
-      "Buy and sell property tokens",
-      "Anytime, at transparent prices",
+      { text: "The marketplace gives you flexibility", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
+      { text: "Buy and sell property tokens", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
+      { text: "Anytime, at transparent prices", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
     ],
   },
   {
     key: "wallet",
     gradient: ["#020617", "#052E16", "#14532D"],
     sentences: [
-      "Your wallet connects everything",
-      "Manage funds, earnings, and withdrawals",
-      "Secure, simple, and always in control",
+      { text: "Your wallet connects everything", media: { type: "image" as const, source: require("@/assets/Deposit_1.png") } },
+      { text: "Manage funds, earnings, and withdrawals", media: { type: "video" as const, source: require("@/assets/Deposit_2.mp4") } },
+      { text: "Secure, simple, and always in control", media: { type: "video" as const, source: require("@/assets/Deposit_3.mp4") } },
     ],
   },
 ];
@@ -82,6 +86,23 @@ export default function OnboardingScreen() {
     BASE_HEIGHT + (sentenceIndex + 1) * LINE_HEIGHT;
 
   const currentSlide = slides[sectionIndex];
+  const currentStep = currentSlide.sentences[sentenceIndex];
+  const isVideoStep = currentStep.media.type === "video";
+  const videoSource = isVideoStep ? currentStep.media.source : VIDEO_FALLBACK;
+
+  const videoPlayer = useVideoPlayer(videoSource, (player) => {
+    player.loop = false;
+    player.muted = true;
+    player.playbackRate = 1.5;
+    player.play();
+  });
+
+  useEventListener(videoPlayer, "playingChange", ({ isPlaying }) => {
+    if (!isPlaying && videoPlayer.duration > 0 && videoPlayer.currentTime >= videoPlayer.duration - 0.5) {
+      videoPlayer.currentTime = videoPlayer.duration;
+      videoPlayer.pause();
+    }
+  });
 
   const handleNext = () => {
     if (sentenceIndex < currentSlide.sentences.length - 1) {
@@ -93,6 +114,17 @@ export default function OnboardingScreen() {
       router.replace("/onboarding/auth" as any);
     }
   };
+
+  const handleBack = () => {
+    if (sentenceIndex > 0) {
+      setSentenceIndex((s) => s - 1);
+    } else if (sectionIndex > 0) {
+      setSectionIndex((s) => s - 1);
+      setSentenceIndex(slides[sectionIndex - 1].sentences.length - 1);
+    }
+  };
+
+  const canGoBack = sectionIndex > 0 || sentenceIndex > 0;
 
   return (
     <View style={styles.container}>
@@ -116,21 +148,23 @@ export default function OnboardingScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* 🎨 ANIMATED GIF AT TOP */}
+      {/* MEDIA: image or video per sentence step */}
       <View style={styles.animationContainer}>
-        <Image
-          source={require("@/assets/demoblocks.gif")}
-          style={[
-            styles.animation,
-            {
-              width: width,
-              height: height * 0.6, // Takes 50% of screen height,
-              borderWidth: 1,
-              borderColor: "red",
-            },
-          ]}
-          resizeMode="contain"
-        />
+        {currentStep.media.type === "image" ? (
+          <Image
+            source={currentStep.media.source}
+            style={[styles.animation, { width, height: height * 0.55 }]}
+            resizeMode="contain"
+          />
+        ) : (
+          <VideoView
+            player={videoPlayer}
+            style={[styles.animation, { width, height: height * 0.55 }]}
+            contentFit="contain"
+            nativeControls={false}
+            showsTimecodes={false}
+          />
+        )}
       </View>
 
       {/* SKIP */}
@@ -148,18 +182,18 @@ export default function OnboardingScreen() {
         {/* <View style={styles.textContainer}> */}
         <MotiView
           animate={{ height: dynamicHeight }}
-          transition={{ type: "timing", duration: 300, delay: sentenceIndex === 0 ? 2000 : 0}}
+          transition={{ type: "timing", duration: 300, delay: sentenceIndex === 0 ? 1000 : 0}}
           style={styles.textContainer}
         >
           <AnimatePresence>
             {currentSlide.sentences
               .slice(0, sentenceIndex + 1)
-              .map((sentence, i) => {
+              .map((item, i) => {
                 const isActive = i === sentenceIndex;
 
                 return (
                   <View key={`${sectionIndex}-${i}`} style={{ flexDirection: "row", flexWrap: "wrap", }}>
-                  {sentence.split(" ").map((word, wordIndex) => (
+                  {item.text.split(" ").map((word, wordIndex) => (
                     <MotiView
                       key={`${wordIndex}-${i}`}
                       from={{ opacity: 0, translateY: 20 }}
@@ -171,7 +205,8 @@ export default function OnboardingScreen() {
                       transition={{ 
                         type: "timing",
                         duration: 300,
-                        delay: (i===0 && isActive && sectionIndex!==0) ? wordIndex * 100 + i * 500 + 2000 : wordIndex * 100 + i * 500
+                        delay: (i===0 && isActive && sectionIndex!==0) ? wordIndex * 100 + i * 500 + 1000 : wordIndex * 100 
+                        // delay: (i===0 && isActive && sectionIndex!==0) ? wordIndex * 100 + i * 500 + 2000 : wordIndex * 100 + i * 500
                       }}
                       style={{ marginBottom: 6 }}
                     >
@@ -192,24 +227,44 @@ export default function OnboardingScreen() {
           </AnimatePresence>
           </MotiView>
 
-        {/* BUTTON */}
-        <Pressable
-          style={[styles.button, { backgroundColor: "rgba(0,0,0,0.8)" }]}
-          onPress={handleNext}
-        >
-          <Text style={styles.buttonText}>
-            {sectionIndex === slides.length - 1 &&
-            sentenceIndex === currentSlide.sentences.length - 1
-              ? "Get Started"
-              : "Next"}
-          </Text>
-          <Ionicons
-            name="arrow-forward"
-            size={18}
-            color="#d0e8d0"
-            style={{ marginLeft: 6 }}
-          />
-        </Pressable>
+        {/* BUTTONS */}
+        <View style={styles.buttonRow}>
+          {canGoBack && (
+            <Pressable
+              style={[styles.button, styles.backButton]}
+              onPress={handleBack}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={18}
+                color="#d0e8d0"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.buttonText}>Back</Text>
+            </Pressable>
+          )}
+          <Pressable
+            style={[
+              styles.button,
+              { backgroundColor: "rgba(0,0,0,0.8)" },
+              canGoBack && styles.nextButton,
+            ]}
+            onPress={handleNext}
+          >
+            <Text style={styles.buttonText}>
+              {sectionIndex === slides.length - 1 &&
+              sentenceIndex === currentSlide.sentences.length - 1
+                ? "Get Started"
+                : "Next"}
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color="#d0e8d0"
+              style={{ marginLeft: 6 }}
+            />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -265,13 +320,27 @@ const styles = StyleSheet.create({
     color: "#d0e8d0",
     
   },
+  buttonRow: {
+    marginTop: -50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   button: {
-    marginTop:-50,
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
+    flex: 1,
+  },
+  backButton: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    flex: 0.6,
+  },
+  nextButton: {
+    flex: 1,
   },
   buttonText: {
     color: "#d0e8d0",

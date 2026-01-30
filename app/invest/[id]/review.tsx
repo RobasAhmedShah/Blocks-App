@@ -78,7 +78,7 @@ export default function InvestmentReviewScreen() {
   const displayTokenPrice = tokenPrice ? parseFloat(tokenPrice) : (selectedToken?.pricePerTokenUSDT || property?.tokenPrice || 0);
 
   const API_BASE_URL =
-    Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+    Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
   const getImage = () => {
     if (!property?.images) return null;

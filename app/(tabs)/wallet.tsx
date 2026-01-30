@@ -10,6 +10,7 @@ import {
   Animated,
   Modal,
   FlatList,
+  Linking,
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -22,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SignInGate } from '@/components/common/SignInGate';
 import { useApp } from '@/contexts/AppContext';
 import { bankWithdrawalsAPI, BankWithdrawalRequest } from '@/services/api/bank-withdrawals.api';
-import { getTokenBalance, POLYGON_AMOY_CHAIN_ID } from '@/services/api/etherscan.api';
+import { getTokenBalance, getTokenBalanceViaRpc, POLYGON_AMOY_CHAIN_ID } from '@/services/api/etherscan.api';
 import { propertiesApi } from '@/services/api/properties.api';
 import { useWalletConnect } from '@/src/wallet/WalletConnectProvider';
 import { Pressable } from 'react-native';
@@ -537,7 +538,7 @@ export default function WalletScreen() {
     }
   }, [isGuest, isAuthenticated]);
 
-  // Load property token balances: token list from backend (or fallback), then Etherscan API for each address – show below USDC
+  // Load property token balances: tokens user has bought (from backend), then Etherscan API for each – show below USDC
   const loadPropertyTokenBalances = React.useCallback(async () => {
     if (!address) {
       setPropertyTokenHoldings([]);
@@ -555,27 +556,41 @@ export default function WalletScreen() {
         propertyTitle: t.propertyTitle,
       })).filter((t) => t.tokenAddress);
       if (__DEV__) console.log('[Property Tokens] Backend returned', tokensWithAddress.length, 'token contract(s)');
-    } catch (error) {
-      console.warn('[Property Tokens] Backend failed, using fallback list:', error);
-      tokensWithAddress = FALLBACK_PROPERTY_TOKEN_CONTRACTS;
-      if (__DEV__) console.log('[Property Tokens] Using fallback:', tokensWithAddress.length, 'contract(s)');
+    } catch (error: unknown) {
+      const is401 = error instanceof Error && 'message' in error && String((error as { message?: string }).message).includes('Authentication required');
+      if (is401) {
+        tokensWithAddress = [];
+        if (__DEV__) console.log('[Property Tokens] Not authenticated, showing no tokens');
+      } else {
+        console.warn('[Property Tokens] Backend failed, using fallback list:', error);
+        tokensWithAddress = FALLBACK_PROPERTY_TOKEN_CONTRACTS;
+        if (__DEV__) console.log('[Property Tokens] Using fallback:', tokensWithAddress.length, 'contract(s)');
+      }
     }
+    const rpcUrl = 'https://rpc-amoy.polygon.technology';
     const holdings: Array<{ id: string; name: string; tokenSymbol: string; tokenAddress: string; balance: number; propertyTitle: string }> = [];
     for (const token of tokensWithAddress) {
       if (!token.tokenAddress) continue;
       try {
-        // Etherscan: chainid=80002&module=account&action=tokenbalance&contractaddress=...&address=...
-        let result = await getTokenBalance(
-          token.tokenAddress,
-          address,
-          POLYGON_AMOY_CHAIN_ID,
-          18,
-        );
-        if (result.balance > 0 && result.balance < 1e-6) {
-          const r6 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 6);
-          const r0 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 0);
-          if (r6.balance >= result.balance && r6.balance >= r0.balance) result = r6;
-          else if (r0.balance >= result.balance && r0.balance >= r6.balance) result = r0;
+        // Polygon Amoy: use RPC (same as USDC) so property token balances show reliably; fallback to Etherscan
+        let result: { balance: number; decimals: number };
+        try {
+          result = await getTokenBalanceViaRpc(token.tokenAddress, address, rpcUrl, 18);
+          if (result.balance > 0 && result.balance < 1e-6) {
+            const r6 = await getTokenBalanceViaRpc(token.tokenAddress, address, rpcUrl, 6);
+            const r0 = await getTokenBalanceViaRpc(token.tokenAddress, address, rpcUrl, 0);
+            if (r6.balance >= result.balance && r6.balance >= r0.balance) result = r6;
+            else if (r0.balance >= result.balance && r0.balance >= r6.balance) result = r0;
+          }
+        } catch (rpcErr) {
+          if (__DEV__) console.warn('[Property Tokens] RPC failed for', token.tokenAddress, rpcErr);
+          result = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 18);
+          if (result.balance > 0 && result.balance < 1e-6) {
+            const r6 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 6);
+            const r0 = await getTokenBalance(token.tokenAddress, address, POLYGON_AMOY_CHAIN_ID, 0);
+            if (r6.balance >= result.balance && r6.balance >= r0.balance) result = r6;
+            else if (r0.balance >= result.balance && r0.balance >= r6.balance) result = r0;
+          }
         }
         holdings.push({
           id: token.id,
@@ -586,7 +601,7 @@ export default function WalletScreen() {
           propertyTitle: token.propertyTitle,
         });
       } catch (err) {
-        if (__DEV__) console.warn('[Property Tokens] Etherscan failed for', token.tokenAddress, err);
+        if (__DEV__) console.warn('[Property Tokens] Balance fetch failed for', token.tokenAddress, err);
         holdings.push({
           id: token.id,
           name: token.name,
@@ -1235,8 +1250,50 @@ export default function WalletScreen() {
                   ],
                   zIndex: 2,
                 }}>
-                {/* Show crypto balance for non-KYC users, otherwise show based on selected tab */}
-                {isNonKycUser || walletTab === 'crypto' ? (
+                {/* Show custodial USDC for non-KYC (so they see app balance); crypto on-chain for KYC on Crypto tab */}
+                {isNonKycUser ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: 'sans-serif-light',
+                        fontSize: 18,
+                        fontWeight: '600',
+                        marginRight: 2,
+                      }}>
+                      $
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: 'sans-serif-light',
+                        fontSize: 24,
+                        fontWeight: '700',
+                      }}>
+                      {balance.usdc.toFixed(0)}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontFamily: 'sans-serif-light',
+                        fontSize: 20,
+                        fontWeight: '600',
+                      }}>
+                      .{balance.usdc.toFixed(2).slice(-2)}
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontSize: 14,
+                        fontFamily: 'sans-serif-light',
+                        fontWeight: 'bold',
+                        marginLeft: 6,
+                        marginTop: 2,
+                      }}>
+                      USDC
+                    </Text>
+                  </View>
+                ) : walletTab === 'crypto' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
                     <Text
                       style={{
@@ -1646,27 +1703,45 @@ export default function WalletScreen() {
                           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 }}>
                             <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#3b82f6', marginRight: 6 }} />
                             <Text style={{ color: isDarkColorScheme ? '#FFFFFF' : '#1e40af', fontSize: 11, fontWeight: '500', opacity: 0.9 }}>
-                              Crypto Balance
+                              {isNonKycUser ? 'USDC Balance' : 'Crypto Balance'}
                             </Text>
                           </View>
                         </View>
 
+                        {/* Non-KYC: show custodial USDC (app balance); KYC: show on-chain crypto balance */}
                         <View style={{ alignItems: 'baseline', justifyContent: 'center', flexDirection: 'row', marginTop: 4, marginBottom: 4 }}>
-                          <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
-                            {cryptoBalance}
-                          </Text>
-                          <Text style={{ color: '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
-                            {tokenSymbol}
+                          {isNonKycUser ? (
+                            <>
+                              <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
+                                {balance.usdc.toFixed(0)}
+                              </Text>
+                              <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 28, fontWeight: '600', marginLeft: 2 }}>
+                                .{balance.usdc.toFixed(2).slice(-2)}
+                              </Text>
+                            </>
+                          ) : (
+                            <Text style={{ color: colors.textPrimary, fontFamily: 'sans-serif-light', fontSize: 42, fontWeight: '700' }}>
+                              {cryptoBalance}
+                            </Text>
+                          )}
+                          <Text style={{ color: isNonKycUser ? colors.primary : '#3b82f6', fontSize: 18, fontFamily: 'sans-serif-light', fontWeight: 'bold', marginLeft: 8, marginTop: 4 }}>
+                            USDC
                           </Text>
                         </View>
 
                         <View style={{ marginTop: 8, alignItems: 'center' }}>
                           <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>
-                            Connected Wallet
+                            {isNonKycUser ? 'Your app balance' : 'Connected Wallet'}
                           </Text>
-                          <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: 'monospace' }}>
-                            {address?.slice(0, 6)}...{address?.slice(-4)}
-                          </Text>
+                          {isNonKycUser ? (
+                            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                              On-chain: {cryptoBalance} USDC
+                            </Text>
+                          ) : (
+                            <Text style={{ color: colors.textPrimary, fontSize: 12, fontFamily: 'monospace' }}>
+                              {address?.slice(0, 6)}...{address?.slice(-4)}
+                            </Text>
+                          )}
                         </View>
 
                         <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -1742,9 +1817,14 @@ export default function WalletScreen() {
             {/* Property tokens (ERC-20 from property_tokens) - show when connected and tokens available */}
             {walletTab === 'crypto' && isConnected && address && (
               <View style={{ marginTop: 20, marginHorizontal: 16 }}>
-                <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>
-                  Property tokens
-                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>
+                    Property tokens
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'right', flex: 1 }}>
+                    Tap a token to view it in the block explorer
+                  </Text>
+                </View>
                 {loadingPropertyTokens ? (
                   <View style={{ padding: 24, alignItems: 'center' }}>
                     <ActivityIndicator size="small" color={colors.primary} />
@@ -1767,7 +1847,9 @@ export default function WalletScreen() {
                   </View>
                 ) : (
                   <View style={{ gap: 10 }}>
-                    {propertyTokenHoldings.map((holding) => (
+                    {propertyTokenHoldings.map((holding) => {
+                      const blockExplorerUrl = `https://amoy.polygonscan.com/token/${holding.tokenAddress}`;
+                      return (
                       <View
                         key={holding.id}
                         style={{
@@ -1782,9 +1864,14 @@ export default function WalletScreen() {
                         }}
                       >
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
-                            {holding.name}
-                          </Text>
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(blockExplorerUrl)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600', textDecorationLine: 'underline' }} numberOfLines={1}>
+                              {holding.name}
+                            </Text>
+                          </TouchableOpacity>
                           <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
                             {holding.propertyTitle}
                           </Text>
@@ -1800,7 +1887,7 @@ export default function WalletScreen() {
                           <Text style={{ color: colors.textMuted, fontSize: 12 }}>{holding.tokenSymbol}</Text>
                         </View>
                       </View>
-                    ))}
+                    ); })}
                   </View>
                 )}
               </View>

@@ -46,7 +46,7 @@ export const propertiesApi = {
     return apiClient.get<Property>(`/api/mobile/properties/${id}`);
   },
 
-  /** All property tokens with token_address (for wallet balance checks). */
+  /** Property tokens (with contract address) that the current user has bought. Wallet uses this then calls Etherscan for each. Requires auth. */
   getPropertyTokenContracts: async (): Promise<PropertyTokenWithTitle[]> => {
     return apiClient.get<PropertyTokenWithTitle[]>('/api/mobile/properties/token-contracts');
   },

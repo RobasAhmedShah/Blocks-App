@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'auth_token';
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'https://blocks-backend.vercel.app';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.142:3001';
 
 class ApiClient {
   private baseURL: string;

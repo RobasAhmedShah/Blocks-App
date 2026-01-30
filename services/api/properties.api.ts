@@ -1,5 +1,9 @@
 import { apiClient } from './apiClient';
-import { Property } from '@/types/property';
+import { Property, PropertyToken } from '@/types/property';
+
+export interface PropertyTokenWithTitle extends PropertyToken {
+  propertyTitle: string;
+}
 
 export interface PropertyFilterDto {
   page?: number;
@@ -40,6 +44,11 @@ export const propertiesApi = {
 
   getProperty: async (id: string): Promise<Property> => {
     return apiClient.get<Property>(`/api/mobile/properties/${id}`);
+  },
+
+  /** Property tokens (with contract address) that the current user has bought. Wallet uses this then calls Etherscan for each. Requires auth. */
+  getPropertyTokenContracts: async (): Promise<PropertyTokenWithTitle[]> => {
+    return apiClient.get<PropertyTokenWithTitle[]>('/api/mobile/properties/token-contracts');
   },
 };
 

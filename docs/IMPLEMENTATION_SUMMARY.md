@@ -10,6 +10,10 @@ Created a comprehensive app-wide state management system that manages:
 - **Portfolio State**: Investments, ROI calculations, rental income
 - **Properties State**: Available properties, token counts, sold tokens
 
+
+
+
+
 **Key Features:**
 - Real-time data updates across all screens
 - Centralized state ensures consistency

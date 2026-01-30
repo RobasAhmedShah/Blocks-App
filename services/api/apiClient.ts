@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'auth_token';
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.142:3001';
 
 class ApiClient {
   private baseURL: string;
@@ -25,9 +25,9 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const token = await this.getAuthToken();
-    
-    const headers: HeadersInit = {
-      ...options.headers,
+
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
     };
 
     // Only set Content-Type for requests with a body

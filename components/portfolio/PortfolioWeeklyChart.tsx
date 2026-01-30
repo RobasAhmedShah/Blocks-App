@@ -753,7 +753,7 @@ export function PortfolioWeeklyChart({
         <View style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' }}>
-              Portfolio Value History
+              Portfolio History
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Ionicons name="stats-chart" size={16} color={colors.primary} />

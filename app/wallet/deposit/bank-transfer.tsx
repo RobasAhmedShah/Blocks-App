@@ -25,6 +25,12 @@ import { linkedBankAccountsApi, LinkedBankAccount } from '@/services/api/linked-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDepositSuccess } from '@/contexts/DepositSuccessContext';
 import EmeraldLoader from '@/components/EmeraldLoader';
+import Constants from 'expo-constants';
+
+// Timer refs: setInterval/setTimeout return number in React Native/browser, NodeJS.Timeout in Node
+type TimerRef = number | NodeJS.Timeout | null;
+
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 // Validation constants
 const VALIDATION_RULES = {
@@ -71,7 +77,8 @@ export default function BankTransferDepositScreen() {
   const { amount: suggestedAmount } = useLocalSearchParams();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { addBankTransferDeposit, loadWallet, state } = useApp();
-  
+  const { showDepositSuccess } = useDepositSuccess();
+
   // Get current route path for return navigation
   const currentRoute = '/wallet/deposit/bank-transfer';
 
@@ -81,9 +88,9 @@ export default function BankTransferDepositScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [touched, setTouched] = useState(!!suggestedAmount);
 
-  // Check account restrictions on mount
+  // Check account restrictions on mount (AppState has balance, not wallet)
   useEffect(() => {
-    const restrictions = state.wallet?.restrictions;
+    const restrictions = state.balance?.restrictions;
     if (restrictions) {
       if (restrictions.blockDeposits || restrictions.isUnderReview || restrictions.isRestricted) {
         setAlertState({
@@ -98,7 +105,7 @@ export default function BankTransferDepositScreen() {
         });
       }
     }
-  }, [state.wallet?.restrictions]);
+  }, [state.balance?.restrictions]);
   
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [bankDetails, setBankDetails] = useState<{
@@ -145,8 +152,8 @@ export default function BankTransferDepositScreen() {
   });
 
   // Ref to track polling interval and initial balance
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<TimerRef>(null);
+  const timeoutRef = useRef<TimerRef>(null);
   const initialBalanceRef = useRef<number>(0);
   const currentBalanceRef = useRef<number>(0);
   const depositAmountRef = useRef<number>(0);
@@ -190,7 +197,7 @@ export default function BankTransferDepositScreen() {
   useEffect(() => {
     const renewGmailWatch = async () => {
       try {
-        const gmailWatchResponse = await fetch('https://Blocks-backend.vercel.app/api/gmail/watch/renew', {
+        const gmailWatchResponse = await fetch(`${API_BASE_URL}/api/gmail/watch/renew`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

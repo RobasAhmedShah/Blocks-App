@@ -67,6 +67,7 @@ export interface PropertyToken {
   name: string;
   color: string;
   tokenSymbol: string;
+  tokenAddress?: string | null; // ERC-20 contract address for balance checks
   pricePerTokenUSDT: number;
   totalTokens: number;
   availableTokens: number;

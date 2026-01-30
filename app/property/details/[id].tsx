@@ -39,7 +39,7 @@ import { PropertyToken } from '@/types/property';
 const getEffectiveTokenPrice = (tokenPrice: number) => tokenPrice;
 
 const { width, height } = Dimensions.get("window");
-// const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+// const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
 // Interface for daily candle data from API
 interface DailyCandle {

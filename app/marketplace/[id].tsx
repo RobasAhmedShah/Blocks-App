@@ -88,7 +88,7 @@ export default function ListingDetailScreen() {
   // Check if this is the user's own listing
   const isOwnListing = listing && currentUserId && listing.sellerId === currentUserId;
   
-  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+  const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3001';
 
   // Helper function to get property image URL
   const getPropertyImageUrl = (images: any): string | null => {

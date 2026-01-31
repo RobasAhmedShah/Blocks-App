@@ -17,6 +17,7 @@ import { MotiView, AnimatePresence } from "moti";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEventListener } from "expo";
 import { VideoView, useVideoPlayer } from "expo-video";
+import SamsungMockup from "@/components/SamsungMock";
 
 /* =========================
    ONBOARDING DATA MODEL
@@ -160,17 +161,18 @@ export default function OnboardingScreen() {
 
       {/* MEDIA: image or video per sentence step */}
       <View style={styles.animationContainer}>
+        <SamsungMockup>
         {currentStep.media.type === "image" ? (
           <Image
             source={currentStep.media.source}
             style={[
               styles.animation,
               {
-                width: width,
-                height: height * 0.6,
+                width: width *0.515,
+                height: height * 0.505,
               },
             ]}
-            resizeMode="contain"
+            resizeMode="stretch"
           />
         ) : (
           <VideoView
@@ -179,15 +181,17 @@ export default function OnboardingScreen() {
             style={[
               styles.animation,
               {
-                width: width,
-                height: height * 0.6,
+                width: width *0.515,
+                height: height * 0.505,
               },
             ]}
-            contentFit="contain"
+            contentFit="fill"
             nativeControls={false}
           />
         )}
+        </SamsungMockup>
       </View>
+      {/* </IphoneMockup> */}
 
       {/* SKIP */}
       {sectionIndex < slides.length - 1 && (
